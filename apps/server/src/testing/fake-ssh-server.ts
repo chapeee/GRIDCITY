@@ -31,6 +31,8 @@ export interface FakeSshServer {
   execBehavior: ExecBehavior;
   /** Number of exec requests served. */
   execCount: number;
+  /** Last PTY size requested (open or window change), or null. */
+  lastWindow: { cols: number; rows: number } | null;
   /** Drops every client connection (simulates a network cut / server restart). */
   dropAllClients(): void;
   close(): Promise<void>;
@@ -57,6 +59,7 @@ export async function startFakeSshServer(options: {
     knownHostsLine: '',
     execBehavior: 'fixtures',
     execCount: 0,
+    lastWindow: null,
     dropAllClients: () => {
       for (const client of clients) client.end();
     },
@@ -88,6 +91,37 @@ export async function startFakeSshServer(options: {
     client.on('ready', () => {
       client.on('session', (acceptSession) => {
         const session = acceptSession();
+        session.on('pty', (accept, _reject, info) => {
+          fake.lastWindow = { cols: info.cols, rows: info.rows };
+          accept?.();
+        });
+        session.on('window-change', (accept, _reject, info) => {
+          fake.lastWindow = { cols: info.cols, rows: info.rows };
+          accept?.();
+        });
+        // A tiny line-based shell: echoes typing, answers each line, exits on "exit".
+        session.on('shell', (acceptShell) => {
+          const stream = acceptShell();
+          let line = '';
+          stream.write('fake-shell ready\r\n$ ');
+          stream.on('data', (chunk: Buffer) => {
+            for (const character of chunk.toString('utf8')) {
+              if (character !== '\r') {
+                line += character;
+                stream.write(character);
+                continue;
+              }
+              stream.write('\r\n');
+              if (line.trim() === 'exit') {
+                stream.exit(0);
+                stream.end();
+                return;
+              }
+              stream.write(`you typed: ${line}\r\n$ `);
+              line = '';
+            }
+          });
+        });
         session.on('exec', (acceptExec) => {
           const stream = acceptExec();
           const output = FIXTURES[fake.execCount % FIXTURES.length]!;

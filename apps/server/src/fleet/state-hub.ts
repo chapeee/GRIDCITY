@@ -45,6 +45,11 @@ export class StateHub {
     this.layoutSlots = this.assignLayout(this.provider);
   }
 
+  /** The fleet currently being served (it changes when hosts.yaml reloads). */
+  get currentProvider(): FleetProvider {
+    return this.provider;
+  }
+
   start(): void {
     this.startProvider(this.provider);
     this.staleTimer = setInterval(

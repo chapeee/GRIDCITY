@@ -14,6 +14,7 @@ import { StateHub } from './fleet/state-hub';
 import { registerApiRoutes } from './http/api-routes';
 import { createApp } from './http/create-app';
 import { registerStateSocket } from './http/state-socket';
+import { registerTerminalSocket } from './http/terminal-socket';
 import { buildAllowedOrigins } from './security/origin';
 import { buildAuthOptions } from './ssh/auth-options';
 import { HostConnection } from './ssh/host-connection';
@@ -127,6 +128,22 @@ export async function startServer({
     }),
     registerRoutes: async (instance) => {
       await registerStateSocket(instance, hub);
+      await registerTerminalSocket(instance, {
+        audit,
+        resolve: (hostId) => {
+          const current = hub.currentProvider;
+          if (!(current instanceof RealFleet)) {
+            return {
+              kind: 'unavailable',
+              message: 'Demo data: there is no real host to open a terminal on.',
+            };
+          }
+          const connection = current.connectionFor(hostId);
+          return connection
+            ? { kind: 'connection', connection }
+            : { kind: 'unavailable', message: `Unknown host "${hostId}".` };
+        },
+      });
       registerApiRoutes(instance, {
         audit,
         importSshConfig: () =>

@@ -26,6 +26,8 @@ interface UiStore {
   notice: Notice | null;
   /** The browser dropped the WebGL context: the city on screen is no longer live. */
   renderingLost: boolean;
+  /** The terminal ("jack in") and where its transition is. Null when in the city. */
+  terminal: TerminalSession | null;
 
   focusHost(hostId: string | null): void;
   setPaletteOpen(open: boolean): void;
@@ -37,6 +39,23 @@ interface UiStore {
   showNotice(text: string): void;
   clearNotice(id: number): void;
   setRenderingLost(lost: boolean): void;
+  /** Starts the dive into a host (the camera and overlay react to the phase). */
+  startJackIn(hostId: string): void;
+  setTerminalPhase(phase: TerminalPhase): void;
+  /** Starts the reverse transition back to the city. */
+  exitTerminal(): void;
+  closeTerminal(): void;
+}
+
+/**
+ * diving: camera plunges into the tower; open: terminal on screen (3D paused);
+ * surfacing: reverse transition back to the focused tower.
+ */
+export type TerminalPhase = 'diving' | 'open' | 'surfacing';
+
+export interface TerminalSession {
+  hostId: string;
+  phase: TerminalPhase;
 }
 
 let nextNoticeId = 1;
@@ -51,6 +70,7 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   liteSuggestionVisible: false,
   notice: null,
   renderingLost: false,
+  terminal: null,
 
   focusHost: (hostId) => set({ focusedHostId: hostId }),
   setPaletteOpen: (open) => set({ paletteOpen: open }),
@@ -68,4 +88,11 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   showNotice: (text) => set({ notice: { id: nextNoticeId++, text } }),
   clearNotice: (id) => set((s) => (s.notice?.id === id ? { notice: null } : s)),
   setRenderingLost: (lost) => set({ renderingLost: lost }),
+  startJackIn: (hostId) =>
+    set({ focusedHostId: hostId, paletteOpen: false, terminal: { hostId, phase: 'diving' } }),
+  setTerminalPhase: (phase) =>
+    set((s) => (s.terminal ? { terminal: { ...s.terminal, phase } } : s)),
+  exitTerminal: () =>
+    set((s) => (s.terminal ? { terminal: { ...s.terminal, phase: 'surfacing' } } : s)),
+  closeTerminal: () => set({ terminal: null }),
 }));

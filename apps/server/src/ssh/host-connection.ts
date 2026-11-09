@@ -1,6 +1,6 @@
 import type { ConnectionPhase, Host } from '@app/shared';
 // ssh2 is CommonJS; plain Node ESM only exposes its default export.
-import ssh2, { type Client, type ConnectConfig } from 'ssh2';
+import ssh2, { type Client, type ClientChannel, type ConnectConfig } from 'ssh2';
 import type { SshAuthOptions } from './auth-options';
 import { backoffDelayMs, DEFAULT_BACKOFF, type BackoffOptions } from './backoff';
 import {
@@ -84,6 +84,23 @@ export class HostConnection {
   /** Drops the current connection (tests and "reconnect now"); backoff then reconnects. */
   dropConnection(): void {
     this.client?.end();
+  }
+
+  /**
+   * Opens an interactive shell with a PTY on the existing connection (no new
+   * handshake). The caller owns the returned channel and must close it.
+   */
+  openShell(size: { cols: number; rows: number }): Promise<ClientChannel> {
+    const client = this.client;
+    if (!client || this.currentPhase !== 'connected') {
+      return Promise.reject(new Error('not connected'));
+    }
+    return new Promise((resolve, reject) => {
+      client.shell(
+        { term: 'xterm-256color', cols: size.cols, rows: size.rows },
+        (error, channel) => (error ? reject(error) : resolve(channel)),
+      );
+    });
   }
 
   /** Runs a command on the open connection, writing `stdin` to it. */

@@ -28,6 +28,8 @@ export function WorldScene({ model }: WorldSceneProps) {
   const liteMode = useUiStore((store) => store.liteMode);
   const focusedHostId = useUiStore((store) => store.focusedHostId);
   const focusHost = useUiStore((store) => store.focusHost);
+  // The terminal covers the whole screen: stop rendering the city meanwhile.
+  const terminalOpen = useUiStore((store) => store.terminal?.phase === 'open');
   const tuning = useWorldTuning();
   const [freezeTracker] = useState(() => new FreezeTracker());
   const { layout, visuals } = model;
@@ -36,6 +38,7 @@ export function WorldScene({ model }: WorldSceneProps) {
     <Canvas
       className="world-canvas"
       flat
+      frameloop={terminalOpen ? 'never' : 'always'}
       dpr={liteMode ? 1 : [1, 2]}
       gl={{ antialias: liteMode, powerPreference: 'high-performance' }}
       camera={{ fov: cameraTokens.fieldOfView, near: 0.5, far: 900, position: [0, 80, 110] }}

@@ -190,7 +190,10 @@ describe('RealFleet over SSH', () => {
   it('reports a rejected client key as an authentication failure', async () => {
     server = await startFakeSshServer({ authorizedKey: clientPublicKey, user: USER });
     const otherKey = join(workDir, 'other_key');
-    writeFileSync(otherKey, utils.generateKeyPairSync('ed25519').private, { mode: 0o600 });
+    // ECDSA: ssh2 occasionally generates an ed25519 key its own connect path rejects as
+    // malformed, which would make this test about parsing instead of authentication.
+    const wrongKey = utils.generateKeyPairSync('ecdsa', { bits: 256 }).private;
+    writeFileSync(otherKey, wrongKey, { mode: 0o600 });
     const { state } = startFleet(hostFor(server.port, otherKey), server.knownHostsLine);
     await eventually(() => state().status === 'offline');
     expect(state().statusReason).toMatch(/authentication failed/);

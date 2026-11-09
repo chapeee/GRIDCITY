@@ -3,9 +3,11 @@ import { useThree } from '@react-three/fiber';
 import gsap from 'gsap';
 import { useEffect, useRef, type ComponentRef } from 'react';
 import { Vector3 } from 'three';
-import { camera as cameraTokens, durations, easings } from '../design/tokens';
+import { camera as cameraTokens, cityGeometry, durations, easings } from '../design/tokens';
+import { useUiStore } from '../ui/ui-store';
 import { focusPose, overviewPose, type CameraPose } from './camera-poses';
 import type { CityLayout } from './city-layout';
+import { transitionEffect } from './transition-effect';
 
 interface CameraRigProps {
   layout: CityLayout;
@@ -20,12 +22,17 @@ const prefersReducedMotion = () =>
 /**
  * Orbit camera with smooth damping. Focusing a host flies there with a GSAP
  * tween; clearing focus flies back to the overview. No walking, no WASD.
+ *
+ * Jacking in dives the camera into the focused tower (under 500 ms, any key
+ * or click skips it); leaving the terminal surfaces back to the focus view.
  */
 export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
   const camera = useThree((state) => state.camera);
   const controlsRef = useRef<OrbitControlsHandle>(null);
   const tweenRef = useRef<gsap.core.Tween | null>(null);
   const hasFramedCity = useRef(false);
+  const terminalPhase = useUiStore((store) => store.terminal?.phase ?? null);
+  const terminalHostId = useUiStore((store) => store.terminal?.hostId ?? null);
 
   // Frame the city once, as soon as there is one to frame.
   useEffect(() => {
@@ -75,6 +82,74 @@ export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
     };
     // The layout changes on every poll only when hosts change; re-run then too.
   }, [camera, focusedHostId, layout]);
+
+  // The jack-in dive and its reverse.
+  useEffect(() => {
+    if (terminalPhase !== 'diving' && terminalPhase !== 'surfacing') return;
+    const controls = controlsRef.current;
+    const tower = layout.towers.find((t) => t.hostId === terminalHostId);
+    const { setTerminalPhase, closeTerminal } = useUiStore.getState();
+    const finish = () => (terminalPhase === 'diving' ? setTerminalPhase('open') : closeTerminal());
+    if (!controls || !tower) return finish();
+
+    const towerCenter = new Vector3(
+      tower.x,
+      cityGeometry.towerHeight * cameraTokens.focusHeightRatio,
+      tower.z,
+    );
+    const fromPosition = camera.position.clone();
+    const fromTarget = controls.target.clone();
+    let toPosition: Vector3;
+    let toTarget: Vector3;
+    if (terminalPhase === 'diving') {
+      // Straight through the tower's skin: end inside it, still looking ahead.
+      const forward = new Vector3().subVectors(towerCenter, camera.position).normalize();
+      toPosition = towerCenter.clone().addScaledVector(forward, -0.2);
+      toTarget = towerCenter.clone().addScaledVector(forward, 6);
+      controls.enabled = false;
+    } else {
+      const pose = focusPose(
+        tower,
+        camera.position.clone().setY(camera.position.y + 10),
+        towerCenter,
+      );
+      toPosition = pose.position;
+      toTarget = pose.target;
+    }
+
+    const durationMs = terminalPhase === 'diving' ? durations.jackIn : durations.jackOut;
+    const progress = { value: 0 };
+    tweenRef.current?.kill();
+    tweenRef.current = gsap.to(progress, {
+      value: 1,
+      duration: prefersReducedMotion() ? 0 : durationMs / 1000,
+      ease: terminalPhase === 'diving' ? easings.jackIn : easings.jackOut,
+      onUpdate: () => {
+        camera.position.lerpVectors(fromPosition, toPosition, progress.value);
+        controls.target.lerpVectors(fromTarget, toTarget, progress.value);
+        controls.update();
+        // Aberration peaks at the moment of entering/leaving the machine.
+        transitionEffect.aberration =
+          terminalPhase === 'diving' ? progress.value : 1 - progress.value;
+      },
+      onComplete: () => {
+        transitionEffect.aberration = 0;
+        if (terminalPhase === 'surfacing') controls.enabled = true;
+        finish();
+      },
+    });
+
+    // The transition is skippable: any key or click jumps to the end.
+    const skip = () => tweenRef.current?.progress(1);
+    window.addEventListener('keydown', skip, { once: true });
+    window.addEventListener('pointerdown', skip, { once: true });
+    return () => {
+      window.removeEventListener('keydown', skip);
+      window.removeEventListener('pointerdown', skip);
+    };
+    // Only phase changes start a transition; layout updates mid-dive are ignored.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [terminalPhase, terminalHostId]);
 
   useEffect(() => () => void tweenRef.current?.kill(), []);
 

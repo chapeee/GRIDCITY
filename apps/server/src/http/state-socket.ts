@@ -1,17 +1,14 @@
-import websocket from '@fastify/websocket';
 import { ClientMessageSchema, type ServerMessage } from '@app/shared';
 import type { FastifyInstance } from 'fastify';
 import type { StateHub } from '../fleet/state-hub';
-
-/** Largest client message accepted; clients only send tiny control messages. */
-const MAX_CLIENT_MESSAGE_BYTES = 4 * 1024;
+import { ensureWebSocketPlugin } from './websocket-plugin';
 
 /**
  * `GET /ws/state`: the live fleet stream (see packages/shared/src/protocol.ts).
  * Token and Origin are enforced by the app-wide hooks before the upgrade.
  */
 export async function registerStateSocket(app: FastifyInstance, hub: StateHub): Promise<void> {
-  await app.register(websocket, { options: { maxPayload: MAX_CLIENT_MESSAGE_BYTES } });
+  await ensureWebSocketPlugin(app);
 
   app.get('/ws/state', { websocket: true }, (socket) => {
     const send = (message: ServerMessage) => {
