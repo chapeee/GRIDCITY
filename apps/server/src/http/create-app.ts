@@ -31,6 +31,8 @@ export interface CreateAppOptions {
   webDistDir?: string;
   /** Pino logger options. Omit to disable logging (tests). */
   logger?: LoggerOptions;
+  /** Extra fields for /api/meta (e.g. data mode, hosts.yaml location). */
+  describe?: () => Record<string, unknown>;
   /** Registers feature routes (WebSocket, API) after the security hooks. */
   registerRoutes?: (app: FastifyInstance) => Promise<void>;
 }
@@ -54,6 +56,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     projectName: options.projectName,
     version: options.version,
     protocolVersion: PROTOCOL_VERSION,
+    ...options.describe?.(),
   }));
 
   await options.registerRoutes?.(app);

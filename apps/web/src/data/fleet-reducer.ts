@@ -70,6 +70,8 @@ export function reduceFleet(fleet: FleetSnapshot, message: ServerMessage): Fleet
         projectName: message.projectName,
         thresholds: message.thresholds,
         protocolMismatch: message.protocolVersion !== PROTOCOL_VERSION,
+        // The server re-sends current config errors right after hello.
+        lastError: null,
       };
     }
 
@@ -94,11 +96,17 @@ export function reduceFleet(fleet: FleetSnapshot, message: ServerMessage): Fleet
     case 'hostStates': {
       const states = { ...fleet.states };
       const history = { ...fleet.history };
+      let hostKeyRefusals = fleet.hostKeyRefusals;
       for (const state of message.states) {
         states[state.hostId] = state;
         history[state.hostId] = appendSample(history[state.hostId], state);
+        // A host that is connected and polled again has had its key accepted.
+        if (hostKeyRefusals[state.hostId] && isReachable(state)) {
+          hostKeyRefusals = { ...hostKeyRefusals };
+          delete hostKeyRefusals[state.hostId];
+        }
       }
-      return { ...fleet, states, history };
+      return { ...fleet, states, history, hostKeyRefusals };
     }
 
     case 'hostRemoved': {
@@ -125,6 +133,10 @@ export function reduceFleet(fleet: FleetSnapshot, message: ServerMessage): Fleet
     case 'error':
       return { ...fleet, lastError: message.message };
   }
+}
+
+function isReachable(state: HostState): boolean {
+  return state.status === 'online' || state.status === 'degraded';
 }
 
 /**

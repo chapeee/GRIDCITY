@@ -3,9 +3,9 @@
 A local-first infrastructure tool where your servers appear as a living **city of light** in 3D,
 and you can dive into any server to get a real SSH terminal.
 
-> **Status: Phase 2.** The server connects to real SSH hosts and streams live metrics; the 3D
-> world still shows the simulated demo fleet (badged DEMO DATA) until Phase 3 wires the two
-> together. The terminal arrives in Phase 4. See the [brief](docs/BRIEF.md) for the roadmap.
+> **Status: Phase 3.** Your SSH hosts appear live in the 3D city: real metrics, honest offline
+> and stale states, host key refusals. The terminal arrives in Phase 4. See the
+> [brief](docs/BRIEF.md) for the roadmap.
 
 - **Truth first.** Every light maps to one documented metric. Offline never looks healthy; stale
   data looks frozen. See [docs/VISUAL_LANGUAGE.md](docs/VISUAL_LANGUAGE.md).

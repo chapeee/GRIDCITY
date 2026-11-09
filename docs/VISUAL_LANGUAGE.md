@@ -5,7 +5,7 @@
 > [`apps/web/src/design/tokens.ts`](../apps/web/src/design/tokens.ts); the mapping code is
 > [`apps/web/src/world/host-visuals.ts`](../apps/web/src/world/host-visuals.ts) (unit tested).
 
-Status: **Phase 1**. Implemented with demo data.
+Status: **Phase 3**. Driven by live server data (or the demo fleet, always badged).
 
 ## Palette
 
@@ -68,14 +68,18 @@ second from `lastSeenAt`, so towers freeze even if the server itself stops sendi
 
 ## 2D layer
 
-| Element         | Driven by                                     | Notes                                                                                              |
-| --------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Status dot      | status / staleness                            | Online/degraded: filled accent with glow · offline: dark ring · unknown: dashed ring · stale: grey |
-| HUD left border | status / staleness                            | Accent for online/degraded, muted otherwise                                                        |
-| HUD frozen look | staleness                                     | Whole panel greyscale, reason reads "Data frozen · last seen _N_ ago"                              |
-| Sparklines      | last 90 polls of CPU %, memory %, network B/s | Gaps where values were unknown; status color, grey when stale                                      |
-| Disk bars       | disk `used / total`                           | Degraded accent above the disk threshold                                                           |
-| Error line      | `HostState.error`                             | Alert accent                                                                                       |
+| Element                | Driven by                                     | Notes                                                                                                                                                    |
+| ---------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status dot             | status / staleness                            | Online/degraded: filled accent with glow · offline: dark ring · unknown: dashed ring · stale: grey                                                       |
+| HUD left border        | status / staleness                            | Accent for online/degraded, muted otherwise                                                                                                              |
+| HUD frozen look        | staleness                                     | Whole panel greyscale, reason reads "Data frozen · last seen _N_ ago"                                                                                    |
+| Sparklines             | last 90 polls of CPU %, memory %, network B/s | Gaps where values were unknown; status color, grey when stale                                                                                            |
+| Disk bars              | disk `used / total`                           | Degraded accent above the disk threshold                                                                                                                 |
+| Error line             | `HostState.error`                             | Alert accent                                                                                                                                             |
+| Host key refusal panel | `hostKeyRefused` (reason, fingerprint)        | Alert-accent box in the HUD: "Unknown host key" or "Host key CHANGED", the SHA256 fingerprint and the safe next step. Clears once the host is reachable. |
+| Connection banner      | browser ↔ server link                         | Alert banner while reconnecting ("hosts freeze as data goes stale") or when the session expired. Nothing while connected.                                |
+| Config error banner    | server `error` message                        | Alert banner with the hosts.yaml problems; the last valid fleet keeps running.                                                                           |
+| Empty city panel       | real mode with zero hosts                     | Where hosts.yaml is, a one-click import from ~/.ssh/config, and the known_hosts requirement.                                                             |
 
 ## UI state effects (not data)
 

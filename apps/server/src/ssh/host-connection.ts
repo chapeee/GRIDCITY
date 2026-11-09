@@ -194,7 +194,7 @@ export class HostConnection {
         this.refusal = { reason: verdict === 'unknown' ? 'unknown' : 'changed', fingerprint };
         this.lastError =
           verdict === 'unknown'
-            ? `Host key not in known_hosts (${presented.keyType} ${fingerprint}). Verify it, then add it with ssh-keyscan or by connecting once with ssh.`
+            ? `Host key not in known_hosts (${presented.keyType} ${fingerprint}). Verify the fingerprint out of band, then connect once with ssh to trust it.`
             : verdict === 'revoked'
               ? `Host key is revoked in known_hosts (${fingerprint}). Refusing to connect.`
               : `HOST KEY CHANGED for ${lookupName} (${presented.keyType} ${fingerprint}). This could be a man-in-the-middle attack. Refusing to connect.`;

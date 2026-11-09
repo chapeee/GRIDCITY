@@ -105,6 +105,22 @@ describe('reduceFleet', () => {
     expect(fleet.hostKeyRefusals.a).toBeUndefined();
   });
 
+  it('clears a host key refusal once the host is reachable again', () => {
+    const fleet = apply([
+      { type: 'hostKeyRefused', hostId: 'a', reason: 'unknown', fingerprint: 'SHA256:y' },
+      { type: 'hostStates', states: [{ ...createUnknownHostState('a'), status: 'offline' }] },
+    ]);
+    expect(fleet.hostKeyRefusals.a).toBeDefined();
+    expect(
+      reduceFleet(fleet, { type: 'hostStates', states: [polled('a', 5)] }).hostKeyRefusals.a,
+    ).toBeUndefined();
+  });
+
+  it('clears config errors on a new hello (the server re-sends current ones)', () => {
+    const fleet = apply([{ type: 'error', message: 'hosts.yaml has errors' }, hello('real')]);
+    expect(fleet.lastError).toBeNull();
+  });
+
   it('records host key refusals', () => {
     const fleet = apply([
       { type: 'hostKeyRefused', hostId: 'a', reason: 'unknown', fingerprint: 'SHA256:y' },

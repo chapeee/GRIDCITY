@@ -22,7 +22,7 @@
     "docker:app": "docker compose up --build",
     "docker:dev": "docker compose -f compose.dev.yaml up --build dev",
     "docker:test": "docker compose -f compose.dev.yaml run --rm --build test",
-    "test:e2e": "playwright test",
+    "test:e2e": "npm run build && playwright test",
     "docker:e2e": "docker compose -f compose.dev.yaml run --rm --build e2e",
     "import-ssh-config": "npm run import-ssh-config -w @app/server",
     "smoke": "npm run build && node scripts/smoke-server.mjs"

@@ -1,6 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect } from 'react';
-import { createDemoDataSource } from './data/demo-source';
-import { parseDemoOptions } from './data/demo-options';
+import { lazy, Suspense, useCallback } from 'react';
+import { useFleetDataSource } from './data/use-fleet-data-source';
 import { useFleetStore } from './data/fleet-store';
 import { CommandPalette } from './ui/CommandPalette';
 import { canOpenTerminal, FocusHud } from './ui/FocusHud';
@@ -11,22 +10,11 @@ import {
   ShortcutHints,
   TopBar,
 } from './ui/ScreenOverlays';
+import { EmptyFleet, StatusBanners } from './ui/StatusBanners';
 import { useGlobalShortcuts } from './ui/use-global-shortcuts';
 import { useUiStore } from './ui/ui-store';
 import { useCityModel } from './world/use-city-model';
 import { WorldScene } from './world/WorldScene';
-
-/**
- * Phase 1 always runs the in-browser demo fleet (with the DEMO DATA badge).
- * Phase 3 replaces this with the server's WebSocket source, which decides
- * between real and demo data.
- */
-function useFleetDataSource(): void {
-  useEffect(() => {
-    const source = createDemoDataSource(parseDemoOptions(window.location.search), __PROJECT_NAME__);
-    return source.start(useFleetStore.getState().receive);
-  }, []);
-}
 
 /** Dev-only tuning sliders; the dynamic import disappears from production builds. */
 const DevTuningPanel = import.meta.env.DEV ? lazy(() => import('./world/DevTuningPanel')) : null;
@@ -53,6 +41,8 @@ export function App() {
     <div className="app">
       <WorldScene model={model} />
       <TopBar />
+      <StatusBanners />
+      <EmptyFleet />
       <FocusHud onJackIn={jackIn} />
       <ShortcutHints />
       <PerfOverlay />

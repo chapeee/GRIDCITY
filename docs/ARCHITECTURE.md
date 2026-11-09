@@ -1,7 +1,6 @@
 # Architecture
 
-Status: **Phase 2** (server complete; the web client still runs its own demo source until
-Phase 3 wires it to the server). Sections marked _(Phase N)_ describe planned work.
+Status: **Phase 3** (server and live 3D client wired together). Sections marked _(Phase N)_ describe planned work.
 
 ## Overview
 
@@ -200,7 +199,11 @@ container. `compose.ssh.example.yaml` has all three.
   stale when polling is blocked, garbage output, rejected keys and closed ports.
 - **HTTP/WS over a real socket:** token, Origin and Host checks, resync, API.
 - **Smoke:** the built bundle actually starts and serves (`npm run smoke`).
-- **Browser:** Playwright screenshots of the 3D world (`npm run docker:e2e`).
+- **Browser, demo:** Playwright screenshots and interaction tests of the 3D world.
+- **Browser, live** (`e2e/live.spec.ts`): the built server against two in-process SSH servers;
+  verifies in the UI that killing a connection turns a host offline and back, blocking polling
+  freezes it as stale, an unknown host key is refused with its fingerprint, and losing the
+  server shows a banner while data freezes.
 
 ## Web client
 
@@ -222,4 +225,12 @@ apps/web/src/
 - **Layout slots** come from the server (`snapshot.layoutSlots`); the in-browser demo source
   assigns them deterministically.
 - **Demo URL parameters:** `?hosts=50` (1–200), `?seed=3`, `?poll=500` (ms).
-- _(Phase 3)_ The WebSocket source replaces the in-browser demo source.
+- **Data source:** by default the browser opens `/ws/state` (through the Vite proxy in
+  development). Messages are validated against the shared schema; malformed ones are dropped.
+  It reconnects with backoff, and because browsers hide the HTTP status of a failed upgrade, a
+  failed connect is followed by a session check so an expired token shows "Session expired"
+  instead of retrying forever. `?source=demo` runs the demo fleet in the browser instead.
+- **Session in development:** the page is served by Vite, so on load the browser trades the
+  `?token=` for the session cookie with one `/api/meta` call, then removes it from the URL.
+- **Truth when the link drops:** nothing special is needed: the client re-checks staleness
+  every second from `lastSeenAt`, so towers freeze on their own; a banner explains why.

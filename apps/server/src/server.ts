@@ -121,6 +121,10 @@ export async function startServer({
     // In the bundled build this file lives in apps/server/dist/.
     webDistDir: devMode ? undefined : fileURLToPath(new URL('../../web/dist', import.meta.url)),
     logger: { level: env.LOG_LEVEL, transport: devMode ? { target: 'pino-pretty' } : undefined },
+    describe: () => ({
+      dataMode: env.DATA_MODE,
+      ...(env.DATA_MODE === 'real' ? { hostsFile: paths.hostsFile } : {}),
+    }),
     registerRoutes: async (instance) => {
       await registerStateSocket(instance, hub);
       registerApiRoutes(instance, {

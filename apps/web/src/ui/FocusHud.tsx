@@ -32,6 +32,9 @@ export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
     focusedHostId ? store.history[focusedHostId] : undefined,
   );
   const thresholds = useFleetStore((store) => store.thresholds);
+  const refusal = useFleetStore((store) =>
+    focusedHostId ? store.hostKeyRefusals[focusedHostId] : undefined,
+  );
   const now = useNow(1000);
 
   const series = useMemo(() => {
@@ -75,11 +78,32 @@ export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
             <span className="hud-status">{stale ? 'stale' : status}</span>
           </header>
 
-          <p
-            className={`hud-reason${status === 'degraded' ? ' is-warning' : ''}${status === 'offline' && state?.error ? ' is-error' : ''}`}
-          >
-            {statusLine(state, stale, now)}
-          </p>
+          {/* A refused host key gets its own panel below instead of the raw reason. */}
+          {!refusal && (
+            <p
+              className={`hud-reason${status === 'degraded' ? ' is-warning' : ''}${status === 'offline' && state?.error ? ' is-error' : ''}`}
+            >
+              {statusLine(state, stale, now)}
+            </p>
+          )}
+          {host && refusal && (
+            <section className="hud-refusal" role="alert" aria-label="Host key refused">
+              <h3>{refusal.reason === 'changed' ? 'Host key CHANGED' : 'Unknown host key'}</h3>
+              <p>
+                <code>{refusal.fingerprint}</code>
+              </p>
+              <p>
+                {refusal.reason === 'changed'
+                  ? 'This could be a man-in-the-middle attack, or the server was reinstalled. Do not trust it until you have verified the new fingerprint with the server owner. Then remove the old entry: '
+                  : 'Verify this fingerprint out of band (console, provider dashboard), then connect once with ssh to add it: '}
+                <code>
+                  {refusal.reason === 'changed'
+                    ? `ssh-keygen -R ${knownHostsName(host.address, host.port)}`
+                    : `ssh -p ${host.port} ${host.user}@${host.address}`}
+                </code>
+              </p>
+            </section>
+          )}
           {/* The error is often the status reason itself; show it once. */}
           {state?.error && state.error !== state.statusReason && (
             <p className="hud-error">{state.error}</p>
@@ -179,6 +203,11 @@ export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
 /** A terminal needs a live SSH connection. */
 export function canOpenTerminal(status: HostState['status']): boolean {
   return status === 'online' || status === 'degraded';
+}
+
+/** known_hosts name: host on port 22, [host]:port otherwise. */
+function knownHostsName(address: string, port: number): string {
+  return port === 22 ? address : `[${address}]:${port}`;
 }
 
 function Metric({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {

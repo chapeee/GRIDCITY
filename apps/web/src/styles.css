@@ -488,3 +488,110 @@ button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ---------- Status banners ---------- */
+
+.status-banners {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  translate: -50% 0;
+  display: grid;
+  gap: 8px;
+  width: min(640px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.banner {
+  padding: 10px 14px;
+  background: var(--color-surface);
+  border: var(--panel-border);
+  color: var(--color-text);
+  pointer-events: auto;
+}
+
+.banner-alert {
+  border-color: var(--color-alert);
+}
+
+.banner-alert strong {
+  color: var(--color-alert);
+}
+
+.banner-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.banner-details {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  font: inherit;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+/* ---------- Empty fleet ---------- */
+
+.empty-fleet {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  width: min(560px, calc(100vw - 32px));
+  padding: 24px 28px;
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  border: var(--panel-border);
+  border-top: 2px solid var(--color-online);
+}
+
+.empty-fleet h2 {
+  margin: 0;
+  color: var(--color-text-bright);
+  letter-spacing: 0.08em;
+}
+
+.empty-fleet ol {
+  display: grid;
+  gap: 12px;
+  padding-left: 20px;
+}
+
+.empty-fleet li button {
+  display: block;
+  margin-top: 8px;
+}
+
+.empty-fleet code,
+.hud-refusal code {
+  color: var(--color-text-bright);
+  word-break: break-all;
+}
+
+.empty-fleet-hint {
+  margin-bottom: 0;
+  color: var(--color-muted);
+}
+
+/* ---------- Host key refusal (HUD) ---------- */
+
+.hud-refusal {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-alert);
+}
+
+.hud-refusal h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-alert);
+}
+
+.hud-refusal p {
+  margin: 6px 0 0;
+  font-size: 12px;
+}

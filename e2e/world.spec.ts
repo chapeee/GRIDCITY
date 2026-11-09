@@ -6,8 +6,8 @@ import { expect, test, type Page } from '@playwright/test';
  * against docs/VISUAL_LANGUAGE.md.
  */
 
-/** Faster demo polling so degraded/stale states and sparklines appear quickly. */
-const DEMO_URL = '/?poll=500';
+/** The in-browser demo source (no server), with faster polling so states appear quickly. */
+const DEMO_URL = '/?source=demo&poll=500';
 
 async function openWorld(page: Page, url = DEMO_URL): Promise<void> {
   await page.goto(url);
@@ -93,7 +93,7 @@ test('lite mode turns off post-processing and particles', async ({ page }) => {
 });
 
 test('performance with 50 hosts (numbers only meaningful with WORLD_GPU=1)', async ({ page }) => {
-  await openWorld(page, '/?hosts=50');
+  await openWorld(page, '/?source=demo&hosts=50');
   await page.waitForTimeout(4000);
   const overlay = await page.locator('.perf-overlay').innerText();
   test.info().annotations.push({ type: 'perf', description: overlay.replace(/\s+/g, ' ') });

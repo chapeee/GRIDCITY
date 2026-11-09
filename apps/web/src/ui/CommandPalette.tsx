@@ -2,6 +2,7 @@ import { isStale } from '@app/shared';
 import { Command } from 'cmdk';
 import { useFleetStore } from '../data/fleet-store';
 import { StatusDot } from './StatusDot';
+import { useHostImport } from './use-host-import';
 import { useNow } from './use-now';
 import { useUiStore } from './ui-store';
 
@@ -20,6 +21,8 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
   const liteMode = useUiStore((store) => store.liteMode);
   const { focusHost, setLiteMode, togglePerfOverlay, toggleTuningPanel } = useUiStore.getState();
   const hosts = useFleetStore((store) => store.hosts);
+  const dataMode = useFleetStore((store) => store.dataMode);
+  const { importHosts } = useHostImport();
   const states = useFleetStore((store) => store.states);
   const thresholds = useFleetStore((store) => store.thresholds);
   const now = useNow(1000);
@@ -77,6 +80,15 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
                 <kbd>Esc</kbd>
               </Command.Item>
             </>
+          )}
+          {dataMode === 'real' && (
+            <Command.Item
+              value="import hosts from ssh config"
+              onSelect={() => run(() => void importHosts())}
+            >
+              <span className="palette-item-title">Import hosts from ~/.ssh/config</span>
+              <span className="palette-item-meta">adds to hosts.yaml</span>
+            </Command.Item>
           )}
           <Command.Item value="toggle lite mode" onSelect={() => run(() => setLiteMode(!liteMode))}>
             <span className="palette-item-title">{liteMode ? 'Disable' : 'Enable'} lite mode</span>

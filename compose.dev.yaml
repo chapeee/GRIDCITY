@@ -58,7 +58,7 @@ services:
     volumes:
       - .:/repo
       - e2e_node_modules:/repo/node_modules
-    command: sh -c "npm install --no-audit --no-fund && npx playwright test"
+    command: sh -c "npm install --no-audit --no-fund && npm run build && npx playwright test"
     profiles: [test]
 
 volumes:
