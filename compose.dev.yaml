@@ -42,5 +42,26 @@ services:
     command: sh -c "npm install --no-audit --no-fund && npm run check"
     profiles: [test]
 
+  # Browser tests + review screenshots (test-results/screenshots/).
+  # Renders with software WebGL, so frame times here are not representative.
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.65.0-noble
+    working_dir: /repo
+    ipc: host
+    env_file:
+      - path: .env.example
+        required: true
+      - path: .env
+        required: false
+    environment:
+      CI: 'true'
+    volumes:
+      - .:/repo
+      - e2e_node_modules:/repo/node_modules
+    command: sh -c "npm install --no-audit --no-fund && npx playwright test"
+    profiles: [test]
+
 volumes:
   node_modules:
+  # Separate volume: the Playwright image has its own Node/OS layer.
+  e2e_node_modules:

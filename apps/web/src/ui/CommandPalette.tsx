@@ -1,0 +1,98 @@
+import { isStale } from '@app/shared';
+import { Command } from 'cmdk';
+import { useFleetStore } from '../data/fleet-store';
+import { StatusDot } from './StatusDot';
+import { useNow } from './use-now';
+import { useUiStore } from './ui-store';
+
+interface CommandPaletteProps {
+  onJackIn(hostId: string): void;
+}
+
+/**
+ * Cmd/Ctrl+K. Every action reachable in the 3D world is reachable here by
+ * keyboard. Actions for features that do not exist yet are not listed.
+ */
+export function CommandPalette({ onJackIn }: CommandPaletteProps) {
+  const open = useUiStore((store) => store.paletteOpen);
+  const setOpen = useUiStore((store) => store.setPaletteOpen);
+  const focusedHostId = useUiStore((store) => store.focusedHostId);
+  const liteMode = useUiStore((store) => store.liteMode);
+  const { focusHost, setLiteMode, togglePerfOverlay, toggleTuningPanel } = useUiStore.getState();
+  const hosts = useFleetStore((store) => store.hosts);
+  const states = useFleetStore((store) => store.states);
+  const thresholds = useFleetStore((store) => store.thresholds);
+  const now = useNow(1000);
+
+  const run = (action: () => void) => {
+    action();
+    setOpen(false);
+  };
+
+  return (
+    <Command.Dialog
+      open={open}
+      onOpenChange={setOpen}
+      label="Command palette"
+      className="palette"
+      overlayClassName="palette-overlay"
+      contentClassName="palette-content"
+    >
+      <Command.Input placeholder="Search hosts and actions…" className="palette-input" />
+      <Command.List className="palette-list">
+        <Command.Empty className="palette-empty">No matching hosts or actions.</Command.Empty>
+
+        <Command.Group heading="Hosts">
+          {hosts.map((host) => {
+            const state = states[host.id];
+            const stale = state ? state.stale || isStale(state.lastSeenAt, now, thresholds) : false;
+            return (
+              <Command.Item
+                key={host.id}
+                value={`host ${host.name} ${host.district} ${host.address} ${host.tags.join(' ')}`}
+                onSelect={() => run(() => focusHost(host.id))}
+              >
+                <StatusDot status={state?.status ?? 'unknown'} stale={stale} />
+                <span className="palette-item-title">{host.name}</span>
+                <span className="palette-item-meta">
+                  {host.district} · {stale ? 'stale' : (state?.status ?? 'unknown')}
+                </span>
+              </Command.Item>
+            );
+          })}
+        </Command.Group>
+
+        <Command.Group heading="Actions">
+          {focusedHostId && (
+            <>
+              <Command.Item
+                value="open terminal jack in"
+                onSelect={() => run(() => onJackIn(focusedHostId))}
+              >
+                <span className="palette-item-title">Open terminal on {focusedHostId}</span>
+                <kbd>Enter</kbd>
+              </Command.Item>
+              <Command.Item value="return to overview" onSelect={() => run(() => focusHost(null))}>
+                <span className="palette-item-title">Return to overview</span>
+                <kbd>Esc</kbd>
+              </Command.Item>
+            </>
+          )}
+          <Command.Item value="toggle lite mode" onSelect={() => run(() => setLiteMode(!liteMode))}>
+            <span className="palette-item-title">{liteMode ? 'Disable' : 'Enable'} lite mode</span>
+            <span className="palette-item-meta">no bloom, no particles</span>
+          </Command.Item>
+          <Command.Item value="toggle performance overlay" onSelect={() => run(togglePerfOverlay)}>
+            <span className="palette-item-title">Toggle performance overlay</span>
+          </Command.Item>
+          {import.meta.env.DEV && (
+            <Command.Item value="toggle tuning panel" onSelect={() => run(toggleTuningPanel)}>
+              <span className="palette-item-title">Toggle tuning panel</span>
+              <span className="palette-item-meta">dev only</span>
+            </Command.Item>
+          )}
+        </Command.Group>
+      </Command.List>
+    </Command.Dialog>
+  );
+}

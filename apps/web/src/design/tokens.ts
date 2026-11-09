@@ -21,6 +21,8 @@ export const neutrals = {
   surface: '#0b1316',
   /** Floor grid lines and dark volumes. */
   grid: '#0b1f29',
+  /** Every fourth floor grid line (aligned with tower slots). */
+  gridSection: '#123544',
   /** Hairlines and panel borders (cyan at 20%). */
   line: 'rgba(143, 227, 255, 0.2)',
   /** Unknown status, disabled text, frozen (stale) elements. */
@@ -74,8 +76,14 @@ export const encoding = {
   networkBytesPerSec: { floor: 1024, ceiling: 100 * 1024 * 1024 },
   /** Particles per second at the network ceiling. */
   particlesPerSecMax: 24,
+  /** How long one particle takes to rise, in seconds. */
+  particleLifetimeSec: 2.6,
+  /** At most this many disk arcs per ring; the fullest disks win. */
+  diskArcMax: 4,
   /** Stale data is shown with this much color saturation (0..1) and no motion. */
   staleSaturation: 0.15,
+  /** Stale data also dims to this brightness (0..1), so frozen never reads as "hot". */
+  staleBrightness: 0.45,
 } as const;
 
 /** Durations in milliseconds. */
@@ -101,6 +109,60 @@ export const easings = {
 /** Scene atmosphere. */
 export const atmosphere = {
   fogColor: neutrals.void,
-  fogNear: 40,
-  fogFar: 220,
+  fogNear: 60,
+  fogFar: 260,
+} as const;
+
+/**
+ * City geometry in world units. Tower geometry is fixed for every host:
+ * metrics never change shape, so spatial memory stays stable.
+ */
+export const cityGeometry = {
+  towerWidth: 2.2,
+  towerHeight: 8,
+  /** Width of the glowing edge lines on a tower. */
+  towerEdgeWidth: 0.07,
+  /** Distance between tower centers inside a district. */
+  slotSpacing: 6.5,
+  /** Towers per row inside a district. Fixed, so adding a host never reflows the others. */
+  districtColumns: 4,
+  /** Empty space between districts. */
+  districtGap: 16,
+  /** Padding between a district's outline and its outer towers. */
+  districtPadding: 3.5,
+  diskRingInnerRadius: 1.9,
+  diskRingOuterRadius: 2.3,
+  /** Particle pool per tower; caps the visible rate. */
+  particlesPerTower: 64,
+} as const;
+
+/** Camera framing. */
+export const camera = {
+  fieldOfView: 40,
+  /** Distance from the focused tower during a fly-to. */
+  focusDistance: 32,
+  /** Elevation of the focus view above the horizon (radians); high enough to see over front rows. */
+  focusElevation: 0.75,
+  /** Height of the focus point above the tower base, as a fraction of tower height. */
+  focusHeightRatio: 0.55,
+  /** Shift the focused tower left of center so the HUD fits on the right (world units). */
+  focusScreenShift: 5,
+  minDistance: 8,
+  maxDistance: 320,
+  /** Keep the camera above the floor. Radians from straight down. */
+  maxPolarAngle: 1.38,
+} as const;
+
+/** Post-processing. Disabled entirely in lite mode. */
+export const postProcessing = {
+  bloomIntensity: 1.15,
+  bloomThreshold: 0.55,
+  bloomSmoothing: 0.25,
+  vignetteDarkness: 0.65,
+} as const;
+
+/** Frame time above this (ms, averaged) for `liteSuggestAfterMs` suggests lite mode. */
+export const performanceBudget = {
+  liteSuggestFrameMs: 24,
+  liteSuggestAfterMs: 5000,
 } as const;

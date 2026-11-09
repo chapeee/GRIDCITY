@@ -3,7 +3,8 @@
 A local-first infrastructure tool where your servers appear as a living **city of light** in 3D,
 and you can dive into any server to get a real SSH terminal.
 
-> **Status: Phase 0 (scaffold).** The 3D world, SSH and terminal are not built yet. See the
+> **Status: Phase 1.** The 3D world runs on a simulated demo fleet (clearly badged as
+> DEMO DATA). Real SSH hosts arrive in Phase 2–3, the terminal in Phase 4. See the
 > [brief](docs/BRIEF.md) for the roadmap.
 
 - **Truth first.** Every light maps to one documented metric. Offline never looks healthy; stale
@@ -38,13 +39,23 @@ npm start
 Docker is the reference environment for development and testing, so everyone gets the same
 results.
 
-| Task                                   | Docker                | Native          |
-| -------------------------------------- | --------------------- | --------------- |
-| Dev servers with hot reload            | `npm run docker:dev`  | `npm run dev`   |
-| All checks (format, lint, types, test) | `npm run docker:test` | `npm run check` |
+| Task                                   | Docker                | Native             |
+| -------------------------------------- | --------------------- | ------------------ |
+| Dev servers with hot reload            | `npm run docker:dev`  | `npm run dev`      |
+| All checks (format, lint, types, test) | `npm run docker:test` | `npm run check`    |
+| Browser tests + review screenshots     | `npm run docker:e2e`  | `npm run test:e2e` |
 
 Dev mode serves the web app on <http://127.0.0.1:4601> and proxies `/api` and `/ws` to the
 server on port 4600. Use the URL with the token printed in the console.
+
+Browser test screenshots land in `test-results/screenshots/`. Docker renders with software
+WebGL, so for real frame times run natively on your GPU: `WORLD_GPU=1 npm run test:e2e`
+(first run: `npx playwright install chromium`).
+
+Demo URL parameters: `?hosts=50` (1–200), `?seed=3`, `?poll=500` (ms).
+
+In the world: **Ctrl/Cmd+K** command palette · **Tab / Shift+Tab** jump between hosts ·
+**Esc** overview · **Enter** jack in (Phase 4) · **`** (backtick) performance overlay.
 
 Other scripts: `npm run lint`, `npm run format`, `npm run typecheck`, `npm test`,
 `npm run test:watch`.

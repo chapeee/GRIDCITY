@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { HostSchema } from './host';
 import { HostStateSchema } from './host-state';
+import { StatusThresholdsSchema } from './thresholds';
 
 /**
  * Version of the WebSocket protocol below. Bump on any breaking change so a
@@ -24,6 +25,11 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     protocolVersion: z.number().int(),
     dataMode: DataModeSchema,
     projectName: z.string(),
+    /**
+     * Thresholds in effect. The client needs `pollIntervalMs` to detect stale
+     * data on its own clock, e.g. when the server itself stops sending.
+     */
+    thresholds: StatusThresholdsSchema,
   }),
   /** Full picture: sent after `hello` and whenever the client asks to resync. */
   z.object({

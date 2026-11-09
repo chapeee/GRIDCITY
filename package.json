@@ -21,10 +21,13 @@
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run test",
     "docker:app": "docker compose up --build",
     "docker:dev": "docker compose -f compose.dev.yaml up --build dev",
-    "docker:test": "docker compose -f compose.dev.yaml run --rm --build test"
+    "docker:test": "docker compose -f compose.dev.yaml run --rm --build test",
+    "test:e2e": "playwright test",
+    "docker:e2e": "docker compose -f compose.dev.yaml run --rm --build e2e"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.0",
     "@types/node": "^24.19.2",
     "concurrently": "^10.0.7",
     "eslint": "^10.14.0",

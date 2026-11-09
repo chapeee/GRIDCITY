@@ -97,3 +97,30 @@ Real environment variables win over `.env`, which wins over `.env.example`.
 To use your ssh-agent from inside a container, the agent socket must be mounted (Linux:
 `$SSH_AUTH_SOCK`; Docker Desktop: `/run/host-services/ssh-auth.sock`) together with a read-only
 `known_hosts`. Native runs use the agent directly (Windows: the OpenSSH agent named pipe).
+
+## Web client (Phase 1)
+
+```
+apps/web/src/
+├── data/      fleet store (zustand) + pure reducer, data-source interface, demo source
+├── world/     3D scene (R3F). Pure helpers: host-visuals.ts (data → light), city-layout.ts,
+│              camera-poses.ts. Components: TowerField, DiskRings, NetworkParticles,
+│              WorldLabels, CityFloor, CameraRig, PostEffects, PerfProbe
+├── ui/        2D layer: FocusHud, CommandPalette, overlays, shortcuts, formatters
+└── design/    tokens.ts (single source of truth) and CSS variable export
+```
+
+- **Data and scene are separate.** Server messages go through the pure `reduceFleet`;
+  `useCityModel` turns fleet state into a layout and one `HostVisual` per host; scene components
+  only render those values.
+- **One draw call per layer.** Towers, disk rings and particles are each a single instanced
+  mesh (or point cloud) with a custom shader; per-host encodings are instance attributes.
+- **WebGL2, not WebGPU (yet).** The brief asks for `WebGPURenderer`, but the post-processing
+  (`postprocessing`) and 3D text (troika) libraries in the stack only support `WebGLRenderer`.
+  Renderer setup lives in `WorldScene.tsx` so WebGPU can be adopted when they catch up.
+- **Data source interface.** Phase 1 runs the shared demo fleet in the browser
+  (`createDemoDataSource`), speaking the same protocol as the server. Phase 3 swaps in the
+  WebSocket source; the server then decides between real and demo data.
+- **Demo URL parameters:** `?hosts=50` (1–200), `?seed=3`, `?poll=500` (ms).
+- **Layout persistence:** sticky slot assignments are stored in the browser per data mode for
+  now; Phase 2 moves them to SQLite on the server.

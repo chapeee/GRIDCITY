@@ -24,6 +24,14 @@ export default defineConfig(
     languageOptions: { globals: globals.browser },
   },
   {
+    // React Three Fiber renders imperatively: updating three.js objects
+    // (uniforms, instance attributes, renderer info) inside useFrame and
+    // effects is the documented pattern, which the React Compiler's
+    // immutability check cannot distinguish from mutating React state.
+    files: ['apps/web/src/world/**/*.{ts,tsx}'],
+    rules: { 'react-hooks/immutability': 'off' },
+  },
+  {
     files: ['apps/server/**/*.{ts,mjs}', 'packages/**/*.ts', '*.{js,mjs,ts}', 'apps/web/*.ts'],
     languageOptions: { globals: globals.node },
   },

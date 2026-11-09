@@ -53,6 +53,7 @@ describe('ServerMessageSchema', () => {
       protocolVersion: 1,
       dataMode: 'demo',
       projectName: 'example',
+      thresholds: DEFAULT_STATUS_THRESHOLDS,
     });
     expect(message.type).toBe('hello');
   });
