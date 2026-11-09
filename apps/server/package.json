@@ -1,0 +1,24 @@
+{
+  "name": "@app/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local-only backend: SSH connections, metrics polling, state engine and terminal streaming. Binds to 127.0.0.1.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts --dev",
+    "build": "node build.mjs",
+    "start": "node --enable-source-maps dist/index.js",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@app/shared": "*",
+    "@fastify/static": "^10.1.10",
+    "fastify": "^5.12.8",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "pino-pretty": "^13.2.0",
+    "tsx": "^4.23.15"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "types": ["feat", "fix", "docs", "chore", "refactor", "test", "style", "perf", "build", "ci"],
+  "askScope": true,
+  "scopes": [
+    "web",
+    "world",
+    "server",
+    "shared",
+    "ssh",
+    "terminal",
+    "config",
+    "docs",
+    "deps",
+    "repo"
+  ],
+  "askTicket": false,
+  "askBreaking": true,
+  "format": "{type}({scope}){breaking}: {message}",
+  "headerMaxLength": 72,
+  "ai": {
+    "enabled": true,
+    "askByDefault": false
+  }
+}

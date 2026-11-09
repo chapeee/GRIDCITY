@@ -1,0 +1,19 @@
+# Run the app with Docker:  docker compose up --build
+# Then open the URL printed in the logs (it contains a one-time session token).
+#
+# The port is published on 127.0.0.1 only, so nothing else on your network
+# can reach it.
+
+services:
+  app:
+    build:
+      context: .
+      target: runtime
+    env_file:
+      - path: .env.example
+        required: true
+      - path: .env
+        required: false
+    ports:
+      - '127.0.0.1:${SERVER_PORT:-4600}:${SERVER_PORT:-4600}'
+    restart: unless-stopped

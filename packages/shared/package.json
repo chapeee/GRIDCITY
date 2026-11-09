@@ -1,0 +1,16 @@
+{
+  "name": "@app/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Zod schemas and TypeScript types shared by the server and the web client: the host model, live host state and the WebSocket protocol.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

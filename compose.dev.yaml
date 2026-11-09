@@ -1,0 +1,46 @@
+# Development and testing in Docker. This is the reference environment:
+# CI and contributors should get the same results as `npm run docker:test`.
+#
+#   npm run docker:dev    – hot-reloading server + web on http://127.0.0.1:4601
+#   npm run docker:test   – format check, lint, typecheck and unit tests
+#
+# Source is bind-mounted; node_modules lives in a named volume so the Linux
+# build of native modules never mixes with a Windows/macOS host install.
+
+x-dev-service: &dev-service
+  build:
+    context: .
+    target: dev
+  working_dir: /repo
+  env_file:
+    - path: .env.example
+      required: true
+    - path: .env
+      required: false
+  volumes:
+    - .:/repo
+    - node_modules:/repo/node_modules
+
+services:
+  dev:
+    <<: *dev-service
+    # `npm install` is a no-op when nothing changed and picks up new
+    # dependencies without rebuilding the image.
+    command: sh -c "npm install --no-audit --no-fund && npm run dev"
+    environment:
+      # Vite listens on all interfaces inside the container; the port is
+      # published on the host's 127.0.0.1 only. The API server stays on the
+      # container's loopback and is reached through Vite's proxy.
+      VITE_HOST: 0.0.0.0
+      WATCH_POLLING: 'true'
+      CHOKIDAR_USEPOLLING: 'true'
+    ports:
+      - '127.0.0.1:${WEB_PORT:-4601}:${WEB_PORT:-4601}'
+
+  test:
+    <<: *dev-service
+    command: sh -c "npm install --no-audit --no-fund && npm run check"
+    profiles: [test]
+
+volumes:
+  node_modules:

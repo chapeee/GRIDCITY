@@ -1,0 +1,79 @@
+/* Global styles. Colors mirror src/design/tokens.ts; keep the two in sync. */
+:root {
+  --color-base: #050708;
+  --color-surface: #0b1316;
+  --color-line: rgba(143, 227, 255, 0.2);
+  --color-muted: #4d5759;
+  --color-text: #d8f3fb;
+  --color-text-bright: #eef9ff;
+  --color-online: #8fe3ff;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-base);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+}
+
+.placeholder {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 64px 16px;
+}
+
+.placeholder h1 {
+  margin: 0;
+  color: var(--color-online);
+  letter-spacing: 0.2em;
+  text-shadow: 0 0 18px rgba(143, 227, 255, 0.6);
+}
+
+.subtitle {
+  color: var(--color-muted);
+}
+
+.swatch-group h2 {
+  margin-top: 32px;
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.swatch-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.swatch-group li {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.swatch {
+  width: 28px;
+  height: 18px;
+  border: 1px solid var(--color-line);
+}
+
+.value {
+  color: var(--color-muted);
+}
