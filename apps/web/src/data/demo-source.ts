@@ -1,4 +1,5 @@
 import {
+  assignSlots,
   createDemoFleet,
   createUnknownHostState,
   DEFAULT_STATUS_THRESHOLDS,
@@ -36,6 +37,8 @@ export function createDemoDataSource(options: DemoOptions, projectName: string):
         type: 'snapshot',
         hosts: [...fleet.hosts],
         states: fleet.hosts.map((host) => createUnknownHostState(host.id)),
+        // Demo hosts are deterministic, so fresh assignments are stable across reloads.
+        layoutSlots: assignSlots(fleet.hosts, {}),
       });
 
       const poll = () => listener({ type: 'hostStates', states: fleet.tick(Date.now()) });

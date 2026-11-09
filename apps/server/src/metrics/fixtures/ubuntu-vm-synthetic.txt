@@ -1,0 +1,34 @@
+@@section stat
+cpu  4705 356 584 3699176 23060 0 277 0 0 0
+@@section meminfo
+MemTotal:        8131532 kB
+MemFree:          412220 kB
+MemAvailable:    2045116 kB
+Buffers:          201488 kB
+Cached:          1690424 kB
+SwapCached:        10240 kB
+SwapTotal:       2097148 kB
+SwapFree:        1835004 kB
+@@section loadavg
+1.42 0.97 0.61 3/412 98765
+@@section netdev
+Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+    lo: 81234567  401234    0    0    0     0          0         0 81234567  401234    0    0    0     0       0          0
+  ens3: 9876543210 7654321    0   12    0     0          0      1024 1234567890 3456789    0    0    0     0       0          0
+docker0: 55555555  44444    0    0    0     0          0         0 66666666   55555    0    0    0     0       0          0
+veth1a2b3c: 11111111  2222    0    0    0     0          0         0 22222222   3333    0    0    0     0       0          0
+@@section uptime
+1296000.42 5000000.00
+@@section df
+Filesystem     1024-blocks      Used Available Capacity Mounted on
+tmpfs               813156      1180    811976       1% /run
+/dev/sda1         81106868  37450896  43639588      47% /
+tmpfs              4065764         0   4065764       0% /dev/shm
+/dev/sda15          106832      6250    100582       6% /boot/efi
+/dev/loop0           65536     65536         0     100% /snap/core20/2318
+/dev/sdb1       1031992064 742398720 237151872      76% /mnt/backup disk
+@@section os
+Ubuntu 24.04.1 LTS
+6.8.0-45-generic
+@@end

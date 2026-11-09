@@ -1,8 +1,7 @@
 import type { Host } from '@app/shared';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useFleetStore } from '../data/fleet-store';
 import { cityGeometry } from '../design/tokens';
-import { readStoredJson, writeStoredJson } from '../ui/browser-storage';
 import { useNow } from '../ui/use-now';
 import {
   assignSlots,
@@ -29,18 +28,15 @@ export function useCityModel(): CityModel {
   const hosts = useFleetStore((store) => store.hosts);
   const states = useFleetStore((store) => store.states);
   const thresholds = useFleetStore((store) => store.thresholds);
-  const dataMode = useFleetStore((store) => store.dataMode);
+  const layoutSlots = useFleetStore((store) => store.layoutSlots);
   const now = useNow(1000);
 
-  // Slot assignments are kept per data mode so demo and real layouts never mix.
-  const storageKey = `city-layout-slots:${dataMode ?? 'none'}`;
+  // The server persists slots; assignSlots only fills in hosts it has not
+  // assigned yet (e.g. between a config change and the next snapshot).
   const slots = useMemo<SlotAssignments>(
-    () => assignSlots(hosts, readStoredJson<SlotAssignments>(storageKey, {})),
-    [hosts, storageKey],
+    () => assignSlots(hosts, layoutSlots),
+    [hosts, layoutSlots],
   );
-  useEffect(() => {
-    if (dataMode && hosts.length > 0) writeStoredJson(storageKey, slots);
-  }, [dataMode, hosts.length, slots, storageKey]);
 
   const layout = useMemo(() => computeCityLayout(hosts, slots, cityGeometry), [hosts, slots]);
 

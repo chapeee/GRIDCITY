@@ -3,9 +3,9 @@
 A local-first infrastructure tool where your servers appear as a living **city of light** in 3D,
 and you can dive into any server to get a real SSH terminal.
 
-> **Status: Phase 1.** The 3D world runs on a simulated demo fleet (clearly badged as
-> DEMO DATA). Real SSH hosts arrive in Phase 2–3, the terminal in Phase 4. See the
-> [brief](docs/BRIEF.md) for the roadmap.
+> **Status: Phase 2.** The server connects to real SSH hosts and streams live metrics; the 3D
+> world still shows the simulated demo fleet (badged DEMO DATA) until Phase 3 wires the two
+> together. The terminal arrives in Phase 4. See the [brief](docs/BRIEF.md) for the roadmap.
 
 - **Truth first.** Every light maps to one documented metric. Offline never looks healthy; stale
   data looks frozen. See [docs/VISUAL_LANGUAGE.md](docs/VISUAL_LANGUAGE.md).
@@ -34,6 +34,45 @@ npm run build
 npm start
 ```
 
+## Your hosts
+
+Hosts live in `hosts.yaml`, created with a commented example on first start:
+
+- Linux/macOS: `~/.config/<project>/hosts.yaml`
+- Windows: `%APPDATA%\<project>\hosts.yaml`
+- Docker: `./config/hosts.yaml`
+
+(`<project>` is `PROJECT_NAME` in lowercase.) Edit it any time: the running server reloads it.
+
+```yaml
+hosts:
+  - id: web-01
+    name: web-01
+    address: 203.0.113.10
+    user: ops
+    district: Hetzner # one district per value
+```
+
+Or import every concrete host from `~/.ssh/config` (safe to run again):
+
+```bash
+npm run import-ssh-config
+```
+
+**Requirements:** your hosts must already be in `~/.ssh/known_hosts` (connect once with `ssh`).
+Unknown or changed host keys are refused, never accepted automatically. Authentication uses your
+ssh-agent (`SSH_AUTH_SOCK`, or the Windows OpenSSH agent) or a key file path per host. Remote
+hosts must be Linux; nothing is installed on them.
+
+**Just looking?** Set `DATA_MODE=demo` in `.env` to serve a simulated fleet instead.
+
+**Docker and SSH:** the container needs your `known_hosts` and an agent socket or key file. Copy
+`compose.ssh.example.yaml` to `compose.ssh.yaml`, pick your platform, then:
+
+```bash
+docker compose -f compose.yaml -f compose.ssh.yaml up --build
+```
+
 ## Development
 
 Docker is the reference environment for development and testing, so everyone gets the same
@@ -43,6 +82,7 @@ results.
 | -------------------------------------- | --------------------- | ------------------ |
 | Dev servers with hot reload            | `npm run docker:dev`  | `npm run dev`      |
 | All checks (format, lint, types, test) | `npm run docker:test` | `npm run check`    |
+| Start the built server and verify it   | (part of docker:test) | `npm run smoke`    |
 | Browser tests + review screenshots     | `npm run docker:e2e`  | `npm run test:e2e` |
 
 Dev mode serves the web app on <http://127.0.0.1:4601> and proxies `/api` and `/ws` to the

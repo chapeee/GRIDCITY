@@ -1,8 +1,11 @@
 # Run the app with Docker:  docker compose up --build
 # Then open the URL printed in the logs (it contains a one-time session token).
 #
-# The port is published on 127.0.0.1 only, so nothing else on your network
-# can reach it.
+# - The port is published on 127.0.0.1 only: nothing else on your network can reach it.
+# - Your hosts live in ./config/hosts.yaml (created on first start; edit it any time,
+#   the running app reloads it). History and the audit log live in a named volume.
+# - To reach real servers, the container needs SSH access: see compose.ssh.example.yaml.
+#   Without it, set DATA_MODE=demo in .env to explore the simulated fleet.
 
 services:
   app:
@@ -14,6 +17,15 @@ services:
         required: true
       - path: .env
         required: false
+    environment:
+      CONFIG_DIR: /config
+      DATA_DIR: /data
+    volumes:
+      - ./config:/config
+      - app-data:/data
     ports:
       - '127.0.0.1:${SERVER_PORT:-4600}:${SERVER_PORT:-4600}'
     restart: unless-stopped
+
+volumes:
+  app-data:

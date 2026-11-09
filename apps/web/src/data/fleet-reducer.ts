@@ -6,6 +6,7 @@ import {
   type Host,
   type HostState,
   type ServerMessage,
+  type SlotAssignments,
   type StatusThresholds,
 } from '@app/shared';
 
@@ -32,6 +33,8 @@ export interface FleetSnapshot {
   /** True when the server speaks a different protocol version. */
   protocolMismatch: boolean;
   hosts: Host[];
+  /** Sticky layout slots from the server. */
+  layoutSlots: SlotAssignments;
   states: Record<string, HostState>;
   history: Record<string, MetricSample[]>;
   hostKeyRefusals: Record<string, HostKeyRefusal>;
@@ -47,6 +50,7 @@ export const EMPTY_FLEET: FleetSnapshot = {
   thresholds: DEFAULT_STATUS_THRESHOLDS,
   protocolMismatch: false,
   hosts: [],
+  layoutSlots: {},
   states: {},
   history: {},
   hostKeyRefusals: {},
@@ -80,6 +84,7 @@ export function reduceFleet(fleet: FleetSnapshot, message: ServerMessage): Fleet
       return {
         ...fleet,
         hosts: message.hosts,
+        layoutSlots: message.layoutSlots,
         states,
         history,
         hostKeyRefusals: keepKeys(fleet.hostKeyRefusals, ids),

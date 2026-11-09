@@ -25,6 +25,11 @@ export const ServerEnvSchema = z.object({
    */
   BIND_INSIDE_CONTAINER: booleanString,
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  /**
+   * `real` connects to the hosts in hosts.yaml; `demo` serves the simulated
+   * fleet. One mode per process: demo and real data are never mixed.
+   */
+  DATA_MODE: z.enum(['real', 'demo']).default('real'),
 });
 export type ServerEnv = z.infer<typeof ServerEnvSchema>;
 

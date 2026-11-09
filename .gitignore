@@ -16,3 +16,7 @@ playwright-report/
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# Docker: hosts.yaml and personal compose overrides
+/config/
+compose.ssh.yaml

@@ -11,6 +11,7 @@ describe('parseServerEnv', () => {
       WEB_PORT: 4601,
       BIND_INSIDE_CONTAINER: false,
       LOG_LEVEL: 'info',
+      DATA_MODE: 'real',
     });
   });
 

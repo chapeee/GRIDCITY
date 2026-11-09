@@ -39,7 +39,7 @@ services:
 
   test:
     <<: *dev-service
-    command: sh -c "npm install --no-audit --no-fund && npm run check"
+    command: sh -c "npm install --no-audit --no-fund && npm run check && npm run smoke"
     profiles: [test]
 
   # Browser tests + review screenshots (test-results/screenshots/).

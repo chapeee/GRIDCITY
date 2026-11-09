@@ -32,7 +32,14 @@ export default defineConfig(
     rules: { 'react-hooks/immutability': 'off' },
   },
   {
-    files: ['apps/server/**/*.{ts,mjs}', 'packages/**/*.ts', '*.{js,mjs,ts}', 'apps/web/*.ts'],
+    files: [
+      'apps/server/**/*.{ts,mjs}',
+      'packages/**/*.ts',
+      '*.{js,mjs,ts}',
+      'apps/web/*.ts',
+      'scripts/**/*.mjs',
+      'e2e/**/*.ts',
+    ],
     languageOptions: { globals: globals.node },
   },
   prettier,

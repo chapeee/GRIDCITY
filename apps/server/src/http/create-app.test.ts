@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { buildAllowedOrigins } from '../security/origin';
 import { createApp, type CreateAppOptions } from './create-app';
 
 const sessionToken = 'test-token';
@@ -9,6 +10,7 @@ const baseOptions: CreateAppOptions = {
   version: '0.0.0',
   sessionToken,
   port,
+  allowedOrigins: buildAllowedOrigins([port]),
 };
 
 describe('session guard', () => {

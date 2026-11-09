@@ -53,7 +53,7 @@ describe('reduceFleet', () => {
   it('wipes everything when the data mode changes (never mix demo and real)', () => {
     const demo = apply([
       hello('demo'),
-      { type: 'snapshot', hosts: [host('a')], states: [polled('a', 1000)] },
+      { type: 'snapshot', layoutSlots: {}, hosts: [host('a')], states: [polled('a', 1000)] },
     ]);
     const real = reduceFleet(demo, hello('real'));
     expect(real.hosts).toEqual([]);
@@ -63,7 +63,12 @@ describe('reduceFleet', () => {
 
   it('builds history only from new polls', () => {
     const fleet = apply([
-      { type: 'snapshot', hosts: [host('a')], states: [createUnknownHostState('a')] },
+      {
+        type: 'snapshot',
+        layoutSlots: {},
+        hosts: [host('a')],
+        states: [createUnknownHostState('a')],
+      },
       { type: 'hostStates', states: [polled('a', 1000)] },
       { type: 'hostStates', states: [polled('a', 1000)] }, // re-sent, e.g. stale
       { type: 'hostStates', states: [polled('a', 3000)] },
@@ -86,7 +91,12 @@ describe('reduceFleet', () => {
 
   it('removes a host with all its data', () => {
     const fleet = apply([
-      { type: 'snapshot', hosts: [host('a'), host('b')], states: [polled('a', 1), polled('b', 1)] },
+      {
+        type: 'snapshot',
+        layoutSlots: {},
+        hosts: [host('a'), host('b')],
+        states: [polled('a', 1), polled('b', 1)],
+      },
       { type: 'hostKeyRefused', hostId: 'a', reason: 'changed', fingerprint: 'SHA256:x' },
       { type: 'hostRemoved', hostId: 'a' },
     ]);

@@ -36,6 +36,8 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     type: z.literal('snapshot'),
     hosts: z.array(HostSchema),
     states: z.array(HostStateSchema),
+    /** Sticky layout slot per host id (persisted by the server). */
+    layoutSlots: z.record(z.string(), z.number().int().nonnegative()),
   }),
   /** Diff at host granularity: only hosts whose state changed. */
   z.object({

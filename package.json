@@ -23,7 +23,9 @@
     "docker:dev": "docker compose -f compose.dev.yaml up --build dev",
     "docker:test": "docker compose -f compose.dev.yaml run --rm --build test",
     "test:e2e": "playwright test",
-    "docker:e2e": "docker compose -f compose.dev.yaml run --rm --build e2e"
+    "docker:e2e": "docker compose -f compose.dev.yaml run --rm --build e2e",
+    "import-ssh-config": "npm run import-ssh-config -w @app/server",
+    "smoke": "npm run build && node scripts/smoke-server.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -40,6 +42,9 @@
     "vitest": "^5.1.0"
   },
   "allowScripts": {
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "better-sqlite3": false,
+    "ssh2": false,
+    "cpu-features": false
   }
 }

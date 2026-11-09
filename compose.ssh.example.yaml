@@ -1,0 +1,28 @@
+# Give the container access to your SSH setup. Copy to compose.ssh.yaml, keep the
+# block for your platform, then run:
+#
+#   docker compose -f compose.yaml -f compose.ssh.yaml up --build
+#
+# What this grants: anything running in the container can use your ssh-agent
+# (or the mounted key) while it runs. known_hosts is mounted read-only; the app
+# never writes to it and never accepts unknown or changed host keys.
+
+services:
+  app:
+    environment:
+      KNOWN_HOSTS_FILE: /ssh/known_hosts
+      SSH_AUTH_SOCK: /ssh/agent.sock
+    volumes:
+      - ~/.ssh/known_hosts:/ssh/known_hosts:ro
+
+      # Linux: forward your running ssh-agent (make sure SSH_AUTH_SOCK is set).
+      - ${SSH_AUTH_SOCK:-/dev/null}:/ssh/agent.sock
+
+      # macOS with Docker Desktop: use the forwarded agent instead of the line above.
+      # - /run/host-services/ssh-auth.sock:/ssh/agent.sock
+
+      # Windows with Docker Desktop: the Windows OpenSSH agent cannot be forwarded.
+      # Use keyFile auth instead: mount an UNENCRYPTED key (keys with a passphrase
+      # need an agent) and set `auth: { method: keyFile, path: /ssh/id_ed25519 }`
+      # for those hosts in hosts.yaml.
+      # - ~/.ssh/id_ed25519:/ssh/id_ed25519:ro

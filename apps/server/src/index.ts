@@ -1,10 +1,8 @@
-import { fileURLToPath } from 'node:url';
-import packageJson from '../package.json' with { type: 'json' };
 import { parseServerEnv } from './config/env';
 import { loadEnvFiles } from './config/env-files';
-import { createApp } from './http/create-app';
 import { decideBind } from './security/bind-guard';
 import { createSessionToken, TOKEN_QUERY_PARAM } from './security/session-token';
+import { startServer } from './server';
 
 /** `--dev` is passed by `npm run dev`: pretty logs, and print the Vite URL. */
 const isDevMode = process.argv.includes('--dev');
@@ -15,38 +13,30 @@ async function main(): Promise<void> {
 
   const bind = decideBind(env.HOST, env.BIND_INSIDE_CONTAINER);
   if (!bind.allowed) throw new Error(bind.reason);
+  if (bind.warning) process.stderr.write(`${bind.warning}\n`);
 
   const sessionToken = createSessionToken();
-  const app = await createApp({
-    projectName: env.PROJECT_NAME,
-    version: packageJson.version,
-    sessionToken,
-    port: env.SERVER_PORT,
-    // In the bundled build this file lives in apps/server/dist/.
-    webDistDir: isDevMode ? undefined : fileURLToPath(new URL('../../web/dist', import.meta.url)),
-    logger: {
-      level: env.LOG_LEVEL,
-      transport: isDevMode ? { target: 'pino-pretty' } : undefined,
-    },
-  });
-
-  if (bind.warning) app.log.warn(bind.warning);
-
-  await app.listen({ host: env.HOST, port: env.SERVER_PORT });
+  const server = await startServer({ env, sessionToken, devMode: isDevMode });
 
   // Printed straight to stdout, never through the logger, so the token does
   // not end up in log files or log shippers.
   const publicPort = isDevMode ? env.WEB_PORT : env.SERVER_PORT;
   const url = `http://127.0.0.1:${publicPort}/?${TOKEN_QUERY_PARAM}=${sessionToken}`;
-  process.stdout.write(`\n  ${env.PROJECT_NAME} is running. Open:\n\n    ${url}\n\n`);
+  const fleet =
+    env.DATA_MODE === 'demo'
+      ? 'DEMO DATA (simulated fleet)'
+      : `${server.hostCount} host(s) from ${server.paths.hostsFile}`;
+  process.stdout.write(`\n  ${env.PROJECT_NAME} is running · ${fleet}\n\n    ${url}\n\n`);
+  if (server.configErrors.length > 0) {
+    process.stdout.write(`  hosts.yaml has errors:\n    ${server.configErrors.join('\n    ')}\n\n`);
+  }
 
-  const shutdown = async (signal: string) => {
-    app.log.info({ signal }, 'shutting down');
-    await app.close();
+  const shutdown = async () => {
+    await server.stop();
     process.exit(0);
   };
-  process.once('SIGINT', () => void shutdown('SIGINT'));
-  process.once('SIGTERM', () => void shutdown('SIGTERM'));
+  process.once('SIGINT', () => void shutdown());
+  process.once('SIGTERM', () => void shutdown());
 }
 
 main().catch((error: unknown) => {

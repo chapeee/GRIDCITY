@@ -56,6 +56,9 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY --from=build /repo/apps/server/dist apps/server/dist
 COPY --from=build /repo/apps/web/dist apps/web/dist
 
+# Config and data directories owned by the unprivileged user, so named volumes
+# mounted there inherit that ownership and SQLite can write.
+RUN mkdir -p /config /data && chown node:node /config /data
 USER node
 EXPOSE 4600
 CMD ["node", "--enable-source-maps", "apps/server/dist/index.js"]

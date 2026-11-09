@@ -1,0 +1,84 @@
+@@section stat
+cpu  2127804 11663 929727 336563819 35975 0 528052 0 0 0
+@@section meminfo
+MemTotal:       16347948 kB
+MemFree:         3842904 kB
+MemAvailable:   14311120 kB
+Buffers:          852440 kB
+Cached:          9288076 kB
+SwapCached:            0 kB
+Active:          2107332 kB
+Inactive:        9038240 kB
+Active(anon):       4144 kB
+Inactive(anon):  1031684 kB
+Active(file):    2103188 kB
+Inactive(file):  8006556 kB
+Unevictable:           0 kB
+Mlocked:               0 kB
+SwapTotal:       4194304 kB
+SwapFree:        4194304 kB
+Dirty:               152 kB
+Writeback:             0 kB
+AnonPages:       1005372 kB
+Mapped:           505476 kB
+Shmem:             30800 kB
+KReclaimable:     607476 kB
+Slab:             749464 kB
+SReclaimable:     607476 kB
+SUnreclaim:       141988 kB
+KernelStack:        9688 kB
+PageTables:        15948 kB
+SecPageTables:         0 kB
+NFS_Unstable:          0 kB
+Bounce:                0 kB
+WritebackTmp:          0 kB
+CommitLimit:    12368276 kB
+Committed_AS:    4905688 kB
+VmallocTotal:   34359738367 kB
+VmallocUsed:       40500 kB
+VmallocChunk:          0 kB
+Percpu:             7744 kB
+HardwareCorrupted:     0 kB
+AnonHugePages:         0 kB
+ShmemHugePages:        0 kB
+ShmemPmdMapped:        0 kB
+FileHugePages:     26624 kB
+FilePmdMapped:         0 kB
+Balloon:               0 kB
+HugePages_Total:       0
+HugePages_Free:        0
+HugePages_Rsvd:        0
+HugePages_Surp:        0
+Hugepagesize:       2048 kB
+Hugetlb:               0 kB
+DirectMap4k:       56320 kB
+DirectMap2M:    10397696 kB
+DirectMap1G:    15728640 kB
+@@section loadavg
+0.22 0.17 0.42 6/591 9
+@@section netdev
+Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+    lo:       0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0
+  eth0:     302       3    0    0    0     0          0         0       42       1    0    0    0     0       0          0
+@@section uptime
+283729.11 3365638.22
+@@section df
+Filesystem           1024-blocks    Used Available Capacity Mounted on
+overlay              1055762868  48138224 953921172   5% /
+tmpfs                    65536         0     65536   0% /dev
+shm                      65536         0     65536   0% /dev/shm
+/dev/sde             1055762868  48138224 953921172   5% /etc/hostname
+/dev/sde             1055762868  48138224 953921172   5% /etc/hosts
+/dev/sde             1055762868  48138224 953921172   5% /etc/resolv.conf
+tmpfs                        4         0         4   0% /proc/acpi
+tmpfs                    65536         0     65536   0% /proc/interrupts
+tmpfs                    65536         0     65536   0% /proc/kcore
+tmpfs                    65536         0     65536   0% /proc/keys
+tmpfs                        4         0         4   0% /proc/scsi
+tmpfs                    65536         0     65536   0% /proc/timer_list
+tmpfs                        4         0         4   0% /sys/firmware
+@@section os
+Alpine Linux v3.20
+6.18.54.1-microsoft-standard-WSL2
+@@end

@@ -10,13 +10,9 @@
  * the server's SQLite database.
  */
 
-export interface LayoutHost {
-  id: string;
-  district: string;
-}
+import type { LayoutHost, SlotAssignments } from '@app/shared';
 
-/** Host id -> slot number within its district. */
-export type SlotAssignments = Record<string, number>;
+export { assignSlots, type LayoutHost, type SlotAssignments } from '@app/shared';
 
 export interface LayoutDimensions {
   slotSpacing: number;
@@ -47,42 +43,6 @@ export interface CityLayout {
   districts: DistrictPlacement[];
   /** Overall extent, for framing the overview camera. */
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
-}
-
-/** Keeps existing slots and gives new hosts the lowest free slot in their district. */
-export function assignSlots(
-  hosts: readonly LayoutHost[],
-  previous: SlotAssignments,
-): SlotAssignments {
-  const assignments: SlotAssignments = {};
-  const takenByDistrict = new Map<string, Set<number>>();
-  const taken = (district: string) => {
-    let set = takenByDistrict.get(district);
-    if (!set) takenByDistrict.set(district, (set = new Set()));
-    return set;
-  };
-
-  const sorted = [...hosts].sort((a, b) => a.id.localeCompare(b.id));
-
-  // First pass: honor previous slots (first host by id wins a conflict).
-  for (const host of sorted) {
-    const slot = previous[host.id];
-    if (slot === undefined || taken(host.district).has(slot)) continue;
-    assignments[host.id] = slot;
-    taken(host.district).add(slot);
-  }
-
-  // Second pass: new hosts fill the lowest free slots, in id order.
-  for (const host of sorted) {
-    if (assignments[host.id] !== undefined) continue;
-    const used = taken(host.district);
-    let slot = 0;
-    while (used.has(slot)) slot++;
-    assignments[host.id] = slot;
-    used.add(slot);
-  }
-
-  return assignments;
 }
 
 export function computeCityLayout(
