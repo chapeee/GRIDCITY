@@ -11,6 +11,7 @@ import {
   TopBar,
 } from './ui/ScreenOverlays';
 import { EmptyFleet, StatusBanners } from './ui/StatusBanners';
+import { DiveOverlay, TerminalView } from './ui/TerminalView';
 import { useGlobalShortcuts } from './ui/use-global-shortcuts';
 import { useUiStore } from './ui/ui-store';
 import { useCityModel } from './world/use-city-model';
@@ -26,13 +27,12 @@ export function App() {
 
   const jackIn = useCallback((hostId: string) => {
     const status = useFleetStore.getState().states[hostId]?.status ?? 'unknown';
-    useUiStore
-      .getState()
-      .showNotice(
-        canOpenTerminal(status)
-          ? `Terminal for ${hostId} arrives in Phase 4.`
-          : `${hostId} is ${status}: no SSH connection to open a terminal on.`,
-      );
+    const ui = useUiStore.getState();
+    if (!canOpenTerminal(status)) {
+      ui.showNotice(`${hostId} is ${status}: no SSH connection to open a terminal on.`);
+      return;
+    }
+    ui.startJackIn(hostId);
   }, []);
 
   useGlobalShortcuts({ navigationOrder: model.navigationOrder, onJackIn: jackIn });
@@ -49,6 +49,8 @@ export function App() {
       <LiteModeSuggestion />
       <NoticeToast />
       <CommandPalette onJackIn={jackIn} />
+      <DiveOverlay />
+      <TerminalView />
       {DevTuningPanel && (
         <Suspense fallback={null}>
           <DevTuningPanel hidden={!tuningPanelVisible} />

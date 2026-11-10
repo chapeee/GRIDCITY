@@ -3,9 +3,9 @@
 A local-first infrastructure tool where your servers appear as a living **city of light** in 3D,
 and you can dive into any server to get a real SSH terminal.
 
-> **Status: Phase 3.** Your SSH hosts appear live in the 3D city: real metrics, honest offline
-> and stale states, host key refusals. The terminal arrives in Phase 4. See the
-> [brief](docs/BRIEF.md) for the roadmap.
+> **Status: Phase 4.** Your SSH hosts appear live in the 3D city, and you can dive into any of
+> them for a real terminal. Phase 5 (intro, ambient mode, audit viewer) is next. See the
+> [brief](docs/BRIEF.md).
 
 - **Truth first.** Every light maps to one documented metric. Offline never looks healthy; stale
   data looks frozen. See [docs/VISUAL_LANGUAGE.md](docs/VISUAL_LANGUAGE.md).
@@ -95,7 +95,8 @@ WebGL, so for real frame times run natively on your GPU: `WORLD_GPU=1 npm run te
 Demo URL parameters: `?hosts=50` (1–200), `?seed=3`, `?poll=500` (ms).
 
 In the world: **Ctrl/Cmd+K** command palette · **Tab / Shift+Tab** jump between hosts ·
-**Esc** overview · **Enter** jack in (Phase 4) · **`** (backtick) performance overlay.
+**Esc** overview · **Enter** jack in (real terminal) · **Ctrl+Shift+X** back to the city ·
+**`** (backtick) performance overlay. Inside the terminal every other key goes to the shell.
 
 Other scripts: `npm run lint`, `npm run format`, `npm run typecheck`, `npm test`,
 `npm run test:watch`.

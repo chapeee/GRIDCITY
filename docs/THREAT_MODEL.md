@@ -1,6 +1,6 @@
 # Threat model
 
-Status: **Phase 2**. This document is honest about limits; please open an issue if you
+Status: **Phase 4**. This document is honest about limits; please open an issue if you
 find a gap.
 
 ## What this tool does with your SSH access
@@ -11,7 +11,8 @@ find a gap.
 - On each host it runs **one read-only command** per poll that reads `/proc` files and `df`.
   It installs nothing on the remote host.
 - When you open a terminal, it opens an interactive shell (PTY) on the existing connection.
-  Anything you type runs with that user's permissions, exactly like `ssh`.
+  Anything you type runs with that user's permissions, exactly like `ssh`. The audit log records
+  that a session was opened and closed (host, size, duration), never what was typed.
 
 ## Assets
 
@@ -46,6 +47,8 @@ find a gap.
 | A website makes the browser change state (import hosts) | Every non-GET request also needs our `Origin`, on top of the token and `SameSite=Strict` cookie.                                                                                                                             | Phase 2 ✅              |
 | Audit trail tampering through the app                   | The audit table is append-only at the database level (triggers abort UPDATE and DELETE). It does not protect against someone with direct file access.                                                                        | Phase 2 ✅              |
 | Commands beyond metrics run on hosts                    | The poller runs one fixed, read-only script (`/proc`, `df`, `os-release`); it is not built from user or remote input. Interactive shells arrive only with the terminal in Phase 4.                                           | Phase 2 ✅              |
+| A website opens a shell on your servers                 | The terminal socket needs the session token and our `Origin`, like the state socket; a host must be connected with a verified key first.                                                                                     | Phase 4 ✅              |
+| Oversized PTY requests or floods                        | Terminal sizes are bounded (10–1000 cols, 4–500 rows); frames are capped at 1 MiB; output is paused while the browser is behind.                                                                                             | Phase 4 ✅              |
 | Supply-chain compromise of a dependency                 | Lockfile + `npm ci`; install scripts must be explicitly approved (`allowScripts`); small dependency surface.                                                                                                                 | Ongoing                 |
 | Agent socket mounted into Docker                        | Opt-in via `compose.ssh.example.yaml`, with the risk stated there: anything controlling the container can use your agent while it runs. `known_hosts` is mounted read-only.                                                  | Phase 2 ✅ (documented) |
 

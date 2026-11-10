@@ -1,6 +1,6 @@
 # Architecture
 
-Status: **Phase 3** (server and live 3D client wired together). Sections marked _(Phase N)_ describe planned work.
+Status: **Phase 4** (live city plus real terminals). Sections marked _(Phase N)_ describe planned work.
 
 ## Overview
 
@@ -135,7 +135,22 @@ Defined in [`packages/shared/src/protocol.ts`](../packages/shared/src/protocol.t
 - Client → server: `ping`, `resync`.
 - `dataMode` is fixed per server run (`DATA_MODE=real|demo`). Demo and real data never mix.
 
-Terminal streaming will use a separate WebSocket per session _(Phase 4)_.
+### Terminal (`/ws/terminal/:hostId`)
+
+Defined in [`packages/shared/src/terminal-protocol.ts`](../packages/shared/src/terminal-protocol.ts).
+The browser sends `{ type: 'open', cols, rows }` (sizes are bounded), then keystrokes as
+**binary** frames; `{ type: 'resize' }` on window changes. The server opens a PTY shell
+(`xterm-256color`) **on the host's existing SSH connection** (no new handshake), streams output
+back as binary frames with simple backpressure, and ends with `exit` (code/signal) or `error`.
+If the SSH connection drops, the shell closes and the browser is told. Sessions are audited as
+opened/closed with host, size and duration; keystrokes are never recorded.
+
+In the browser, xterm.js (WebGL renderer with DOM fallback, fit add-on) fills the screen once the
+dive finishes; the 3D render loop is paused (`frameloop="never"`) while it is open. Every key
+goes to the shell, including Esc and Ctrl+K; **Ctrl+Shift+X** (or the header button) returns to
+the city, and a clean `exit` returns automatically. A dropped connection or error stays on screen
+with "Enter to reconnect". Offline/unknown hosts cannot be entered; demo data says there is no
+shell instead of faking one.
 
 ## HTTP API
 
@@ -143,6 +158,7 @@ Terminal streaming will use a separate WebSocket per session _(Phase 4)_.
 | ----------------------------------- | ------------------------------------------- |
 | `GET /api/meta`                     | Project name, version, protocol version     |
 | `GET /ws/state`                     | Live fleet stream (WebSocket)               |
+| `GET /ws/terminal/:hostId`          | Interactive shell (WebSocket)               |
 | `POST /api/hosts/import-ssh-config` | Import from `~/.ssh/config` into hosts.yaml |
 | `GET /api/audit?limit=200`          | Audit log, newest first                     |
 

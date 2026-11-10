@@ -33,6 +33,8 @@ export interface FakeSshServer {
   execCount: number;
   /** Last PTY size requested (open or window change), or null. */
   lastWindow: { cols: number; rows: number } | null;
+  /** Lines received by the fake shell, in order. */
+  shellLines: string[];
   /** Drops every client connection (simulates a network cut / server restart). */
   dropAllClients(): void;
   close(): Promise<void>;
@@ -60,6 +62,7 @@ export async function startFakeSshServer(options: {
     execBehavior: 'fixtures',
     execCount: 0,
     lastWindow: null,
+    shellLines: [],
     dropAllClients: () => {
       for (const client of clients) client.end();
     },
@@ -112,6 +115,7 @@ export async function startFakeSshServer(options: {
                 continue;
               }
               stream.write('\r\n');
+              fake.shellLines.push(line);
               if (line.trim() === 'exit') {
                 stream.exit(0);
                 stream.end();

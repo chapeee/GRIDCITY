@@ -595,3 +595,111 @@ button:disabled {
   margin: 6px 0 0;
   font-size: 12px;
 }
+
+/* ---------- Jack in: dive overlay + terminal ---------- */
+
+/* Grid lines rush outward and the city dissolves into them. Timed by --duration-jack-in. */
+.dive-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--color-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-line) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-position: center;
+  background-color: transparent;
+  animation: dive-in var(--duration-jack-in) cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+
+.dive-overlay.is-surfacing {
+  animation: dive-out var(--duration-jack-out) cubic-bezier(0, 0.55, 0.45, 1) forwards;
+}
+
+@keyframes dive-in {
+  from {
+    opacity: 0;
+    transform: scale(1);
+    background-color: transparent;
+  }
+  to {
+    opacity: 1;
+    transform: scale(3);
+    background-color: var(--color-base);
+  }
+}
+
+@keyframes dive-out {
+  from {
+    opacity: 1;
+    transform: scale(3);
+    background-color: var(--color-base);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1);
+    background-color: transparent;
+  }
+}
+
+.terminal-view {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  /* minmax(0, …): let the terminal shrink below xterm's current width so it can re-fit. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--color-base);
+  z-index: 10;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 16px;
+  border-bottom: var(--panel-border);
+}
+
+.terminal-title {
+  color: var(--color-text-bright);
+}
+
+.terminal-address {
+  color: var(--color-muted);
+}
+
+.terminal-header button {
+  margin-left: auto;
+}
+
+.terminal-status {
+  padding: 2px 8px;
+  border: var(--panel-border);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.terminal-status.is-connected {
+  color: var(--color-online);
+  border-color: var(--color-online);
+}
+
+.terminal-status.is-failed,
+.terminal-status.is-disconnected {
+  color: var(--color-alert);
+  border-color: var(--color-alert);
+}
+
+.terminal-body {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 8px 4px 8px 12px;
+}
+
+.terminal-body .xterm {
+  height: 100%;
+}

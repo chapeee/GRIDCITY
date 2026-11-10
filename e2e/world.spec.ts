@@ -82,6 +82,27 @@ test('keyboard: Tab jumps between hosts, Escape returns to overview', async ({ p
   await expect(page.locator('.focus-hud')).toHaveCount(0);
 });
 
+test('jacking in to demo data dives in and says there is no real shell', async ({ page }) => {
+  await openWorld(page);
+  await focusViaPalette(page, 'web-01');
+  await page.keyboard.press('Enter');
+  await expect(page.getByLabel('Terminal on web-01')).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('.terminal-status')).toHaveText('demo data');
+  await page.waitForTimeout(400);
+  await screenshot(page, 'terminal-demo');
+  await page.keyboard.press('Control+Shift+X');
+  await expect(page.getByLabel('Terminal on web-01')).toHaveCount(0, { timeout: 5000 });
+  await expect(page.locator('.focus-hud')).toBeVisible();
+});
+
+test('offline hosts cannot be entered', async ({ page }) => {
+  await openWorld(page);
+  await focusViaPalette(page, 'legacy-vps');
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('no SSH connection to open a terminal on')).toBeVisible();
+  await expect(page.locator('.terminal-view')).toHaveCount(0);
+});
+
 test('lite mode turns off post-processing and particles', async ({ page }) => {
   await openWorld(page);
   await page.keyboard.press('Control+k');

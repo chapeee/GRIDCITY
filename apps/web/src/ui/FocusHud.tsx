@@ -26,6 +26,8 @@ const PERCENT_RANGE: [number, number] = [0, 100];
 export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
   const focusedHostId = useUiStore((store) => store.focusedHostId);
   const focusHost = useUiStore((store) => store.focusHost);
+  // The HUD folds away while diving into (or working inside) the terminal.
+  const inTerminal = useUiStore((store) => store.terminal !== null);
   const host = useFleetStore((store) => store.hosts.find((h) => h.id === focusedHostId));
   const state = useFleetStore((store) => (focusedHostId ? store.states[focusedHostId] : undefined));
   const history = useFleetStore((store) =>
@@ -55,7 +57,7 @@ export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
     // "wait": the previous host's panel finishes leaving before the next one
     // unfolds, so two panels never overlap when jumping between hosts.
     <AnimatePresence mode="wait">
-      {host && (
+      {host && !inTerminal && (
         <motion.aside
           key={host.id}
           className={`focus-hud${stale ? ' is-stale' : ''} status-${status}`}

@@ -17,11 +17,15 @@ const isTypingTarget = (target: EventTarget | null) =>
  *
  * Ctrl/Cmd+K  palette · Tab/Shift+Tab  next/previous host · Esc  overview
  * Enter       jack in to the focused host · `  performance overlay
+ * (all of these are off while the terminal is open)
  */
 export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOptions): void {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const ui = useUiStore.getState();
+
+      // Inside the terminal every key belongs to the shell (it handles its own exit chord).
+      if (ui.terminal) return;
 
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();

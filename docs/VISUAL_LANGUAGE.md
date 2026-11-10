@@ -5,7 +5,7 @@
 > [`apps/web/src/design/tokens.ts`](../apps/web/src/design/tokens.ts); the mapping code is
 > [`apps/web/src/world/host-visuals.ts`](../apps/web/src/world/host-visuals.ts) (unit tested).
 
-Status: **Phase 3**. Driven by live server data (or the demo fleet, always badged).
+Status: **Phase 4**. Driven by live server data (or the demo fleet, always badged).
 
 ## Palette
 
@@ -85,14 +85,17 @@ second from `lastSeenAt`, so towers freeze even if the server itself stops sendi
 
 These show _what the user is doing_, never host health.
 
-| Effect                  | Trigger                            | Notes                                                                                                                            |
-| ----------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Camera fly-to (900 ms)  | Focus a host (click, Tab, palette) | `expo.inOut`; instant with `prefers-reduced-motion`. Tower is framed left of center to make room for the HUD.                    |
-| Return flight (700 ms)  | Escape                             |                                                                                                                                  |
-| HUD unfold (220 ms)     | Focus a host                       |                                                                                                                                  |
-| Focus ring              | A host is focused                  | Thin neutral (text-bright) ring on the floor just outside the disk ring. Host labels hide while focused; the HUD names the host. |
-| Jack-in dive (< 500 ms) | Enter on a focused host            | Phase 4. Skippable. Chromatic aberration only here.                                                                              |
-| "DEMO DATA" badge       | `hello.dataMode === 'demo'`        | Permanent while in demo mode.                                                                                                    |
+| Effect                 | Trigger                                                | Notes                                                                                                                                                                                                                          |
+| ---------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Camera fly-to (900 ms) | Focus a host (click, Tab, palette)                     | `expo.inOut`; instant with `prefers-reduced-motion`. Tower is framed left of center to make room for the HUD.                                                                                                                  |
+| Return flight (700 ms) | Escape                                                 |                                                                                                                                                                                                                                |
+| HUD unfold (220 ms)    | Focus a host                                           |                                                                                                                                                                                                                                |
+| Focus ring             | A host is focused                                      | Thin neutral (text-bright) ring on the floor just outside the disk ring. Host labels hide while focused; the HUD names the host.                                                                                               |
+| Jack-in dive (450 ms)  | Enter / "Jack in" on a reachable host                  | Camera plunges through the tower (`power4.in`), grid lines rush outward and the city dissolves into them, chromatic aberration ramps up. Any key or click skips it. The HUD folds away. Instant with `prefers-reduced-motion`. |
+| Surfacing (450 ms)     | Ctrl+Shift+X, "Back to the city", or the shell exiting | The reverse: aberration fades, grid recedes, camera returns to the focus view.                                                                                                                                                 |
+| Chromatic aberration   | jack-in transition only                                | Zero at all other times.                                                                                                                                                                                                       |
+| Terminal status badge  | terminal connection                                    | connecting · connected (online accent) · session ended · disconnected / failed (alert accent) · demo data (neutral).                                                                                                           |
+| "DEMO DATA" badge      | `hello.dataMode === 'demo'`                            | Permanent while in demo mode.                                                                                                                                                                                                  |
 
 ## Decided (Phase 1 defaults, open to change)
 
