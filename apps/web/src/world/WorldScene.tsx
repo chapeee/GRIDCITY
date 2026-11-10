@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { atmosphere, camera as cameraTokens, neutrals } from '../design/tokens';
 import { useUiStore } from '../ui/ui-store';
 import { CameraRig } from './CameraRig';
@@ -14,6 +14,7 @@ import { TowerField } from './TowerField';
 import type { CityModel } from './use-city-model';
 import { useWorldTuning } from './use-world-tuning';
 import { WorldLabels } from './WorldLabels';
+import { useAgentStore } from '../data/agent-store';
 
 interface WorldSceneProps {
   model: CityModel;
@@ -33,6 +34,11 @@ export function WorldScene({ model }: WorldSceneProps) {
   const tuning = useWorldTuning();
   const [freezeTracker] = useState(() => new FreezeTracker());
   const { layout, visuals } = model;
+  const activity = useAgentStore((store) => store.state?.activity);
+  const agentBusy = useMemo(
+    () => new Map((activity ?? []).map((run) => [run.hostId, run.command] as const)),
+    [activity],
+  );
 
   return (
     <Canvas
@@ -66,6 +72,7 @@ export function WorldScene({ model }: WorldSceneProps) {
         />
       )}
       <WorldLabels
+        agentBusy={agentBusy}
         towers={layout.towers}
         districts={layout.districts}
         visuals={visuals}

@@ -10,6 +10,9 @@
 #   are kept in the same volume (/data/ssh), so restarts and rebuilds never lose them.
 #   `docker compose down -v` deletes the volume, and with it those keys.
 # - To use your own ~/.ssh and ssh-agent instead, see compose.ssh.example.yaml.
+# - AI: Claude Code (and other MCP apps) connect from your machine; the agent panel
+#   shows the command. Agents started inside the container (Codex, Gemini CLI) can't
+#   open a browser to sign in, so give them an API key in .env (see .env.example).
 
 services:
   app:
@@ -26,6 +29,9 @@ services:
       DATA_DIR: /data
       # Keys and known_hosts managed by the app live on the persistent volume.
       SSH_DIR: /data/ssh
+      # Agents started from the panel: downloads and Codex sign-in survive rebuilds.
+      npm_config_cache: /data/agents/npm-cache
+      CODEX_HOME: /data/agents/codex
       # What the app shows users as the location of hosts.yaml (the path on your machine).
       HOSTS_FILE_HINT: ./config/hosts.yaml (in the project folder)
     volumes:

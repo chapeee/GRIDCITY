@@ -38,6 +38,8 @@ interface UiStore {
   introPlaying: boolean;
   auditLogOpen: boolean;
   addHostOpen: boolean;
+  /** The AI agent panel (approvals still pop up when it is closed). */
+  agentPanelOpen: boolean;
 
   focusHost(hostId: string | null): void;
   setPaletteOpen(open: boolean): void;
@@ -62,6 +64,7 @@ interface UiStore {
   endIntro(): void;
   setAuditLogOpen(open: boolean): void;
   setAddHostOpen(open: boolean): void;
+  setAgentPanelOpen(open: boolean): void;
 }
 
 /**
@@ -92,6 +95,7 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   introPlaying: !readStoredJson(INTRO_SEEN_KEY, false) && !prefersReducedMotion(),
   auditLogOpen: false,
   addHostOpen: false,
+  agentPanelOpen: false,
 
   // Any manual navigation takes the camera back from ambient mode.
   focusHost: (hostId) => set({ focusedHostId: hostId, ambientMode: false }),
@@ -126,4 +130,5 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   },
   setAuditLogOpen: (open) => set({ auditLogOpen: open }),
   setAddHostOpen: (open) => set({ addHostOpen: open, paletteOpen: false }),
+  setAgentPanelOpen: (open) => set({ agentPanelOpen: open, paletteOpen: false }),
 }));

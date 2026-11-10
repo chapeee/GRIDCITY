@@ -7,3 +7,4 @@ export * from './host-status';
 export * from './demo/demo-fleet';
 export * from './layout-slots';
 export * from './terminal-protocol';
+export * from './agent-protocol';

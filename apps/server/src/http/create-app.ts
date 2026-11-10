@@ -36,6 +36,12 @@ export interface CreateAppOptions {
   logger?: LoggerOptions;
   /** Extra fields for /api/meta (e.g. data mode, hosts.yaml location). */
   describe?: () => Record<string, unknown>;
+  /**
+   * Paths local programs call with the token as a Bearer header and no
+   * Origin (the MCP endpoint, for Claude Code and other AI apps). Every
+   * other path keeps requiring our Origin on writes.
+   */
+  programPaths?: readonly string[];
   /** Registers feature routes (WebSocket, API) after the security hooks. */
   registerRoutes?: (app: FastifyInstance) => Promise<void>;
 }
@@ -53,7 +59,13 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     forceCloseConnections: true,
   });
 
-  registerSecurityGuard(app, options.sessionToken, options.port, options.allowedOrigins);
+  registerSecurityGuard(
+    app,
+    options.sessionToken,
+    options.port,
+    options.allowedOrigins,
+    new Set(options.programPaths ?? []),
+  );
 
   app.get('/api/meta', async () => ({
     projectName: options.projectName,
@@ -112,6 +124,7 @@ function registerSecurityGuard(
   sessionToken: string,
   port: number,
   allowedOrigins: ReadonlySet<string>,
+  programPaths: ReadonlySet<string>,
 ): void {
   const cookieName = sessionCookieName(port);
   const isUpgrade = (request: FastifyRequest) =>
@@ -125,17 +138,25 @@ function registerSecurityGuard(
     const query = request.query as Record<string, unknown> | undefined;
     const queryToken = query?.[TOKEN_QUERY_PARAM];
     const hasQueryToken = typeof queryToken === 'string' && tokensMatch(sessionToken, queryToken);
-    const presented =
-      readBearerToken(request.headers.authorization) ??
-      readCookie(request.headers.cookie, cookieName);
+    const bearer = readBearerToken(request.headers.authorization);
+    const presented = bearer ?? readCookie(request.headers.cookie, cookieName);
     if (!hasQueryToken && !tokensMatch(sessionToken, presented)) {
       return reply.code(401).send({
         error: 'Missing or invalid session token. Open the URL printed in the server console.',
       });
     }
 
+    // Programs (AI apps calling /mcp) send the token as a Bearer header and no
+    // Origin. A web page cannot do that: browsers always send Origin on writes,
+    // and a cross-site page cannot set Authorization without CORS, which this
+    // server never allows. Accepted on the program paths only.
+    const localProgram =
+      bearer !== undefined &&
+      request.headers.origin === undefined &&
+      programPaths.has(request.url.split('?')[0] ?? '');
     if (
       requiresOriginCheck(request.method, request.headers.upgrade) &&
+      !localProgram &&
       !isAllowedOrigin(request.headers.origin, allowedOrigins)
     ) {
       return reply.code(403).send({ error: 'Origin not allowed.' });

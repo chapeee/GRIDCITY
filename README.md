@@ -107,6 +107,46 @@ instead, copy `compose.ssh.example.yaml` to `compose.ssh.yaml`, keep your platfo
 docker compose -f compose.yaml -f compose.ssh.yaml up --build
 ```
 
+## Let an AI work on your servers
+
+Use the AI you already have. Nothing is wired to one vendor's API, and **every command an AI
+wants to run pops up for you to approve first**, showing the exact command, the server and the
+AI's reason: **Allow**, **Allow all on this server** (until restart) or **Deny**. Every command
+that runs, and every one you deny, goes in the audit log.
+
+**Claude Code, with your Claude subscription (MCP).** Press Ctrl+K → **Ask an AI agent…** →
+_Use Claude Code with your Claude subscription_ → **Copy command**, and run it once. It looks
+like this (the copied one already contains your token):
+
+```bash
+claude mcp add --transport http gridcity http://127.0.0.1:4600/mcp --header "Authorization: Bearer <token>" --header "X-Agent-Client: Claude Code"
+```
+
+Then ask Claude Code things like "which of my servers is running out of disk?". It sees the
+city's servers (`list_servers`) and runs commands (`run_command`) that you approve in the city.
+Any other MCP app (Cursor, Codex CLI, Claude Desktop through a bridge) can use the same URL and
+header.
+
+**Codex or Gemini CLI, inside the app (ACP).** In the same panel, pick an agent and press
+**Start**. The app runs the vendor's open-source adapter through the
+[Agent Client Protocol](https://agentclientprotocol.com) (the standard the Zed editor uses), and
+you sign in with your own account:
+
+| Agent               | Signs in with                                                              |
+| ------------------- | -------------------------------------------------------------------------- |
+| Codex (OpenAI)      | your ChatGPT subscription (a browser window opens), or `OPENAI_API_KEY`    |
+| Gemini CLI (Google) | your Google account, or `GEMINI_API_KEY`                                   |
+| Claude (API)        | `ANTHROPIC_API_KEY` only; for a Claude subscription, use Claude Code above |
+
+Type, or press **Speak** and say it (the browser's speech recognition). The agent reaches your
+servers **only** through the app's two tools, so its commands get the same approval cards. It
+gets no files or shell on your computer, and any local action it asks for is refused. The first
+start downloads the adapter with `npx` (pinned versions). In Docker the agent can't open a
+browser to sign in: put an API key in `.env` (see `.env.example`).
+
+Why no Claude login in the panel? Anthropic doesn't allow third-party apps to use Claude
+subscription logins, so the app never asks for one. With MCP, Claude Code stays your own app.
+
 ## Reading the city
 
 | You see                                 | It means                                                |
@@ -160,6 +200,9 @@ frames are slow), the audit log, importing from `~/.ssh/config`, and replaying t
 - It keeps an **append-only audit log** of connections, host key refusals and terminal sessions
   (opened/closed, with duration). It does **not** record what you type: capturing commands from a
   terminal is not reliable, and we don't pretend otherwise.
+- An **AI agent** (Claude Code over MCP, or Codex/Gemini in the panel) runs a command only after
+  you approve that exact command (or chose "allow all on this server" for this run of the app).
+  Those commands are recorded in the audit log, with who asked and who allowed.
 - The browser UI is reachable only from this machine, only with the session token printed at
   startup, and only from its own page (Host and Origin checks block other websites).
 

@@ -1,7 +1,10 @@
-import { lazy, Suspense, useCallback } from 'react';
+import { lazy, Suspense, useCallback, useEffect } from 'react';
+import { connectAgentSocket } from './data/agent-store';
+import { useServerLink } from './data/server-link';
 import { useFleetDataSource } from './data/use-fleet-data-source';
 import { useFleetStore } from './data/fleet-store';
 import { AddHostDialog } from './ui/AddHostDialog';
+import { AgentPanel, ApprovalCards } from './ui/AgentPanel';
 import { AuditLogPanel } from './ui/AuditLogPanel';
 import { CommandPalette } from './ui/CommandPalette';
 import { canOpenTerminal, FocusHud } from './ui/FocusHud';
@@ -42,6 +45,10 @@ export function App() {
   useGlobalShortcuts({ navigationOrder: model.navigationOrder, onJackIn: jackIn });
   useAmbientDirector(model.navigationOrder);
 
+  // AI approvals must reach the user even with the agent panel closed.
+  const source = useServerLink((store) => store.source);
+  useEffect(() => (source === 'server' ? connectAgentSocket() : undefined), [source]);
+
   return (
     <div className="app">
       <WorldScene model={model} />
@@ -55,10 +62,12 @@ export function App() {
       <NoticeToast />
       <CommandPalette onJackIn={jackIn} />
       <AuditLogPanel />
+      <AgentPanel />
       <AddHostDialog />
       <DiveOverlay />
       <TerminalView />
       <IntroOverlay />
+      <ApprovalCards />
       {DevTuningPanel && (
         <Suspense fallback={null}>
           <DevTuningPanel hidden={!tuningPanelVisible} />

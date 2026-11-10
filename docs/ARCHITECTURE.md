@@ -152,6 +152,34 @@ the city, and a clean `exit` returns automatically. A dropped connection or erro
 with "Enter to reconnect". Offline/unknown hosts cannot be entered; demo data says there is no
 shell instead of faking one.
 
+### AI agents (`/ws/agent`, `/mcp`)
+
+`apps/server/src/agent/`. Two ways in, one set of rules:
+
+- **MCP** (`mcp-endpoint.ts`, official `@modelcontextprotocol/server` and `/node`): `/mcp` serves
+  the 2026 protocol and older stateless HTTP clients, one `McpServer` per request. Tools:
+  `list_servers` (read-only summary) and `run_command` (server, command, reason, timeout). Claude
+  Code and other MCP apps call it with the session token as a Bearer header; `X-Agent-Client`
+  names them on approval cards. `/mcp` is the only path where a Bearer request **without an
+  Origin** is accepted (`programPaths` in `create-app.ts`); a browser can't send one.
+- **ACP** (`acp-bridge.ts`, official `@agentclientprotocol/sdk`): starts one agent process
+  (`agent-catalog.ts`: Codex, Gemini CLI, Claude, as pinned `npx` adapters) over stdio. The
+  client offers **no file system and no terminal**, starts it in an empty
+  `DATA_DIR/agent-workspace`, and passes the app's `/mcp` endpoint as its only MCP server.
+  Permission requests for the fleet tools are allowed (the fleet tools ask the user anyway);
+  every other one is refused. Sign-in uses the agent's own methods (`authenticate`); error
+  `-32000` at session start (Gemini) or at the first prompt (Codex) shows the sign-in buttons.
+- Both call `FleetTools` (`fleet-tools.ts`), which waits on the `ApprovalGate` (`approvals.ts`:
+  allow, allow-host until restart, deny; unanswered requests are denied after 5 minutes), runs
+  the command with `exec` on the host's existing connection (default timeout 60 s, max 600 s;
+  the head and tail of the output are kept), and audits `agent_command_run` or
+  `agent_command_denied` (who asked, who allowed, command, exit code).
+- `/ws/agent` (`agent-hub.ts`, protocol in `packages/shared/src/agent-protocol.ts`) sends the
+  whole agent state (approvals, conversation, running commands, trusted hosts) on every change,
+  coalesced; it takes decisions, prompts, start/stop and sign-in. The page keeps it open for the
+  whole session so approval cards appear even with the panel closed, and tower labels show
+  "AI: <command>" while one runs.
+
 ## HTTP API
 
 | Route                               | Purpose                                                                             |
@@ -169,6 +197,9 @@ shell instead of faking one.
 | `POST /api/connect/probe`           | Read a server's host key fingerprint, no login                                      |
 | `POST /api/connect/trust`           | Append a confirmed host key to known_hosts (409 if changed)                         |
 | `POST /api/connect/install`         | Install a public key with the password once (422 if rejected)                       |
+| `GET/POST/DELETE /mcp`              | MCP endpoint for AI apps (Bearer token; no Origin needed)                           |
+| `GET /ws/agent`                     | Approvals and the agent panel (WebSocket)                                           |
+| `GET /api/agent/mcp-setup`          | Ready-to-paste Claude Code command and JSON config (contains the token)             |
 
 "Connect a server" (`apps/server/src/ssh/host-key-setup.ts`, `local-keys.ts`, `generate-key.ts`)
 chains these: probe → trust → pick or create a key → test → install if needed → add. Trust
@@ -191,6 +222,7 @@ sending the password. Audit kinds: `host_key_trusted`, `key_created`, `key_insta
 - Every request needs a localhost `Host` header (DNS rebinding) and the token.
 - WebSocket upgrades and every non-GET request also need an allowed `Origin` (this machine on the
   server or dev port). Upgrades are checked in `preValidation`, as @fastify/websocket requires.
+  The one exception is `/mcp` called with a Bearer token and no Origin (a local program).
 
 See [THREAT_MODEL.md](THREAT_MODEL.md).
 

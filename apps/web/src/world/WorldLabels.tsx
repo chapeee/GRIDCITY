@@ -10,6 +10,8 @@ interface WorldLabelsProps {
   visuals: ReadonlyMap<string, HostVisual>;
   /** While a host is focused, host labels are hidden: the HUD names it, and nearby labels would loom. */
   focusedHostId: string | null;
+  /** Hosts where an AI agent is running a command right now: "AI: <command>". */
+  agentBusy?: ReadonlyMap<string, string>;
 }
 
 /** Label colors per tone. Bundled font: no network request for text. */
@@ -30,13 +32,21 @@ const DISTRICT_LABEL_HEIGHT = 0.9;
 const DISTRICT_LABEL_FRONT_OFFSET = 5;
 
 /** Host names, status captions and floating district names (troika text). */
-export function WorldLabels({ towers, districts, visuals, focusedHostId }: WorldLabelsProps) {
+export function WorldLabels({
+  towers,
+  districts,
+  visuals,
+  focusedHostId,
+  agentBusy,
+}: WorldLabelsProps) {
   return (
     <group>
       {focusedHostId === null &&
         towers.map((tower) => {
           const visual = visuals.get(tower.hostId);
           const tone = visual?.labelTone ?? 'dim';
+          const busy = agentBusy?.get(tower.hostId);
+          const caption = busy ? `AI: ${busy}` : visual?.caption;
           return (
             <Billboard key={tower.hostId} position={[tower.x, NAME_HEIGHT, tower.z]}>
               <Text
@@ -49,11 +59,11 @@ export function WorldLabels({ towers, districts, visuals, focusedHostId }: World
               >
                 {tower.hostId}
               </Text>
-              {visual?.caption && (
+              {caption && (
                 <Text
                   font={labelFontUrl}
                   fontSize={0.4}
-                  color={CAPTION_COLOR[tone]}
+                  color={busy ? accents.online : CAPTION_COLOR[tone]}
                   anchorX="center"
                   anchorY="top"
                   position={[0, -0.12, 0]}
@@ -61,7 +71,7 @@ export function WorldLabels({ towers, districts, visuals, focusedHostId }: World
                   textAlign="center"
                   raycast={() => null}
                 >
-                  {visual.caption}
+                  {caption}
                 </Text>
               )}
             </Billboard>

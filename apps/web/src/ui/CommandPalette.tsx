@@ -109,6 +109,17 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
               <span className="palette-item-meta">adds to hosts.yaml</span>
             </Command.Item>
           )}
+          {dataMode === 'real' && (
+            <Command.Item
+              value="ask an ai agent codex gemini claude code chatgpt assistant voice"
+              onSelect={() => run(() => useUiStore.getState().setAgentPanelOpen(true))}
+            >
+              <span className="palette-item-title">Ask an AI agent…</span>
+              <span className="palette-item-meta">
+                Codex, Gemini, Claude Code: you approve every command
+              </span>
+            </Command.Item>
+          )}
           <Command.Item
             value="ambient mode tour unhealthy hosts second monitor"
             onSelect={() => run(() => setAmbientMode(!ambientMode))}

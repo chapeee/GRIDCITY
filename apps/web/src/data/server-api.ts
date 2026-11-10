@@ -146,6 +146,16 @@ export const trustHost = (target: string, fingerprint: string, jump?: JumpVia) =
 export const installKey = (target: string, keyId: string, password: string) =>
   postJson<{ installed: true }>('/api/connect/install', { target, keyId, password });
 
+/** Ready-to-paste MCP setup for Claude Code and other MCP apps (contains the session token). */
+export interface McpSetup {
+  name: string;
+  url: string;
+  claudeCode: string;
+  json: unknown;
+}
+
+export const fetchMcpSetup = () => request<McpSetup>('/api/agent/mcp-setup');
+
 export const importSshConfig = () =>
   request<ImportReport>('/api/hosts/import-ssh-config', { method: 'POST' });
 

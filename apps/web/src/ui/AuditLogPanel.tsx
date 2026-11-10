@@ -16,10 +16,23 @@ const KIND_LABEL: Record<string, string> = {
   host_added: 'host added',
   terminal_opened: 'terminal opened',
   terminal_closed: 'terminal closed',
+  key_created: 'key created',
+  key_imported: 'key imported',
+  host_key_trusted: 'host key trusted',
+  key_installed: 'key installed',
+  agent_command_run: 'AI ran command',
+  agent_command_denied: 'AI command denied',
+  agent_started: 'agent started',
+  agent_stopped: 'agent stopped',
 };
 
 /** Kinds that deserve the alert accent. */
-const ALERT_KINDS = new Set(['host_key_refused', 'connection_lost', 'connection_failed']);
+const ALERT_KINDS = new Set([
+  'host_key_refused',
+  'connection_lost',
+  'connection_failed',
+  'agent_command_denied',
+]);
 
 const formatTime = (at: number) =>
   new Date(at).toLocaleString(undefined, {
@@ -79,8 +92,9 @@ export function AuditLogPanel() {
             </div>
           </header>
           <p className="audit-note">
-            Append-only. Records connections, host key refusals and when terminal sessions open and
-            close. Never what is typed in a terminal.
+            Append-only. Records connections, host key refusals, when terminal sessions open and
+            close, and every command an AI agent ran or was denied. Never what you type in a
+            terminal.
           </p>
           {source !== 'server' && (
             <p className="audit-empty">

@@ -21,6 +21,11 @@ because the name lives only in `PROJECT_NAME`.
    `known_hosts` after the user confirms its fingerprint (never replacing a changed key), create
    a key file (never overwriting), and use an account password once, in memory only, to install
    a public key. This narrows principle 4 to: secrets are never stored, logged or echoed.
+9. **AI agents (decided 2026-11-10):** AI works on servers only through the app's MCP tools
+   (`list_servers`, `run_command`), behind a per-command approval. The user's own AI apps connect
+   over MCP (Claude Code with a Claude subscription); Codex and Gemini CLI run in the app over ACP
+   with their own sign-in. The app stores no vendor login, and does not offer a Claude
+   subscription login in the panel (Anthropic's terms).
 
 ---
 

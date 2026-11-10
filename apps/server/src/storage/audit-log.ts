@@ -19,7 +19,12 @@ export type AuditKind =
   | 'host_key_trusted'
   | 'key_installed'
   | 'terminal_opened'
-  | 'terminal_closed';
+  | 'terminal_closed'
+  // AI agents: every command they run on a server, with who allowed it.
+  | 'agent_command_run'
+  | 'agent_command_denied'
+  | 'agent_started'
+  | 'agent_stopped';
 
 export interface AuditEntry {
   id: number;

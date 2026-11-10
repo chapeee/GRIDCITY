@@ -40,8 +40,9 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
 
       switch (event.key) {
         case 'Escape':
-          // Innermost first: audit panel, then ambient mode, then focus.
+          // Innermost first: panels, then ambient mode, then focus.
           if (ui.auditLogOpen) ui.setAuditLogOpen(false);
+          else if (ui.agentPanelOpen) ui.setAgentPanelOpen(false);
           else if (ui.ambientMode) ui.setAmbientMode(false);
           else if (ui.focusedHostId) ui.focusHost(null);
           break;

@@ -1,3 +1,4 @@
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { expect, test, type Page } from '@playwright/test';
 import { FRESH_PASSWORD, startLiveStack, type LiveStack } from './support/live-stack';
 
@@ -241,6 +242,60 @@ test('connect a private server through a jump host (bastion)', async () => {
   await expect(page.getByRole('option', { name: /private-db/ })).toBeVisible({ timeout: 10_000 });
   await page.keyboard.press('Enter');
   await expect(hudStatus()).toHaveText('online', { timeout: 15_000 });
+});
+
+test('an AI app (MCP, like Claude Code) runs a command only after the user clicks Allow', async () => {
+  await page.keyboard.press('Escape');
+  const url = new URL(stack.url);
+  const token = url.searchParams.get('token') ?? '';
+  const client = new Client({ name: 'e2e-claude-code', version: '1.0.0' });
+  await client.connect(
+    new StreamableHTTPClientTransport(new URL('/mcp', url.origin), {
+      requestInit: {
+        headers: { Authorization: `Bearer ${token}`, 'X-Agent-Client': 'Claude Code' },
+      },
+    }),
+  );
+  const listed = await client.callTool({ name: 'list_servers', arguments: {} });
+  expect(JSON.stringify(listed.content)).toContain('lab-01');
+
+  const call = client.callTool({
+    name: 'run_command',
+    arguments: { server: 'lab-01', command: 'echo agent-was-here', reason: 'Say hello' },
+  });
+
+  // The approval card pops up over the city, with the exact command.
+  const card = page.getByRole('alertdialog', {
+    name: /Claude Code wants to run a command on lab-01/,
+  });
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  await expect(card.locator('.approval-command')).toHaveText('echo agent-was-here');
+  await expect(card).toContainText('Say hello');
+  await page.screenshot({ path: 'test-results/screenshots/live-agent-approval.png' });
+  await card.getByRole('button', { name: 'Allow', exact: true }).click();
+
+  const result = await call;
+  expect(JSON.stringify(result.content)).toContain('agent-was-here');
+  expect(result.isError).toBe(false);
+  await expect(card).toHaveCount(0);
+  await client.close();
+
+  // The agent panel explains how to connect Claude Code, with a ready command.
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type('ask an ai agent');
+  await page.keyboard.press('Enter');
+  const panel = page.getByRole('region', { name: 'AI agents' });
+  await expect(panel).toBeVisible();
+  await panel.getByText('Use Claude Code with your Claude subscription').click();
+  await expect(panel.locator('.agent-command')).toContainText('claude mcp add --transport http');
+  await page.screenshot({ path: 'test-results/screenshots/live-agent-panel.png' });
+  await page.keyboard.press('Escape');
+
+  const audit = await page.request.get(new URL('/api/audit', stack.url).toString());
+  const entries = (await audit.json()).entries as { kind: string; detail: string | null }[];
+  expect(entries.find((e) => e.kind === 'agent_command_run')?.detail).toContain(
+    'Claude Code, allowed by you: echo agent-was-here → exit 0',
+  );
 });
 
 test('the audit log shows connections, key refusals and terminal sessions', async () => {

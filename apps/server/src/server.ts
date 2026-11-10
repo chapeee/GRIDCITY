@@ -1,8 +1,15 @@
 import { DEFAULT_STATUS_THRESHOLDS, type Host } from '@app/shared';
 import { existsSync, statSync, unwatchFile, watchFile } from 'node:fs';
 import { homedir, hostname, userInfo } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import packageJson from '../package.json' with { type: 'json' };
+import { AcpBridge } from './agent/acp-bridge';
+import { AGENT_DEFINITIONS, agentChoices } from './agent/agent-catalog';
+import { AgentHub, registerAgentRoutes } from './agent/agent-hub';
+import { ApprovalGate } from './agent/approvals';
+import { FleetTools, type FleetAccess } from './agent/fleet-tools';
+import { MCP_PATH, registerMcpEndpoint } from './agent/mcp-endpoint';
 import { projectSlug, resolveAppPaths, type AppPaths } from './config/app-paths';
 import type { ServerEnv } from './config/env';
 import { loadHostsFile, type HostsConfig } from './config/hosts-file';
@@ -124,12 +131,48 @@ export async function startServer({
     });
   }
 
+  // AI agents: MCP clients (Claude Code...) and ACP agents (Codex, Gemini...)
+  // share these tools, so every command they run waits for the user's approval.
+  const realFleet = () => (hub.currentProvider instanceof RealFleet ? hub.currentProvider : null);
+  const fleetAccess: FleetAccess = {
+    hosts: () => hub.currentProvider.hosts,
+    states: () => hub.currentProvider.currentStates(Date.now()),
+    isConnected: (hostId) => realFleet()?.connectionFor(hostId)?.phase === 'connected',
+    exec: (hostId, command, timeoutMs) => {
+      const connection = realFleet()?.connectionFor(hostId);
+      if (!connection) return Promise.reject(new Error('not connected'));
+      return connection.exec(command, '', timeoutMs);
+    },
+    demoMode: () => realFleet() === null,
+  };
+  const gate = new ApprovalGate();
+  const fleetTools = new FleetTools({ fleet: fleetAccess, gate, audit });
+  const mcpName = projectSlug(env.PROJECT_NAME);
+  const agentHub = new AgentHub({
+    gate,
+    tools: fleetTools,
+    agents: agentChoices(AGENT_DEFINITIONS, process.env),
+    bridge: new AcpBridge({
+      definitions: AGENT_DEFINITIONS,
+      mcp: {
+        name: mcpName,
+        url: `http://127.0.0.1:${env.SERVER_PORT}${MCP_PATH}`,
+        token: sessionToken,
+      },
+      workspaceDir: join(paths.dataDir, 'agent-workspace'),
+      appName: env.PROJECT_NAME,
+      version: packageJson.version,
+      audit,
+    }),
+  });
+
   const app = await createApp({
     projectName: env.PROJECT_NAME,
     version: packageJson.version,
     sessionToken,
     port: env.SERVER_PORT,
     allowedOrigins: buildAllowedOrigins([env.SERVER_PORT, env.WEB_PORT]),
+    programPaths: [MCP_PATH],
     // In the bundled build this file lives in apps/server/dist/.
     webDistDir: devMode ? undefined : fileURLToPath(new URL('../../web/dist', import.meta.url)),
     logger: { level: env.LOG_LEVEL, transport: devMode ? { target: 'pino-pretty' } : undefined },
@@ -142,6 +185,15 @@ export async function startServer({
     }),
     registerRoutes: async (instance) => {
       await registerStateSocket(instance, hub);
+      registerMcpEndpoint(instance, {
+        tools: fleetTools,
+        serverName: mcpName,
+        version: packageJson.version,
+      });
+      await registerAgentRoutes(instance, {
+        hub: agentHub,
+        mcp: { name: mcpName, port: env.SERVER_PORT, token: sessionToken },
+      });
       await registerTerminalSocket(instance, {
         audit,
         resolve: (hostId) => {
@@ -207,6 +259,7 @@ export async function startServer({
     configErrors,
     async stop() {
       unwatchFile(paths.hostsFile);
+      agentHub.close();
       hub.stop();
       await app.close();
       audit.append('server_stopped');
