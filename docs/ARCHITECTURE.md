@@ -1,6 +1,6 @@
 # Architecture
 
-Status: **Phase 4** (live city plus real terminals). Sections marked _(Phase N)_ describe planned work.
+Status: **v0.1** (all phases of the brief delivered). Sections marked _(Phase N)_ describe planned work.
 
 ## Overview
 
@@ -241,6 +241,15 @@ apps/web/src/
 - **Layout slots** come from the server (`snapshot.layoutSlots`); the in-browser demo source
   assigns them deterministically.
 - **Demo URL parameters:** `?hosts=50` (1–200), `?seed=3`, `?poll=500` (ms).
+- **Intro** (`IntroOverlay` + `CameraRig`): played once per browser (remembered in local storage,
+  skipped with `prefers-reduced-motion`), skippable by any key or click, replayable from the
+  palette. It stages nothing: towers light up as real data arrives.
+- **Ambient mode** (`use-ambient-director` + pure `ambient-tour.ts`): every 12 s, focus the next
+  host that needs attention (offline, degraded, stale; computed from host state, never from
+  visuals), or orbit the overview when all is healthy. Manual navigation ends it.
+- **Audit log panel:** reads `GET /api/audit`.
+- **README media:** `npm run media` records `docs/media/demo.gif` with Playwright on the GPU
+  (gifenc, shared 256-color palette).
 - **Data source:** by default the browser opens `/ws/state` (through the Vite proxy in
   development). Messages are validated against the shared schema; malformed ones are dropped.
   It reconnects with backoff, and because browsers hide the HTTP status of a failed upgrade, a

@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { readStoredJson, writeStoredJson } from './browser-storage';
 
 const LITE_MODE_KEY = 'preferences:lite-mode';
+const INTRO_SEEN_KEY = 'preferences:intro-seen';
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 /** A short message shown at the bottom of the screen. */
 export interface Notice {
@@ -28,6 +32,11 @@ interface UiStore {
   renderingLost: boolean;
   /** The terminal ("jack in") and where its transition is. Null when in the city. */
   terminal: TerminalSession | null;
+  /** Ambient mode: the camera tours hosts that need attention (second monitor). */
+  ambientMode: boolean;
+  /** The entrance sequence is playing. Auto-skipped after the first visit. */
+  introPlaying: boolean;
+  auditLogOpen: boolean;
 
   focusHost(hostId: string | null): void;
   setPaletteOpen(open: boolean): void;
@@ -45,6 +54,12 @@ interface UiStore {
   /** Starts the reverse transition back to the city. */
   exitTerminal(): void;
   closeTerminal(): void;
+  setAmbientMode(enabled: boolean): void;
+  /** Focus chosen by ambient mode (does not turn ambient mode off, unlike focusHost). */
+  ambientFocus(hostId: string | null): void;
+  startIntro(): void;
+  endIntro(): void;
+  setAuditLogOpen(open: boolean): void;
 }
 
 /**
@@ -71,8 +86,12 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   notice: null,
   renderingLost: false,
   terminal: null,
+  ambientMode: false,
+  introPlaying: !readStoredJson(INTRO_SEEN_KEY, false) && !prefersReducedMotion(),
+  auditLogOpen: false,
 
-  focusHost: (hostId) => set({ focusedHostId: hostId }),
+  // Any manual navigation takes the camera back from ambient mode.
+  focusHost: (hostId) => set({ focusedHostId: hostId, ambientMode: false }),
   setPaletteOpen: (open) => set({ paletteOpen: open }),
   setLiteMode: (enabled) => {
     writeStoredJson(LITE_MODE_KEY, enabled);
@@ -95,4 +114,12 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   exitTerminal: () =>
     set((s) => (s.terminal ? { terminal: { ...s.terminal, phase: 'surfacing' } } : s)),
   closeTerminal: () => set({ terminal: null }),
+  setAmbientMode: (enabled) => set({ ambientMode: enabled, focusedHostId: null }),
+  ambientFocus: (hostId) => set({ focusedHostId: hostId }),
+  startIntro: () => set({ introPlaying: true, focusedHostId: null, ambientMode: false }),
+  endIntro: () => {
+    writeStoredJson(INTRO_SEEN_KEY, true);
+    set({ introPlaying: false });
+  },
+  setAuditLogOpen: (open) => set({ auditLogOpen: open }),
 }));

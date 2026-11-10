@@ -6,9 +6,12 @@ import { startServer } from './server';
 
 /** `--dev` is passed by `npm run dev`: pretty logs, and print the Vite URL. */
 const isDevMode = process.argv.includes('--dev');
+/** `--demo` (used by `npm run demo`) serves the simulated fleet instead of hosts.yaml. */
+const isDemoFlag = process.argv.includes('--demo');
 
 async function main(): Promise<void> {
   loadEnvFiles();
+  if (isDemoFlag) process.env.DATA_MODE = 'demo';
   const env = parseServerEnv(process.env);
 
   const bind = decideBind(env.HOST, env.BIND_INSIDE_CONTAINER);

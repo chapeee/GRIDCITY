@@ -33,6 +33,9 @@ export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
   const hasFramedCity = useRef(false);
   const terminalPhase = useUiStore((store) => store.terminal?.phase ?? null);
   const terminalHostId = useUiStore((store) => store.terminal?.hostId ?? null);
+  const ambientMode = useUiStore((store) => store.ambientMode);
+  const introPlaying = useUiStore((store) => store.introPlaying);
+  const introTweenRef = useRef<gsap.core.Tween | null>(null);
 
   // Frame the city once, as soon as there is one to frame.
   useEffect(() => {
@@ -45,6 +48,39 @@ export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
     hasFramedCity.current = true;
   }, [camera, layout]);
 
+  // Intro: descend from high above onto the overview, after the lens phase.
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!introPlaying || !controls || layout.towers.length === 0) return;
+    const pose = overviewPose(layout);
+    const from = pose.position
+      .clone()
+      .multiplyScalar(2.6)
+      .setY(pose.position.y * 4);
+    const progress = { value: 0 };
+    camera.position.copy(from);
+    controls.target.copy(pose.target);
+    controls.update();
+    introTweenRef.current?.kill();
+    introTweenRef.current = gsap.to(progress, {
+      value: 1,
+      delay: durations.introLens / 1000,
+      duration: durations.introCamera / 1000,
+      ease: easings.introCamera,
+      onUpdate: () => {
+        camera.position.lerpVectors(from, pose.position, progress.value);
+        controls.update();
+      },
+    });
+    // Restart only when the intro (re)starts or the first layout arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [introPlaying, layout.towers.length > 0]);
+
+  // Skipping the intro jumps the camera to the end of the descent.
+  useEffect(() => {
+    if (!introPlaying) introTweenRef.current?.progress(1);
+  }, [introPlaying]);
+
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls || !hasFramedCity.current) return;
@@ -53,9 +89,12 @@ export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
     const pose: CameraPose = tower
       ? focusPose(tower, camera.position, controls.target)
       : overviewPose(layout);
-    const duration = prefersReducedMotion()
-      ? 0
-      : (tower ? durations.cameraFlyTo : durations.cameraReturn) / 1000;
+    const flightMs = ambientMode
+      ? durations.ambientFly
+      : tower
+        ? durations.cameraFlyTo
+        : durations.cameraReturn;
+    const duration = prefersReducedMotion() ? 0 : flightMs / 1000;
 
     const fromPosition = camera.position.clone();
     const fromTarget = controls.target.clone();
@@ -66,7 +105,7 @@ export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
     tweenRef.current = gsap.to(progress, {
       value: 1,
       duration,
-      ease: easings.cameraFlyTo,
+      ease: ambientMode ? easings.ambientFly : easings.cameraFlyTo,
       onUpdate: () => {
         camera.position.copy(scratch.lerpVectors(fromPosition, pose.position, progress.value));
         controls.target.lerpVectors(fromTarget, pose.target, progress.value);
@@ -75,12 +114,16 @@ export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
     });
 
     // Grabbing the camera mid-flight hands control back to the user.
-    const cancelOnUserInput = () => tweenRef.current?.kill();
+    const cancelOnUserInput = () => {
+      tweenRef.current?.kill();
+      if (useUiStore.getState().ambientMode) useUiStore.getState().setAmbientMode(false);
+    };
     controls.addEventListener('start', cancelOnUserInput);
     return () => {
       controls.removeEventListener('start', cancelOnUserInput);
     };
-    // The layout changes on every poll only when hosts change; re-run then too.
+    // The layout changes only when hosts change; re-run then too.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, focusedHostId, layout]);
 
   // The jack-in dive and its reverse.
@@ -162,6 +205,8 @@ export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
       minDistance={cameraTokens.minDistance}
       maxDistance={cameraTokens.maxDistance}
       maxPolarAngle={cameraTokens.maxPolarAngle}
+      autoRotate={ambientMode && !terminalPhase}
+      autoRotateSpeed={cameraTokens.ambientOrbitSpeed}
       // Keyboard panning would be WASD-like movement; the palette handles keyboard travel.
       keys={{ LEFT: '', UP: '', RIGHT: '', BOTTOM: '' }}
     />

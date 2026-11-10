@@ -96,6 +96,12 @@ export const durations = {
   hudUnfold: 220,
   /** Upper bound for the intro; always skippable, auto-skipped after first visit. */
   introMax: 4000,
+  /** Lens phase of the intro (entering the machine). */
+  introLens: 1400,
+  /** Camera descent onto the city after the lens. */
+  introCamera: 2400,
+  /** Slow, calm flights between hosts in ambient mode. */
+  ambientFly: 3200,
 } as const;
 
 /** Easing curves (GSAP names). */
@@ -104,6 +110,8 @@ export const easings = {
   jackIn: 'power4.in',
   jackOut: 'power3.out',
   hudUnfold: 'power3.out',
+  introCamera: 'power2.out',
+  ambientFly: 'sine.inOut',
 } as const;
 
 /** Scene atmosphere. */
@@ -151,6 +159,8 @@ export const camera = {
   maxDistance: 320,
   /** Keep the camera above the floor. Radians from straight down. */
   maxPolarAngle: 1.38,
+  /** Orbit speed in ambient mode (OrbitControls autoRotate units; 2 = 30 s per turn). */
+  ambientOrbitSpeed: 0.35,
 } as const;
 
 /** Post-processing. Disabled entirely in lite mode. */

@@ -6,6 +6,13 @@ import { expect, test, type Page } from '@playwright/test';
  * against docs/VISUAL_LANGUAGE.md.
  */
 
+/** The intro plays on a first visit; tests that are not about it mark it as seen. */
+const markIntroSeen = () => localStorage.setItem('preferences:intro-seen', 'true');
+
+test.beforeEach(async ({ page }, testInfo) => {
+  if (!testInfo.title.startsWith('intro')) await page.addInitScript(markIntroSeen);
+});
+
 /** The in-browser demo source (no server), with faster polling so states appear quickly. */
 const DEMO_URL = '/?source=demo&poll=500';
 
@@ -101,6 +108,43 @@ test('offline hosts cannot be entered', async ({ page }) => {
   await page.keyboard.press('Enter');
   await expect(page.getByText('no SSH connection to open a terminal on')).toBeVisible();
   await expect(page.locator('.terminal-view')).toHaveCount(0);
+});
+
+test('intro plays on the first visit, any key skips it, and it is not shown again', async ({
+  page,
+}) => {
+  await page.goto(DEMO_URL);
+  await expect(page.locator('.intro')).toBeVisible();
+  await page.waitForTimeout(600);
+  await screenshot(page, 'intro');
+  await page.keyboard.press('Space');
+  await expect(page.locator('.intro')).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('html[data-world-ready="true"]')).toHaveCount(1, { timeout: 60_000 });
+  await expect(page.locator('.intro')).toHaveCount(0);
+});
+
+test('ambient mode tours hosts that need attention, and Esc stops it', async ({ page }) => {
+  await openWorld(page);
+  await page.keyboard.press('a');
+  await expect(page.locator('.ambient-badge')).toBeVisible();
+  await expect(page.locator('.focus-hud')).toBeVisible({ timeout: 5000 });
+  // Only unhealthy hosts are tour stops.
+  await expect(page.locator('.hud-status')).toHaveText(/offline|degraded|stale/);
+  await page.waitForTimeout(3500);
+  await screenshot(page, 'ambient');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.ambient-badge')).toHaveCount(0);
+});
+
+test('the audit log explains it lives on the server in browser-demo mode', async ({ page }) => {
+  await openWorld(page);
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type('audit');
+  await page.keyboard.press('Enter');
+  await expect(page.getByLabel('Audit log')).toContainText('lives on the server');
+  await page.keyboard.press('Escape');
+  await expect(page.getByLabel('Audit log')).toHaveCount(0);
 });
 
 test('lite mode turns off post-processing and particles', async ({ page }) => {

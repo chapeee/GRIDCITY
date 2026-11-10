@@ -12,12 +12,18 @@ export function TopBar() {
   const dataMode = useFleetStore((store) => store.dataMode);
   const protocolMismatch = useFleetStore((store) => store.protocolMismatch);
   const renderingLost = useUiStore((store) => store.renderingLost);
+  const ambientMode = useUiStore((store) => store.ambientMode);
   return (
     <header className="top-bar">
       <span className="project-name">{__PROJECT_NAME__}</span>
       {dataMode === 'demo' && (
         <span className="demo-badge" role="status">
           DEMO DATA <small>simulated fleet · not real servers</small>
+        </span>
+      )}
+      {ambientMode && (
+        <span className="ambient-badge" role="status">
+          AMBIENT <small>touring hosts that need attention · Esc to stop</small>
         </span>
       )}
       {renderingLost && (
@@ -40,7 +46,8 @@ export function ShortcutHints() {
     <p className="shortcut-hints" aria-hidden="true">
       <kbd>Ctrl</kbd>
       <kbd>K</kbd> commands <span className="separator">·</span> <kbd>Tab</kbd> next host{' '}
-      <span className="separator">·</span> <kbd>Esc</kbd> overview
+      <span className="separator">·</span> <kbd>Esc</kbd> overview{' '}
+      <span className="separator">·</span> <kbd>A</kbd> ambient
     </p>
   );
 }

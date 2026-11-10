@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback } from 'react';
 import { useFleetDataSource } from './data/use-fleet-data-source';
 import { useFleetStore } from './data/fleet-store';
+import { AuditLogPanel } from './ui/AuditLogPanel';
 import { CommandPalette } from './ui/CommandPalette';
 import { canOpenTerminal, FocusHud } from './ui/FocusHud';
 import {
@@ -10,8 +11,10 @@ import {
   ShortcutHints,
   TopBar,
 } from './ui/ScreenOverlays';
+import { IntroOverlay } from './ui/IntroOverlay';
 import { EmptyFleet, StatusBanners } from './ui/StatusBanners';
 import { DiveOverlay, TerminalView } from './ui/TerminalView';
+import { useAmbientDirector } from './ui/use-ambient-director';
 import { useGlobalShortcuts } from './ui/use-global-shortcuts';
 import { useUiStore } from './ui/ui-store';
 import { useCityModel } from './world/use-city-model';
@@ -36,6 +39,7 @@ export function App() {
   }, []);
 
   useGlobalShortcuts({ navigationOrder: model.navigationOrder, onJackIn: jackIn });
+  useAmbientDirector(model.navigationOrder);
 
   return (
     <div className="app">
@@ -49,8 +53,10 @@ export function App() {
       <LiteModeSuggestion />
       <NoticeToast />
       <CommandPalette onJackIn={jackIn} />
+      <AuditLogPanel />
       <DiveOverlay />
       <TerminalView />
+      <IntroOverlay />
       {DevTuningPanel && (
         <Suspense fallback={null}>
           <DevTuningPanel hidden={!tuningPanelVisible} />

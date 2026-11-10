@@ -703,3 +703,197 @@ button:disabled {
 .terminal-body .xterm {
   height: 100%;
 }
+
+/* ---------- Intro: through the lens, into the machine ---------- */
+
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: var(--color-void);
+  animation: intro-reveal var(--duration-intro-lens) cubic-bezier(0.7, 0, 0.84, 0) forwards;
+}
+
+/* A glowing ring that opens until it swallows the screen, revealing the city behind it. */
+.intro-lens {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 1px solid var(--color-online);
+  box-shadow:
+    0 0 24px var(--color-online),
+    inset 0 0 24px var(--color-online);
+  animation: intro-lens var(--duration-intro-lens) cubic-bezier(0.7, 0, 0.84, 0) forwards;
+}
+
+.intro-title {
+  display: grid;
+  gap: 8px;
+  text-align: center;
+  animation: intro-title var(--duration-intro-lens) ease-in forwards;
+}
+
+.intro-name {
+  color: var(--color-online);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.5em;
+  text-shadow: 0 0 18px var(--color-online);
+}
+
+.intro-tagline {
+  color: var(--color-muted);
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.intro-skip {
+  position: absolute;
+  bottom: 32px;
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+
+@keyframes intro-lens {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  25% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(30);
+    opacity: 0.6;
+  }
+}
+
+@keyframes intro-title {
+  0%,
+  45% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+/* The void opens from the center as the lens passes the camera. */
+@keyframes intro-reveal {
+  0%,
+  55% {
+    background: var(--color-void);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* ---------- Ambient mode ---------- */
+
+.ambient-badge {
+  padding: 4px 10px;
+  border: var(--panel-border);
+  color: var(--color-online);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  background: var(--color-surface);
+}
+
+.ambient-badge small {
+  margin-left: 8px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+}
+
+/* ---------- Audit log ---------- */
+
+.audit-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 48px;
+  top: 72px;
+  width: min(720px, calc(100vw - 32px));
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  padding: 16px 18px;
+  background: var(--color-surface);
+  backdrop-filter: blur(8px);
+  border: var(--panel-border);
+  z-index: 5;
+}
+
+.audit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.audit-header h2 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--color-text-bright);
+  letter-spacing: 0.08em;
+}
+
+.audit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.audit-note,
+.audit-empty {
+  margin: 8px 0;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.audit-error {
+  color: var(--color-alert);
+}
+
+.audit-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.audit-list li {
+  display: grid;
+  grid-template-columns: 150px 140px 110px minmax(0, 1fr);
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: var(--panel-border);
+}
+
+.audit-list time,
+.audit-detail {
+  color: var(--color-muted);
+}
+
+.audit-kind {
+  color: var(--color-text-bright);
+}
+
+.audit-list li.is-alert .audit-kind {
+  color: var(--color-alert);
+}
+
+.audit-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

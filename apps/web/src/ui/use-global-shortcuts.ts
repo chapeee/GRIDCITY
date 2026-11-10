@@ -16,7 +16,7 @@ const isTypingTarget = (target: EventTarget | null) =>
  * reachable by pointer is reachable here.
  *
  * Ctrl/Cmd+K  palette · Tab/Shift+Tab  next/previous host · Esc  overview
- * Enter       jack in to the focused host · `  performance overlay
+ * Enter       jack in to the focused host · A  ambient mode · `  performance overlay
  * (all of these are off while the terminal is open)
  */
 export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOptions): void {
@@ -24,8 +24,9 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
     const handleKeyDown = (event: KeyboardEvent) => {
       const ui = useUiStore.getState();
 
-      // Inside the terminal every key belongs to the shell (it handles its own exit chord).
-      if (ui.terminal) return;
+      // Inside the terminal every key belongs to the shell (it handles its own exit chord);
+      // during the intro the first key only skips it.
+      if (ui.terminal || ui.introPlaying) return;
 
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
@@ -38,7 +39,15 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
 
       switch (event.key) {
         case 'Escape':
-          if (ui.focusedHostId) ui.focusHost(null);
+          // Innermost first: audit panel, then ambient mode, then focus.
+          if (ui.auditLogOpen) ui.setAuditLogOpen(false);
+          else if (ui.ambientMode) ui.setAmbientMode(false);
+          else if (ui.focusedHostId) ui.focusHost(null);
+          break;
+        case 'a':
+        case 'A':
+          if (event.ctrlKey || event.metaKey || event.altKey) return;
+          ui.setAmbientMode(!ui.ambientMode);
           break;
         case 'Tab': {
           if (navigationOrder.length === 0) return;

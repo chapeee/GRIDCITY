@@ -19,6 +19,7 @@ let page: Page;
 test.beforeAll(async ({ browser }) => {
   stack = await startLiveStack();
   page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await page.addInitScript(() => localStorage.setItem('preferences:intro-seen', 'true'));
   await page.goto(stack.url);
   await expect(page.locator('html[data-world-ready="true"]')).toHaveCount(1, { timeout: 60_000 });
 });
@@ -109,6 +110,21 @@ test('jacking in opens a real shell: input, resize, exit back to the city, audit
     (e) => e.kind,
   );
   expect(kinds).toEqual(expect.arrayContaining(['terminal_opened', 'terminal_closed']));
+});
+
+test('the audit log shows connections, key refusals and terminal sessions', async () => {
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type('audit');
+  await page.keyboard.press('Enter');
+  const panel = page.getByLabel('Audit log');
+  await expect(panel).toContainText('connected');
+  await expect(panel).toContainText('host key refused');
+  await expect(panel).toContainText('terminal opened');
+  await expect(panel).toContainText('terminal closed');
+  await page.screenshot({ path: 'test-results/screenshots/live-audit-log.png' });
+  await page.keyboard.press('Escape');
+  await expect(panel).toHaveCount(0);
 });
 
 test('losing the server shows a reconnect banner and data freezes', async () => {

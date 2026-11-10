@@ -19,7 +19,16 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
   const setOpen = useUiStore((store) => store.setPaletteOpen);
   const focusedHostId = useUiStore((store) => store.focusedHostId);
   const liteMode = useUiStore((store) => store.liteMode);
-  const { focusHost, setLiteMode, togglePerfOverlay, toggleTuningPanel } = useUiStore.getState();
+  const ambientMode = useUiStore((store) => store.ambientMode);
+  const {
+    focusHost,
+    setLiteMode,
+    togglePerfOverlay,
+    toggleTuningPanel,
+    setAmbientMode,
+    setAuditLogOpen,
+    startIntro,
+  } = useUiStore.getState();
   const hosts = useFleetStore((store) => store.hosts);
   const dataMode = useFleetStore((store) => store.dataMode);
   const { importHosts } = useHostImport();
@@ -90,6 +99,26 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
               <span className="palette-item-meta">adds to hosts.yaml</span>
             </Command.Item>
           )}
+          <Command.Item
+            value="ambient mode tour unhealthy hosts second monitor"
+            onSelect={() => run(() => setAmbientMode(!ambientMode))}
+          >
+            <span className="palette-item-title">
+              {ambientMode ? 'Stop' : 'Start'} ambient mode
+            </span>
+            <span className="palette-item-meta">tour hosts that need attention</span>
+            <kbd>A</kbd>
+          </Command.Item>
+          <Command.Item
+            value="open audit log history"
+            onSelect={() => run(() => setAuditLogOpen(true))}
+          >
+            <span className="palette-item-title">Open audit log</span>
+            <span className="palette-item-meta">connections, key refusals, terminals</span>
+          </Command.Item>
+          <Command.Item value="replay intro" onSelect={() => run(startIntro)}>
+            <span className="palette-item-title">Replay intro</span>
+          </Command.Item>
           <Command.Item value="toggle lite mode" onSelect={() => run(() => setLiteMode(!liteMode))}>
             <span className="palette-item-title">{liteMode ? 'Disable' : 'Enable'} lite mode</span>
             <span className="palette-item-meta">no bloom, no particles</span>
