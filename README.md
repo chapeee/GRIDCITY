@@ -31,6 +31,10 @@ npm run demo
 Open the URL printed in the console (it contains the session token, and stays the same across
 restarts, so you can bookmark it; `--new-token` replaces it). This serves a
 **simulated fleet** (always labelled DEMO DATA) so you can explore without any SSH setup.
+It behaves like a real one: load rises and falls through the day, and every so often a server
+runs a busy job (turns degraded, then recovers), gets a traffic surge, leaks memory until its
+service restarts, or reboots (offline for a few seconds, then back with fresh uptime). To watch it
+at four times the speed, open the in-browser demo with `?source=demo&poll=500`.
 
 With Docker instead: set `DATA_MODE=demo` in `.env`, then `docker compose up --build`.
 

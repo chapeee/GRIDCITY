@@ -47,7 +47,7 @@ interface DemoHostSpec {
   networkBytesPerSec: number;
 }
 
-const DISTRICTS = ['Hetzner', 'DigitalOcean', 'Home lab', 'Client X'] as const;
+const DISTRICTS = ['AWS Mumbai', 'DigitalOcean', 'Home lab', 'Hetzner'] as const;
 
 const UBUNTU = 'Ubuntu 24.04.1 LTS · 6.8.0-45-generic';
 const DEBIAN = 'Debian GNU/Linux 12 · 6.1.0-26-amd64';
@@ -61,10 +61,10 @@ const root = (sizeGiB: number, usedRatio: number) => ({ mount: '/', sizeGiB, use
  * (RFC 5737) and private ranges, so they never point at real machines.
  */
 const DEMO_HOST_SPECS: DemoHostSpec[] = [
-  // Hetzner
+  // AWS Mumbai: Lekhix and Ausia
   {
-    id: 'edge-proxy',
-    district: 'Hetzner',
+    id: 'ausia-edge',
+    district: 'AWS Mumbai',
     behavior: 'steady',
     address: '203.0.113.10',
     os: DEBIAN,
@@ -74,8 +74,8 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 6e6,
   },
   {
-    id: 'web-01',
-    district: 'Hetzner',
+    id: 'ausia-web',
+    district: 'AWS Mumbai',
     behavior: 'steady',
     address: '203.0.113.11',
     os: UBUNTU,
@@ -85,8 +85,8 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 2.5e6,
   },
   {
-    id: 'api-01',
-    district: 'Hetzner',
+    id: 'lekhix-api',
+    district: 'AWS Mumbai',
     behavior: 'busy-cpu',
     address: '203.0.113.12',
     os: UBUNTU,
@@ -96,8 +96,8 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 4e6,
   },
   {
-    id: 'web-02',
-    district: 'Hetzner',
+    id: 'lekhix-web',
+    district: 'AWS Mumbai',
     behavior: 'steady',
     address: '203.0.113.13',
     os: UBUNTU,
@@ -107,8 +107,8 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 2.2e6,
   },
   {
-    id: 'db-primary',
-    district: 'Hetzner',
+    id: 'lekhix-db',
+    district: 'AWS Mumbai',
     behavior: 'memory-heavy',
     address: '203.0.113.20',
     os: DEBIAN,
@@ -118,8 +118,8 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 9e5,
   },
   {
-    id: 'backup-store',
-    district: 'Hetzner',
+    id: 'lekhix-backups',
+    district: 'AWS Mumbai',
     behavior: 'disk-full',
     address: '203.0.113.30',
     os: DEBIAN,
@@ -129,8 +129,8 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 3e5,
   },
   {
-    id: 'worker-01',
-    district: 'Hetzner',
+    id: 'lekhix-scraper',
+    district: 'AWS Mumbai',
     behavior: 'steady',
     address: '203.0.113.14',
     os: UBUNTU,
@@ -139,9 +139,9 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     disks: [root(80, 0.37)],
     networkBytesPerSec: 4e5,
   },
-  // DigitalOcean
+  // DigitalOcean: portfolio, SkillGen and side projects
   {
-    id: 'app-01',
+    id: 'myselfraj-web',
     district: 'DigitalOcean',
     behavior: 'steady',
     address: '198.51.100.21',
@@ -152,7 +152,7 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 1.2e6,
   },
   {
-    id: 'app-02',
+    id: 'skillgen-app',
     district: 'DigitalOcean',
     behavior: 'flapping',
     address: '198.51.100.22',
@@ -163,7 +163,7 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 1.1e6,
   },
   {
-    id: 'redis',
+    id: 'skillgen-redis',
     district: 'DigitalOcean',
     behavior: 'steady',
     address: '198.51.100.30',
@@ -174,7 +174,7 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 3e6,
   },
   {
-    id: 'legacy-vps',
+    id: 'bugspoon-legacy',
     district: 'DigitalOcean',
     behavior: 'offline',
     address: '198.51.100.99',
@@ -185,7 +185,7 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 1e4,
   },
   {
-    id: 'queue',
+    id: 'leadgent-queue',
     district: 'DigitalOcean',
     behavior: 'steady',
     address: '198.51.100.31',
@@ -196,7 +196,7 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 6e5,
   },
   {
-    id: 'metrics',
+    id: 'reverse-seo',
     district: 'DigitalOcean',
     behavior: 'steady',
     address: '198.51.100.40',
@@ -208,7 +208,7 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
   },
   // Home lab
   {
-    id: 'nas',
+    id: 'home-nas',
     district: 'Home lab',
     behavior: 'steady',
     address: '192.168.1.10',
@@ -234,7 +234,7 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 4e4,
   },
   {
-    id: 'lab-01',
+    id: 'gridcity-lab',
     district: 'Home lab',
     behavior: 'goes-stale',
     address: '192.168.1.20',
@@ -245,7 +245,7 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 2e5,
   },
   {
-    id: 'media',
+    id: 'jellyfin',
     district: 'Home lab',
     behavior: 'steady',
     address: '192.168.1.15',
@@ -266,10 +266,10 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     disks: [root(64, 0.2)],
     networkBytesPerSec: 1e4,
   },
-  // Client X
+  // Hetzner: open-source tools
   {
-    id: 'cx-web',
-    district: 'Client X',
+    id: 'gitsmith-docs',
+    district: 'Hetzner',
     behavior: 'steady',
     address: '10.40.0.11',
     os: UBUNTU,
@@ -279,8 +279,8 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 9e5,
   },
   {
-    id: 'cx-api',
-    district: 'Client X',
+    id: 'bizmail-api',
+    district: 'Hetzner',
     behavior: 'steady',
     address: '10.40.0.12',
     os: UBUNTU,
@@ -290,8 +290,8 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 1.4e6,
   },
   {
-    id: 'cx-db',
-    district: 'Client X',
+    id: 'whatson-db',
+    district: 'Hetzner',
     behavior: 'steady',
     address: '10.40.0.20',
     os: DEBIAN,
@@ -301,8 +301,8 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 5e5,
   },
   {
-    id: 'cx-cron',
-    district: 'Client X',
+    id: 'formtest-cron',
+    district: 'Hetzner',
     behavior: 'steady',
     address: '10.40.0.30',
     os: ALPINE,
@@ -312,8 +312,8 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     networkBytesPerSec: 2e4,
   },
   {
-    id: 'cx-staging',
-    district: 'Client X',
+    id: 'yuruper-staging',
+    district: 'Hetzner',
     behavior: 'steady',
     address: '10.40.0.40',
     os: UBUNTU,
@@ -332,6 +332,41 @@ const STALE_HOST_SILENT_FOR_MS = 45_000;
 const FLAP_CYCLE_POLLS = 15;
 const FLAP_CONNECTED_POLLS = 10;
 
+/**
+ * Life on steady hosts, so the city feels like a real fleet instead of a
+ * still picture: a slow daily rhythm, plus incidents that come and go
+ * (a busy job, a traffic surge, a memory leak, a reboot). All seeded, so a
+ * given seed always plays the same story.
+ */
+export type DemoIncidentKind = 'cpu-spike' | 'traffic-surge' | 'memory-leak' | 'reboot';
+
+interface DemoIncident {
+  kind: DemoIncidentKind;
+  /** Polls left; the leak ignores it and ends with a restart instead. */
+  pollsLeft: number;
+}
+
+/** Polls of calm at the start, so the first view shows the scripted truth states. */
+const INCIDENT_WARMUP_POLLS = 15;
+/** Chance per poll that a new incident starts somewhere (when below the cap). */
+const INCIDENT_CHANCE_PER_POLL = 0.08;
+const MAX_ACTIVE_INCIDENTS = 2;
+/** A host rests this many polls after an incident before it can have another. */
+const INCIDENT_COOLDOWN_POLLS = 40;
+/** One "day" of load rhythm, in polls (8 minutes at the default 2 s). */
+const DAY_POLLS = 240;
+
+const INCIDENT_DURATION: Record<DemoIncidentKind, [number, number]> = {
+  'cpu-spike': [8, 22],
+  'traffic-surge': [10, 28],
+  'memory-leak': [0, 0],
+  reboot: [4, 9],
+};
+const INCIDENT_KINDS = Object.keys(INCIDENT_DURATION) as DemoIncidentKind[];
+/** Memory a leaking process adds each poll, and how long it sits near full before a restart. */
+const LEAK_PER_POLL = 0.012;
+const LEAK_RESTART_AT = 0.95;
+
 export interface DemoFleetOptions {
   /** Seed for reproducible data. */
   seed?: number;
@@ -348,6 +383,8 @@ export interface DemoFleet {
   readonly thresholds: StatusThresholds;
   /** Advances the simulation by one poll and returns the state of every host. */
   tick(now: number): HostState[];
+  /** Incidents playing right now (for tests and curious readers; never shown as data). */
+  activeIncidents(): { hostId: string; kind: DemoIncidentKind }[];
 }
 
 /** Mutable per-host simulation state. */
@@ -362,6 +399,15 @@ interface SimulatedHost {
   bootedAt: number;
   /** Last state handed out; reused when the host stops producing data. */
   lastState: HostState | null;
+  /** Where in its daily rhythm this host is (0..1), so hosts don't move in lockstep. */
+  dayPhase: number;
+  /** Memory level it settles at when nothing is leaking. */
+  memoryBaseline: number;
+  incident: DemoIncident | null;
+  /** Poll count before which no new incident may start here. */
+  restUntilPoll: number;
+  /** Set after a reconnect: the next poll has no previous sample, so rates are unknown. */
+  freshConnection: boolean;
 }
 
 export function createDemoFleet(options: DemoFleetOptions = {}): DemoFleet {
@@ -370,17 +416,26 @@ export function createDemoFleet(options: DemoFleetOptions = {}): DemoFleet {
   const startedAt = options.startedAt ?? Date.now();
   const specs = buildSpecs(options.hostCount ?? DEMO_HOST_SPECS.length);
 
-  const simulated: SimulatedHost[] = specs.map((spec) => ({
-    spec,
-    cpuPercent: baselineCpu(spec, random),
-    cpuBusyStreak: 0,
-    load: { one: 0, five: 0, fifteen: 0 },
-    memoryRatio: baselineMemoryRatio(spec, random),
-    diskRatios: spec.disks.map((disk) => disk.usedRatio),
-    pollCount: 0,
-    bootedAt: startedAt - random.between(2, 120) * 86_400_000,
-    lastState: null,
-  }));
+  const simulated: SimulatedHost[] = specs.map((spec) => {
+    const memoryRatio = baselineMemoryRatio(spec, random);
+    return {
+      spec,
+      cpuPercent: baselineCpu(spec, random),
+      cpuBusyStreak: 0,
+      load: { one: 0, five: 0, fifteen: 0 },
+      memoryRatio,
+      diskRatios: spec.disks.map((disk) => disk.usedRatio),
+      pollCount: 0,
+      bootedAt: startedAt - random.between(2, 120) * 86_400_000,
+      lastState: null,
+      dayPhase: random.next(),
+      memoryBaseline: memoryRatio,
+      incident: null,
+      restUntilPoll: INCIDENT_WARMUP_POLLS,
+      freshConnection: false,
+    };
+  });
+  let fleetPolls = 0;
 
   const hosts: Host[] = specs.map((spec) => ({
     id: spec.id,
@@ -396,8 +451,51 @@ export function createDemoFleet(options: DemoFleetOptions = {}): DemoFleet {
   return {
     hosts,
     thresholds,
-    tick: (now) => simulated.map((host) => tickHost(host, now, random, thresholds, startedAt)),
+    activeIncidents: () =>
+      simulated.flatMap((host) =>
+        host.incident ? [{ hostId: host.spec.id, kind: host.incident.kind }] : [],
+      ),
+    tick: (now) => {
+      fleetPolls += 1;
+      if (fleetPolls > INCIDENT_WARMUP_POLLS) maybeStartIncident(simulated, random);
+      return simulated.map((host) => tickHost(host, now, random, thresholds, startedAt));
+    },
   };
+}
+
+/** Now and then, starts an incident on a rested steady host (at most a couple at once). */
+function maybeStartIncident(hosts: SimulatedHost[], random: SeededRandom): void {
+  const active = hosts.filter((host) => host.incident).length;
+  if (active >= MAX_ACTIVE_INCIDENTS || random.next() >= INCIDENT_CHANCE_PER_POLL) return;
+  const candidates = hosts.filter(
+    (host) =>
+      host.spec.behavior === 'steady' && !host.incident && host.pollCount >= host.restUntilPoll,
+  );
+  if (candidates.length === 0) return;
+  const host = candidates[Math.floor(random.next() * candidates.length)];
+  const kind = INCIDENT_KINDS[Math.floor(random.next() * INCIDENT_KINDS.length)];
+  if (!host || !kind) return;
+  const [min, max] = INCIDENT_DURATION[kind];
+  host.incident = { kind, pollsLeft: Math.round(random.between(min, max)) };
+}
+
+/** Counts an incident down and ends it, letting the host rest afterwards. */
+function advanceIncident(host: SimulatedHost, now: number): void {
+  const { incident } = host;
+  if (!incident) return;
+  const finished =
+    incident.kind === 'memory-leak'
+      ? host.memoryRatio >= LEAK_RESTART_AT
+      : --incident.pollsLeft <= 0;
+  if (!finished) return;
+  if (incident.kind === 'memory-leak') host.memoryRatio = host.memoryBaseline; // service restarted
+  if (incident.kind === 'reboot') {
+    host.bootedAt = now;
+    host.freshConnection = true;
+    host.memoryRatio = host.memoryBaseline;
+  }
+  host.incident = null;
+  host.restUntilPoll = host.pollCount + INCIDENT_COOLDOWN_POLLS;
 }
 
 function buildSpecs(hostCount: number): DemoHostSpec[] {
@@ -406,7 +504,7 @@ function buildSpecs(hostCount: number): DemoHostSpec[] {
     const number = String(index + 1).padStart(2, '0');
     specs.push({
       id: `node-${number}`,
-      district: DISTRICTS[index % DISTRICTS.length] ?? 'Hetzner',
+      district: DISTRICTS[index % DISTRICTS.length] ?? 'AWS Mumbai',
       behavior: 'steady',
       address: `10.99.${Math.floor(index / 250)}.${(index % 250) + 1}`,
       os: UBUNTU,
@@ -423,11 +521,23 @@ function baselineCpu(spec: DemoHostSpec, random: SeededRandom): number {
   return spec.behavior === 'busy-cpu' ? 96 : random.between(4, 45);
 }
 
+/** Where a host's CPU is heading this poll: its daily rhythm, or an incident's pull. */
+function cpuTarget(host: SimulatedHost, random: SeededRandom): number {
+  const { spec, incident } = host;
+  if (spec.behavior !== 'steady') return baselineCpu(spec, random);
+  if (incident?.kind === 'cpu-spike') return 97;
+  // Busy afternoons, quiet nights: a slow wave, different for every host.
+  const rhythm = 0.5 + 0.5 * Math.sin(2 * Math.PI * (host.pollCount / DAY_POLLS + host.dayPhase));
+  const daily = 6 + 38 * rhythm + random.noise(6);
+  return incident?.kind === 'traffic-surge' ? Math.min(daily + 30, 82) : daily;
+}
+
 function baselineMemoryRatio(spec: DemoHostSpec, random: SeededRandom): number {
   return spec.behavior === 'memory-heavy' ? 0.93 : random.between(0.25, 0.7);
 }
 
 function connectionPhaseAt(host: SimulatedHost): ConnectionPhase {
+  if (host.incident?.kind === 'reboot') return 'failed';
   switch (host.spec.behavior) {
     case 'offline':
       return 'failed';
@@ -467,17 +577,30 @@ function tickHost(
   if (connection === 'failed') {
     const lastSeenAt = host.lastState?.lastSeenAt ?? null;
     const error =
-      spec.behavior === 'flapping'
-        ? 'heartbeat lost (keepalive timeout)'
-        : `connect ECONNREFUSED ${spec.address}:22`;
+      host.incident?.kind === 'reboot'
+        ? `connect ECONNREFUSED ${spec.address}:22 (rebooting)`
+        : spec.behavior === 'flapping'
+          ? 'heartbeat lost (keepalive timeout)'
+          : `connect ECONNREFUSED ${spec.address}:22`;
     // Offline means we do not know current metrics, so they are all unknown.
     const state = { ...emptyState(spec.id, lastSeenAt), error };
     host.cpuBusyStreak = 0;
-    return withStatus(state, connection, host.lastState !== null, host, thresholds, now, error);
+    const offline = withStatus(
+      state,
+      connection,
+      host.lastState !== null,
+      host,
+      thresholds,
+      now,
+      error,
+    );
+    advanceIncident(host, now);
+    return offline;
   }
 
   const state = sampleHost(host, now, random, thresholds);
   host.lastState = state;
+  advanceIncident(host, now);
   return state;
 }
 
@@ -489,16 +612,22 @@ function sampleHost(
   thresholds: StatusThresholds,
 ): HostState {
   const { spec } = host;
-  const isFirstPoll = host.lastState === null;
+  // Rates need two samples: unknown on the very first poll and right after a reconnect.
+  const isFirstPoll = host.lastState === null || host.freshConnection;
+  host.freshConnection = false;
 
-  // CPU: mean-reverting random walk around the baseline.
-  const target = baselineCpu(spec, random);
+  // CPU: mean-reverting random walk toward the target.
+  const target = cpuTarget(host, random);
   host.cpuPercent = clamp(
     host.cpuPercent + (target - host.cpuPercent) * 0.25 + random.noise(7),
     0.5,
     100,
   );
   if (spec.behavior === 'busy-cpu') host.cpuPercent = clamp(host.cpuPercent, 91, 100);
+  // A busy job ramps up over a few polls, then holds above the degraded line.
+  if (host.incident?.kind === 'cpu-spike' && host.cpuPercent > 80) {
+    host.cpuPercent = clamp(host.cpuPercent, 91, 100);
+  }
   // Rates need two samples, exactly like the real poller: unknown on the first poll.
   const cpuPercent = isFirstPoll ? null : round(host.cpuPercent, 1);
   host.cpuBusyStreak = nextCpuBusyStreak(host.cpuBusyStreak, cpuPercent, thresholds);
@@ -510,7 +639,8 @@ function sampleHost(
     fifteen: round(host.load.fifteen * 0.97 + runQueue * 0.03, 2),
   };
 
-  host.memoryRatio = clamp(host.memoryRatio + random.noise(0.01), 0.05, 0.99);
+  const leak = host.incident?.kind === 'memory-leak' ? LEAK_PER_POLL : 0;
+  host.memoryRatio = clamp(host.memoryRatio + leak + random.noise(0.01), 0.05, 0.99);
   if (spec.behavior === 'memory-heavy') host.memoryRatio = clamp(host.memoryRatio, 0.91, 0.97);
   const memoryTotal = spec.memoryGiB * GiB;
 
@@ -521,7 +651,9 @@ function sampleHost(
     return { mount: disk.mount, usedBytes: Math.round(totalBytes * ratio), totalBytes };
   });
 
-  const network: NetworkRate[] = isFirstPoll ? [] : [simulateInterface('eth0', spec, random)];
+  const network: NetworkRate[] = isFirstPoll
+    ? []
+    : [simulateInterface('eth0', spec, random, host.incident?.kind === 'traffic-surge')];
 
   const state: HostState = {
     ...emptyState(spec.id, now),
@@ -537,9 +669,14 @@ function sampleHost(
   return withStatus(state, 'connected', true, host, thresholds, now);
 }
 
-function simulateInterface(iface: string, spec: DemoHostSpec, random: SeededRandom): NetworkRate {
-  // Occasional bursts make the particle encoding visibly respond.
-  const burst = random.next() < 0.06 ? random.between(3, 8) : 1;
+function simulateInterface(
+  iface: string,
+  spec: DemoHostSpec,
+  random: SeededRandom,
+  surging = false,
+): NetworkRate {
+  // Occasional bursts make the particle encoding visibly respond; a surge holds one.
+  const burst = surging ? random.between(4, 7) : random.next() < 0.06 ? random.between(3, 8) : 1;
   const total = spec.networkBytesPerSec * random.between(0.5, 1.4) * burst;
   const rxShare = random.between(0.55, 0.8);
   return {

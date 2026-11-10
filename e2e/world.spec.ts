@@ -46,13 +46,13 @@ test('command palette lists hosts and actions', async ({ page }) => {
   await openWorld(page);
   await page.keyboard.press('Control+k');
   await page.keyboard.type('web');
-  await expect(page.getByRole('option', { name: /web-01/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /ausia-web/ })).toBeVisible();
   await screenshot(page, 'palette');
 });
 
 test('focusing a degraded host flies there and opens the HUD', async ({ page }) => {
   await openWorld(page);
-  await focusViaPalette(page, 'api-01');
+  await focusViaPalette(page, 'lekhix-api');
   await expect(page.locator('.focus-hud')).toContainText('CPU');
   await expect(page.locator('.hud-status')).toHaveText('degraded');
   await screenshot(page, 'focused-degraded');
@@ -60,7 +60,7 @@ test('focusing a degraded host flies there and opens the HUD', async ({ page }) 
 
 test('a stale host is shown frozen with a last-seen label', async ({ page }) => {
   await openWorld(page);
-  await focusViaPalette(page, 'lab-01');
+  await focusViaPalette(page, 'gridcity-lab');
   await expect(page.locator('.focus-hud')).toHaveClass(/is-stale/);
   await expect(page.locator('.hud-reason')).toContainText('last seen');
   await screenshot(page, 'focused-stale');
@@ -68,7 +68,7 @@ test('a stale host is shown frozen with a last-seen label', async ({ page }) => 
 
 test('an offline host shows no metrics and its error', async ({ page }) => {
   await openWorld(page);
-  await focusViaPalette(page, 'legacy-vps');
+  await focusViaPalette(page, 'bugspoon-legacy');
   await expect(page.locator('.hud-status')).toHaveText('offline');
   // The connection error is the status reason, shown once in the alert color.
   await expect(page.locator('.hud-reason')).toContainText('ECONNREFUSED');
@@ -91,21 +91,21 @@ test('keyboard: Tab jumps between hosts, Escape returns to overview', async ({ p
 
 test('jacking in to demo data dives in and says there is no real shell', async ({ page }) => {
   await openWorld(page);
-  await focusViaPalette(page, 'web-01');
+  await focusViaPalette(page, 'ausia-web');
   await page.keyboard.press('Enter');
   // Generous: under Docker's software WebGL a single frame of the dive can take seconds.
-  await expect(page.getByLabel('Terminal on web-01')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByLabel('Terminal on ausia-web')).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.terminal-status')).toHaveText('demo data');
   await page.waitForTimeout(400);
   await screenshot(page, 'terminal-demo');
   await page.keyboard.press('Control+Shift+X');
-  await expect(page.getByLabel('Terminal on web-01')).toHaveCount(0, { timeout: 5000 });
+  await expect(page.getByLabel('Terminal on ausia-web')).toHaveCount(0, { timeout: 5000 });
   await expect(page.locator('.focus-hud')).toBeVisible();
 });
 
 test('offline hosts cannot be entered', async ({ page }) => {
   await openWorld(page);
-  await focusViaPalette(page, 'legacy-vps');
+  await focusViaPalette(page, 'bugspoon-legacy');
   await page.keyboard.press('Enter');
   await expect(page.getByText('no SSH connection to open a terminal on')).toBeVisible();
   await expect(page.locator('.terminal-view')).toHaveCount(0);
@@ -141,7 +141,7 @@ test('ambient mode tours hosts that need attention, and Esc stops it', async ({ 
 test('the audit log explains it lives on the server in browser-demo mode', async ({ page }) => {
   await openWorld(page);
   await page.keyboard.press('Control+k');
-  await page.keyboard.type('audit');
+  await page.keyboard.type('open audit log');
   await page.keyboard.press('Enter');
   await expect(page.getByLabel('Audit log')).toContainText('lives on the server');
   await page.keyboard.press('Escape');
