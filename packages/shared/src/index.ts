@@ -11,3 +11,5 @@ export * from './agent-protocol';
 export * from './resource';
 export * from './resource-status';
 export * from './demo/demo-resources';
+export * from './history';
+export * from './demo/demo-history';

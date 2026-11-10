@@ -37,6 +37,13 @@ because the name lives only in `PROJECT_NAME`.
     chain. Each kind has its own fixed building shape (docs/VISUAL_LANGUAGE.md). This lifts S3 and
     databases out of the v0.1 non-goals.
 
+11. **History, Settings, Edit (decided 2026-11-11):** status transitions are recorded as incidents
+    (when a server or resource was overloaded or offline) and metric history is kept for 7 days by
+    default, changeable in Settings (1–90 days). Settings also edits the file-wide warning
+    thresholds; Edit renames a server, moves it to another district, sets tags and its own warning
+    thresholds, or removes it. Both write `hosts.yaml` in place (comments kept), so the file stays
+    the source of truth; the id never changes, so place and history are kept.
+
 ---
 
 # Project: <project name> (working codename)

@@ -21,3 +21,33 @@ export const StatusThresholdsSchema = z.object({
 export type StatusThresholds = z.infer<typeof StatusThresholdsSchema>;
 
 export const DEFAULT_STATUS_THRESHOLDS: StatusThresholds = StatusThresholdsSchema.parse({});
+
+const percent = z.number().min(0).max(100);
+const polls = z.number().int().min(1).max(1000);
+
+/**
+ * What one host may override (Edit dialog, `thresholds:` under a host in
+ * hosts.yaml): when it turns degraded, the amber warning. No defaults, so an
+ * override only ever contains what the user set; the rest comes from the file.
+ */
+export const HostThresholdOverridesSchema = z.strictObject({
+  cpuDegradedPercent: percent.optional(),
+  cpuDegradedPolls: polls.optional(),
+  memoryDegradedPercent: percent.optional(),
+  diskDegradedPercent: percent.optional(),
+});
+export type HostThresholdOverrides = z.infer<typeof HostThresholdOverridesSchema>;
+
+/** File-wide thresholds as edited in Settings (also without defaults). */
+export const ThresholdsPatchSchema = HostThresholdOverridesSchema.extend({
+  pollIntervalMs: z.number().int().min(500).max(600_000).optional(),
+  staleAfterPolls: polls.optional(),
+});
+
+/** The thresholds in effect for one host. */
+export function thresholdsForHost(
+  thresholds: StatusThresholds,
+  host: { thresholds?: HostThresholdOverrides | undefined } | undefined,
+): StatusThresholds {
+  return host?.thresholds ? { ...thresholds, ...host.thresholds } : thresholds;
+}

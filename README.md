@@ -224,6 +224,20 @@ Every encoding, and the reasoning behind it: [docs/VISUAL_LANGUAGE.md](docs/VISU
 | -------------------------------------- | ------------------------------------ | ---------------------------------------------------- |
 | ![Focus HUD](docs/media/focus-hud.png) | ![Terminal](docs/media/terminal.png) | ![Host key refused](docs/media/host-key-refused.png) |
 
+## History, Edit and Settings
+
+- **History** (H, or "Fleet history" in Ctrl+K): when was a server overloaded or down? Every
+  status change is recorded, so you see each incident (degraded or offline, its reason, when and
+  for how long), a timeline over the range, and CPU, memory, disk and network charts with the
+  server's warning threshold drawn in. Gaps mean no data, never zero. Kept for **7 days** by
+  default.
+- **Edit** (E, or the HUD button): rename a server, move it to another district, set tags, give
+  it its own warning thresholds (for example warn at 75 % CPU on a small box), or remove it.
+  `hosts.yaml` is updated in place with your comments kept; the id never changes, so the server
+  keeps its place in the city and its history.
+- **Settings** (Ctrl+K): how many days of history to keep (1–90), and the warning thresholds for
+  every server (CPU and for how many polls, memory, disk, poll interval, when data counts as stale).
+
 ## Controls
 
 | Key                 | Action                                                              |
@@ -235,6 +249,8 @@ Every encoding, and the reasoning behind it: [docs/VISUAL_LANGUAGE.md](docs/VISU
 | **Ctrl+Shift+X**    | Leave the terminal (Esc and Ctrl+K belong to the shell in there)    |
 | **Esc**             | Close panels, stop ambient mode, back to the overview               |
 | **A**               | Ambient mode: tour hosts that need attention (for a second monitor) |
+| **H**               | History of the focused server (or every incident in the fleet)      |
+| **E**               | Edit the focused server: name, district, tags, its own warnings     |
 | **`** (backtick)    | Performance overlay                                                 |
 
 Also in the palette: lite mode (no bloom or particles, for weak GPUs, suggested automatically when

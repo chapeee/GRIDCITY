@@ -92,7 +92,9 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
               return (
                 <Command.Item
                   key={resource.id}
-                  value={`resource database storage ${resource.kind} ${resource.engine} ${resource.name} ${resource.district} ${resource.target} ${resource.tags.join(' ')}`}
+                  // Short value: long strings fuzzy-match unrelated searches ("settings").
+                  value={`${resource.name} ${resource.engine}`}
+                  keywords={[resource.kind, resource.district, ...resource.tags]}
                   onSelect={() => run(() => focusHost(resource.id))}
                 >
                   <StatusDot status={state?.status ?? 'unknown'} stale={stale} />
@@ -107,6 +109,33 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
         )}
 
         <Command.Group heading="Actions">
+          {focusedHostId && (
+            <Command.Item
+              value="history incidents overloaded when was it down"
+              onSelect={() => run(() => useUiStore.getState().openHistory(focusedHostId))}
+            >
+              <span className="palette-item-title">
+                History of{' '}
+                {focusedResource?.name ??
+                  hosts.find((h) => h.id === focusedHostId)?.name ??
+                  focusedHostId}
+              </span>
+              <span className="palette-item-meta">when it was overloaded or down</span>
+              <kbd>H</kbd>
+            </Command.Item>
+          )}
+          {focusedHostId && !focusedResource && dataMode === 'real' && (
+            <Command.Item
+              value="edit rename server district tags thresholds warnings"
+              onSelect={() => run(() => useUiStore.getState().setEditHostId(focusedHostId))}
+            >
+              <span className="palette-item-title">
+                Edit {hosts.find((h) => h.id === focusedHostId)?.name ?? focusedHostId}…
+              </span>
+              <span className="palette-item-meta">name, district, tags, warning thresholds</span>
+              <kbd>E</kbd>
+            </Command.Item>
+          )}
           {focusedResource && (
             <Command.Item value="return to overview" onSelect={() => run(() => focusHost(null))}>
               <span className="palette-item-title">Return to overview</span>
@@ -168,9 +197,21 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
             <kbd>A</kbd>
           </Command.Item>
           <Command.Item
-            value="open audit log history"
-            onSelect={() => run(() => setAuditLogOpen(true))}
+            value="fleet history incidents overloaded down last 7 days"
+            onSelect={() => run(() => useUiStore.getState().openHistory(null))}
           >
+            <span className="palette-item-title">Fleet history</span>
+            <span className="palette-item-meta">every overload and outage, kept for days</span>
+            <kbd>H</kbd>
+          </Command.Item>
+          <Command.Item
+            value="settings preferences history retention thresholds warnings"
+            onSelect={() => run(() => useUiStore.getState().setSettingsOpen(true))}
+          >
+            <span className="palette-item-title">Settings…</span>
+            <span className="palette-item-meta">history retention, warning thresholds</span>
+          </Command.Item>
+          <Command.Item value="open audit log" onSelect={() => run(() => setAuditLogOpen(true))}>
             <span className="palette-item-title">Open audit log</span>
             <span className="palette-item-meta">connections, key refusals, terminals</span>
           </Command.Item>

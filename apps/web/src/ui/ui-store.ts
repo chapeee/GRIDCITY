@@ -40,6 +40,11 @@ interface UiStore {
   addHostOpen: boolean;
   /** The AI agent panel (approvals still pop up when it is closed). */
   agentPanelOpen: boolean;
+  /** History panel: undefined = closed, null = whole fleet, otherwise one host or resource. */
+  historyTarget: string | null | undefined;
+  settingsOpen: boolean;
+  /** The host being edited (rename, district, thresholds), or null. */
+  editHostId: string | null;
 
   focusHost(hostId: string | null): void;
   setPaletteOpen(open: boolean): void;
@@ -65,6 +70,9 @@ interface UiStore {
   setAuditLogOpen(open: boolean): void;
   setAddHostOpen(open: boolean): void;
   setAgentPanelOpen(open: boolean): void;
+  openHistory(target: string | null | undefined): void;
+  setSettingsOpen(open: boolean): void;
+  setEditHostId(hostId: string | null): void;
 }
 
 /**
@@ -96,6 +104,9 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   auditLogOpen: false,
   addHostOpen: false,
   agentPanelOpen: false,
+  historyTarget: undefined,
+  settingsOpen: false,
+  editHostId: null,
 
   // Any manual navigation takes the camera back from ambient mode.
   focusHost: (hostId) => set({ focusedHostId: hostId, ambientMode: false }),
@@ -131,4 +142,17 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   setAuditLogOpen: (open) => set({ auditLogOpen: open }),
   setAddHostOpen: (open) => set({ addHostOpen: open, paletteOpen: false }),
   setAgentPanelOpen: (open) => set({ agentPanelOpen: open, paletteOpen: false }),
+  openHistory: (target) =>
+    set(
+      target === undefined
+        ? { historyTarget: undefined }
+        : { historyTarget: target, paletteOpen: false, settingsOpen: false },
+    ),
+  setSettingsOpen: (open) =>
+    set(
+      open
+        ? { settingsOpen: true, paletteOpen: false, historyTarget: undefined }
+        : { settingsOpen: false },
+    ),
+  setEditHostId: (hostId) => set({ editHostId: hostId, paletteOpen: false }),
 }));

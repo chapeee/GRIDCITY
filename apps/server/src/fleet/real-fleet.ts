@@ -1,4 +1,4 @@
-import type { Host, HostState, StatusThresholds } from '@app/shared';
+import { thresholdsForHost, type Host, type HostState, type StatusThresholds } from '@app/shared';
 import { COLLECTOR_COMMAND, COLLECTOR_SCRIPT } from '../metrics/collector-script';
 import { parseCollectorOutput } from '../metrics/parse-collector-output';
 import type { HostConnection, HostConnectionOptions, PhaseChange } from '../ssh/host-connection';
@@ -76,8 +76,13 @@ export class RealFleet implements FleetProvider {
 
   currentStates(now: number): HostState[] {
     return this.options.hosts.map((host) =>
-      buildHostState(host.id, this.runtime(host.id), now, this.options.thresholds),
+      buildHostState(host.id, this.runtime(host.id), now, this.thresholdsFor(host)),
     );
+  }
+
+  /** File-wide thresholds with this host's own warning overrides (Edit) on top. */
+  thresholdsFor(host: Host): StatusThresholds {
+    return thresholdsForHost(this.options.thresholds, host);
   }
 
   /** The connection for a host (used by the terminal in Phase 4, and by tests). */
@@ -146,7 +151,7 @@ export class RealFleet implements FleetProvider {
       this.runtimes.set(
         host.id,
         raw
-          ? applyPollSuccess(runtime, { collectedAt: this.now(), raw }, this.options.thresholds)
+          ? applyPollSuccess(runtime, { collectedAt: this.now(), raw }, this.thresholdsFor(host))
           : applyPollFailure(runtime, 'metrics output was incomplete'),
       );
     } catch (error) {

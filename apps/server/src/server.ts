@@ -1,4 +1,9 @@
-import { DEFAULT_RESOURCE_THRESHOLDS, DEFAULT_STATUS_THRESHOLDS, type Host } from '@app/shared';
+import {
+  createDemoHistory,
+  DEFAULT_RESOURCE_THRESHOLDS,
+  DEFAULT_STATUS_THRESHOLDS,
+  type Host,
+} from '@app/shared';
 import { existsSync, statSync, unwatchFile, watchFile } from 'node:fs';
 import { homedir, hostname, userInfo } from 'node:os';
 import { join } from 'node:path';
@@ -14,6 +19,7 @@ import { projectSlug, resolveAppPaths, type AppPaths } from './config/app-paths'
 import type { ServerEnv } from './config/env';
 import { loadHostsFile, type HostsConfig } from './config/hosts-file';
 import { addHostToFile } from './config/hosts-writer';
+import { editHostInFile, removeHostFromFile, setFileThresholds } from './config/hosts-editor';
 import { importSshConfig } from './config/ssh-config-importer';
 import { loadResourcesFile, type ResourcesConfig } from './config/resources-file';
 import { createConnector, type ConnectorContext } from './connectors';
@@ -24,6 +30,7 @@ import { RealFleet } from './fleet/real-fleet';
 import { StateHub } from './fleet/state-hub';
 import { registerApiRoutes } from './http/api-routes';
 import { registerConnectRoutes } from './http/connect-routes';
+import { registerManageRoutes } from './http/manage-routes';
 import { createApp } from './http/create-app';
 import { registerStateSocket } from './http/state-socket';
 import { registerTerminalSocket } from './http/terminal-socket';
@@ -36,9 +43,14 @@ import { AuditLog } from './storage/audit-log';
 import { openDatabase } from './storage/database';
 import { LayoutStore } from './storage/layout-store';
 import { SampleHistory } from './storage/sample-history';
+import { AppSettingsStore } from './storage/app-settings';
+import { StatusEvents } from './storage/status-events';
 
 /** How often hosts.yaml is checked for changes (polling works on every platform and in Docker). */
 const HOSTS_FILE_POLL_MS = 2000;
+const DAY_MS = 86_400_000;
+/** Old history rows are deleted this often (and whenever retention changes). */
+const HISTORY_PRUNE_MS = 60 * 60_000;
 
 export interface StartServerOptions {
   env: ServerEnv;
@@ -69,7 +81,19 @@ export async function startServer({
 
   const db = openDatabase(paths.databaseFile);
   const audit = new AuditLog(db);
-  const history = new SampleHistory(db);
+  // History: metric buckets and status transitions, kept for the retention set in Settings.
+  const appSettings = new AppSettingsStore(db);
+  const retentionMs = () => appSettings.load().historyRetentionDays * DAY_MS;
+  const history = new SampleHistory(db, { bucketMs: 30_000, retentionMs: retentionMs() });
+  // Demo and real data never mix: demo incidents are generated, never recorded.
+  const statusEvents = env.DATA_MODE === 'real' ? new StatusEvents(db) : undefined;
+  const pruneHistory = () => {
+    const now = Date.now();
+    history.setRetention(retentionMs(), now);
+    statusEvents?.prune(now - retentionMs());
+  };
+  pruneHistory();
+  const pruneTimer = setInterval(pruneHistory, HISTORY_PRUNE_MS);
 
   const createRealFleet = (config: HostsConfig): RealFleet =>
     new RealFleet({
@@ -151,6 +175,7 @@ export async function startServer({
     projectName: env.PROJECT_NAME,
     layoutStore: new LayoutStore(db),
     history,
+    statusEvents,
   });
   hub.setConfigErrors(configErrors);
   hub.setResourceConfigErrors(resourceErrors);
@@ -210,10 +235,10 @@ export async function startServer({
     hosts: () => hub.currentProvider.hosts,
     states: () => hub.currentProvider.currentStates(Date.now()),
     isConnected: (hostId) => realFleet()?.connectionFor(hostId)?.phase === 'connected',
-    exec: (hostId, command, timeoutMs) => {
+    exec: (hostId, command, timeoutMs, stdin = '') => {
       const connection = realFleet()?.connectionFor(hostId);
       if (!connection) return Promise.reject(new Error('not connected'));
-      return connection.exec(command, '', timeoutMs);
+      return connection.exec(command, stdin, timeoutMs);
     },
     demoMode: () => realFleet() === null,
   };
@@ -319,6 +344,49 @@ export async function startServer({
             defaultUser: userInfo().username,
           }),
       });
+      registerManageRoutes(instance, {
+        audit,
+        demoMode: env.DATA_MODE === 'demo',
+        hostsFile: env.DATA_MODE === 'real' ? paths.hostsFile : undefined,
+        knownTargets: () =>
+          new Set([
+            ...hub.currentProvider.hosts.map((host) => host.id),
+            ...hub.currentResources.resources().map((resource) => resource.id),
+          ]),
+        samples: (targetId, since) => {
+          history.writeOpen(); // include the bucket still being filled
+          return history.query(targetId, since);
+        },
+        incidents: (targetId, since, until) =>
+          statusEvents
+            ? statusEvents.incidents(targetId, since, until)
+            : createDemoHistory(
+                [...hub.currentProvider.hosts.map((host) => host.id)],
+                targetId,
+                until,
+                Math.ceil((until - since) / DAY_MS),
+              ).incidents,
+        loadSettings: () => appSettings.load(),
+        saveSettings: (settings) => {
+          const saved = appSettings.save(settings);
+          pruneHistory();
+          return saved;
+        },
+        currentThresholds: () => hub.currentProvider.thresholds,
+        setThresholds: async (thresholds) => {
+          const saved = await setFileThresholds(paths.hostsFile, thresholds);
+          await reloadHosts();
+          return saved;
+        },
+        editHost: async (id, patch) => {
+          await editHostInFile(paths.hostsFile, id, patch);
+          await reloadHosts(); // the new name, district or thresholds show at once
+        },
+        removeHost: async (id) => {
+          await removeHostFromFile(paths.hostsFile, id);
+          await reloadHosts();
+        },
+      });
     },
   });
 
@@ -330,6 +398,7 @@ export async function startServer({
     hostCount: provider.hosts.length,
     configErrors,
     async stop() {
+      clearInterval(pruneTimer);
       unwatchFile(paths.hostsFile);
       unwatchFile(paths.resourcesFile);
       agentHub.close();

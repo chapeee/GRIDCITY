@@ -1,4 +1,4 @@
-import { isStale, usagePercent, type HostState } from '@app/shared';
+import { isStale, thresholdsForHost, usagePercent, type HostState } from '@app/shared';
 import { AnimatePresence, motion } from 'motion/react';
 import { useMemo } from 'react';
 import { useFleetStore } from '../data/fleet-store';
@@ -33,7 +33,10 @@ export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
   const history = useFleetStore((store) =>
     focusedHostId ? store.history[focusedHostId] : undefined,
   );
-  const thresholds = useFleetStore((store) => store.thresholds);
+  const fileThresholds = useFleetStore((store) => store.thresholds);
+  const dataMode = useFleetStore((store) => store.dataMode);
+  // This host's own warning thresholds (Edit) on top of the file-wide ones.
+  const thresholds = thresholdsForHost(fileThresholds, host);
   const refusal = useFleetStore((store) =>
     focusedHostId ? store.hostKeyRefusals[focusedHostId] : undefined,
   );
@@ -181,6 +184,9 @@ export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
           </section>
 
           <p className="hud-os">{state?.os ?? `OS ${UNKNOWN}`}</p>
+          {host.thresholds && (
+            <p className="hud-muted">Own warnings: {describeOverrides(host.thresholds)}</p>
+          )}
 
           <footer className="hud-actions">
             <button
@@ -192,6 +198,14 @@ export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
             >
               Jack in <kbd>Enter</kbd>
             </button>
+            <button type="button" onClick={() => useUiStore.getState().openHistory(host.id)}>
+              History <kbd>H</kbd>
+            </button>
+            {dataMode === 'real' && (
+              <button type="button" onClick={() => useUiStore.getState().setEditHostId(host.id)}>
+                Edit <kbd>E</kbd>
+              </button>
+            )}
             <button type="button" onClick={() => focusHost(null)}>
               Overview <kbd>Esc</kbd>
             </button>
@@ -200,6 +214,24 @@ export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
       )}
     </AnimatePresence>
   );
+}
+
+function describeOverrides(
+  overrides: NonNullable<import('@app/shared').Host['thresholds']>,
+): string {
+  const parts: string[] = [];
+  if (overrides.cpuDegradedPercent !== undefined) {
+    parts.push(
+      `CPU > ${overrides.cpuDegradedPercent}%${overrides.cpuDegradedPolls ? ` for ${overrides.cpuDegradedPolls} polls` : ''}`,
+    );
+  } else if (overrides.cpuDegradedPolls !== undefined) {
+    parts.push(`CPU for ${overrides.cpuDegradedPolls} polls`);
+  }
+  if (overrides.memoryDegradedPercent !== undefined)
+    parts.push(`memory > ${overrides.memoryDegradedPercent}%`);
+  if (overrides.diskDegradedPercent !== undefined)
+    parts.push(`disk > ${overrides.diskDegradedPercent}%`);
+  return parts.join(' · ');
 }
 
 /** A terminal needs a live SSH connection. */

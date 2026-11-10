@@ -115,6 +115,9 @@ export function ResourceHud() {
           </p>
 
           <footer className="hud-actions">
+            <button type="button" onClick={() => useUiStore.getState().openHistory(resource.id)}>
+              History <kbd>H</kbd>
+            </button>
             <button type="button" onClick={() => focusHost(null)}>
               Overview <kbd>Esc</kbd>
             </button>

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useFleetStore } from '../data/fleet-store';
 import { useUiStore } from './ui-store';
 
 interface ShortcutOptions {
@@ -28,6 +29,11 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
       // during the intro the first key only skips it.
       // The add-host form handles its own keys.
       if (ui.terminal || ui.introPlaying || ui.addHostOpen) return;
+      // The edit dialog is a form: only Esc (to close it) is ours.
+      if (ui.editHostId) {
+        if (event.key === 'Escape') ui.setEditHostId(null);
+        return;
+      }
 
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
@@ -42,6 +48,8 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
         case 'Escape':
           // Innermost first: panels, then ambient mode, then focus.
           if (ui.auditLogOpen) ui.setAuditLogOpen(false);
+          else if (ui.historyTarget !== undefined) ui.openHistory(undefined);
+          else if (ui.settingsOpen) ui.setSettingsOpen(false);
           else if (ui.agentPanelOpen) ui.setAgentPanelOpen(false);
           else if (ui.ambientMode) ui.setAmbientMode(false);
           else if (ui.focusedHostId) ui.focusHost(null);
@@ -66,6 +74,25 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
             onJackIn(ui.focusedHostId);
           }
           break;
+        case 'h':
+        case 'H':
+          // History of the focused building, or every incident in the fleet.
+          if (event.ctrlKey || event.metaKey || event.altKey) return;
+          ui.openHistory(ui.historyTarget !== undefined ? undefined : ui.focusedHostId);
+          break;
+        case 'e':
+        case 'E': {
+          if (event.ctrlKey || event.metaKey || event.altKey) return;
+          const { hosts, dataMode } = useFleetStore.getState();
+          if (
+            dataMode === 'real' &&
+            ui.focusedHostId &&
+            hosts.some((h) => h.id === ui.focusedHostId)
+          ) {
+            ui.setEditHostId(ui.focusedHostId);
+          }
+          break;
+        }
         case '`':
           ui.togglePerfOverlay();
           break;

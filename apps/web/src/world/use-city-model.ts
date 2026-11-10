@@ -1,6 +1,7 @@
 import {
   DEFAULT_RESOURCE_THRESHOLDS,
   RESOURCE_SHAPES,
+  thresholdsForHost,
   type Host,
   type Resource,
 } from '@app/shared';
@@ -79,7 +80,11 @@ export function useCityModel(): CityModel {
     () =>
       new Map([
         ...hosts.map(
-          (host) => [host.id, computeHostVisual(states[host.id], now, thresholds)] as const,
+          (host) =>
+            [
+              host.id,
+              computeHostVisual(states[host.id], now, thresholdsForHost(thresholds, host)),
+            ] as const,
         ),
         ...resources.map(
           (resource) =>

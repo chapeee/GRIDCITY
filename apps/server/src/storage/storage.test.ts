@@ -13,7 +13,7 @@ afterEach(() => db.close());
 
 describe('database', () => {
   it('runs migrations once and records the schema version', () => {
-    expect(db.pragma('user_version', { simple: true })).toBe(1);
+    expect(db.pragma('user_version', { simple: true })).toBe(2);
   });
 });
 

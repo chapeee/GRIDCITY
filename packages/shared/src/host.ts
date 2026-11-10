@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { HostThresholdOverridesSchema } from './thresholds';
 
 /**
  * How the server authenticates to a host.
@@ -74,6 +75,8 @@ export const HostSchema = z.object({
   auth: HostAuthSchema.default({ method: 'agent' }),
   /** Optional bastion for servers without a public SSH port. */
   jump: JumpHostSchema.optional(),
+  /** This server's own warning thresholds (Edit); unset values use the file-wide ones. */
+  thresholds: HostThresholdOverridesSchema.optional(),
 });
 export type Host = z.infer<typeof HostSchema>;
 /** Host as written by the user, before defaults are applied. */

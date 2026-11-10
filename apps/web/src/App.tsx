@@ -9,6 +9,9 @@ import { AuditLogPanel } from './ui/AuditLogPanel';
 import { CommandPalette } from './ui/CommandPalette';
 import { canOpenTerminal, FocusHud } from './ui/FocusHud';
 import { ResourceHud } from './ui/ResourceHud';
+import { EditHostDialog } from './ui/EditHostDialog';
+import { HistoryPanel } from './ui/HistoryPanel';
+import { SettingsPanel } from './ui/SettingsPanel';
 import {
   LiteModeSuggestion,
   NoticeToast,
@@ -73,6 +76,9 @@ export function App() {
       <NoticeToast />
       <CommandPalette onJackIn={jackIn} />
       <AuditLogPanel />
+      <HistoryPanel />
+      <SettingsPanel />
+      <EditHostDialog />
       <AgentPanel />
       <AddHostDialog />
       <DiveOverlay />

@@ -8,6 +8,7 @@ import {
 } from '@app/shared';
 import type { LayoutStore } from '../storage/layout-store';
 import type { SampleHistory } from '../storage/sample-history';
+import type { StatusEvents } from '../storage/status-events';
 import type { FleetEvent, FleetProvider } from './fleet-provider';
 import { EmptyResourceProvider, type ResourceEvent, type ResourceProvider } from './resource-fleet';
 
@@ -20,6 +21,8 @@ export interface StateHubOptions {
   projectName: string;
   layoutStore?: LayoutStore;
   history?: SampleHistory;
+  /** Status transitions (incidents) for the history panel; real mode only. */
+  statusEvents?: StatusEvents;
   now?: () => number;
   /** How often staleness is re-evaluated even without new data, ms. */
   staleCheckIntervalMs?: number;
@@ -225,7 +228,10 @@ export class StateHub {
     }
     this.lastSent = next;
     if (changed.length > 0) {
-      for (const state of changed) this.options.history?.record(state);
+      for (const state of changed) {
+        this.options.history?.record(state);
+        this.options.statusEvents?.record(state.hostId, state.status, state.statusReason, now);
+      }
       this.broadcast({ type: 'hostStates', states: changed });
     }
 
@@ -237,6 +243,9 @@ export class StateHub {
       if (this.lastSentResources.get(state.resourceId) !== serialized) changedResources.push(state);
     }
     this.lastSentResources = nextResources;
+    for (const state of changedResources) {
+      this.options.statusEvents?.record(state.resourceId, state.status, state.statusReason, now);
+    }
     if (changedResources.length > 0) {
       this.broadcast({ type: 'resourceStates', states: changedResources });
     }

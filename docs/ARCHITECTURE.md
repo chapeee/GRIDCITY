@@ -157,13 +157,28 @@ sustained CPU, memory or any disk over threshold; online otherwise.
 changed. It re-evaluates staleness every second, replays host-key refusals and config errors to
 new clients, and swaps the fleet on `hosts.yaml` reload.
 
+### History, Settings and Edit
+
+- `StateHub` records every status change of hosts and resources in `StatusEvents`; `SampleHistory`
+  keeps 30 s metric buckets. Both are pruned hourly and whenever the retention changes
+  (`AppSettingsStore`, default 7 days). `/api/history` writes the bucket still being filled before
+  reading, downsamples to at most 720 points and leaves empty windows as gaps.
+- Per-host warning thresholds (`thresholds:` under a host, `HostThresholdOverridesSchema`) are merged
+  over the file-wide ones by `thresholdsForHost` in `RealFleet` and in the browser (disk arcs).
+- `config/hosts-editor.ts` edits hosts.yaml through the `yaml` Document API (comments kept),
+  refuses an invalid file, validates the result before writing, then the fleet reloads.
+- With demo data nothing is recorded or saved; History shows generated incidents labelled DEMO DATA
+  (`demo/demo-history.ts`).
+
 ### Storage (SQLite, `better-sqlite3`)
 
-| Table            | Contents                                                                                                                                                                                         |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `audit_log`      | Append-only (triggers abort UPDATE/DELETE): server start/stop, connection opened/lost/failed, host key refused, hosts imported; terminal sessions in Phase 4. Transitions only, not every retry. |
-| `metric_samples` | 30 s buckets (averages; unknown values skipped), 48 h retention. For the time scrubber later.                                                                                                    |
-| `layout_slots`   | Sticky slot per host, separate for `real` and `demo`.                                                                                                                                            |
+| Table            | Contents                                                                                                                                                                                                                                                                   |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `audit_log`      | Append-only (triggers abort UPDATE/DELETE): server start/stop, connection opened/lost/failed, host key refused, hosts imported; terminal sessions in Phase 4. Transitions only, not every retry.                                                                           |
+| `metric_samples` | 30 s buckets (averages; unknown values skipped), 7-day retention (Settings). For the time scrubber later.                                                                                                                                                                  |
+| `status_events`  | Status transitions per host or resource (online, degraded, offline; `unknown` is not recorded), real mode only. Incidents are the degraded/offline periods between them. Pruned with the retention, keeping each target's newest event so a long incident keeps its start. |
+| `app_settings`   | JSON app settings from the Settings panel (history retention, 1–90 days, default 7). Never secrets.                                                                                                                                                                        |
+| `layout_slots`   | Sticky slot per host, separate for `real` and `demo`.                                                                                                                                                                                                                      |
 
 No keys, passphrases or passwords are ever stored.
 
@@ -225,24 +240,28 @@ shell instead of faking one.
 
 ## HTTP API
 
-| Route                               | Purpose                                                                             |
-| ----------------------------------- | ----------------------------------------------------------------------------------- |
-| `GET /api/meta`                     | Project name, version, protocol version                                             |
-| `GET /ws/state`                     | Live fleet stream (WebSocket)                                                       |
-| `GET /ws/terminal/:hostId`          | Interactive shell (WebSocket)                                                       |
-| `POST /api/hosts`                   | Add one host (draft) to hosts.yaml                                                  |
-| `POST /api/hosts/test`              | Test a draft connection; saves nothing                                              |
-| `POST /api/hosts/import-ssh-config` | Import from `~/.ssh/config` into hosts.yaml                                         |
-| `GET /api/audit?limit=200`          | Audit log, newest first                                                             |
-| `GET /api/ssh/keys`                 | Keys in ssh-agent and the SSH folder (public halves only)                           |
-| `POST /api/ssh/keys`                | Create a new ed25519 key (409 if the file exists)                                   |
-| `POST /api/ssh/keys/import`         | Upload a private key (.pem/.ppk/OpenSSH); 422 if unusable, 409 if the name is taken |
-| `POST /api/connect/probe`           | Read a server's host key fingerprint, no login                                      |
-| `POST /api/connect/trust`           | Append a confirmed host key to known_hosts (409 if changed)                         |
-| `POST /api/connect/install`         | Install a public key with the password once (422 if rejected)                       |
-| `GET/POST/DELETE /mcp`              | MCP endpoint for AI apps (Bearer token; no Origin needed)                           |
-| `GET /ws/agent`                     | Approvals and the agent panel (WebSocket)                                           |
-| `GET /api/agent/mcp-setup`          | Ready-to-paste Claude Code command and JSON config (contains the token)             |
+| Route                               | Purpose                                                                                                  |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `GET /api/meta`                     | Project name, version, protocol version                                                                  |
+| `GET /ws/state`                     | Live fleet stream (WebSocket)                                                                            |
+| `GET /ws/terminal/:hostId`          | Interactive shell (WebSocket)                                                                            |
+| `POST /api/hosts`                   | Add one host (draft) to hosts.yaml                                                                       |
+| `POST /api/hosts/test`              | Test a draft connection; saves nothing                                                                   |
+| `POST /api/hosts/import-ssh-config` | Import from `~/.ssh/config` into hosts.yaml                                                              |
+| `GET /api/audit?limit=200`          | Audit log, newest first                                                                                  |
+| `GET /api/ssh/keys`                 | Keys in ssh-agent and the SSH folder (public halves only)                                                |
+| `POST /api/ssh/keys`                | Create a new ed25519 key (409 if the file exists)                                                        |
+| `POST /api/ssh/keys/import`         | Upload a private key (.pem/.ppk/OpenSSH); 422 if unusable, 409 if the name is taken                      |
+| `POST /api/connect/probe`           | Read a server's host key fingerprint, no login                                                           |
+| `POST /api/connect/trust`           | Append a confirmed host key to known_hosts (409 if changed)                                              |
+| `POST /api/connect/install`         | Install a public key with the password once (422 if rejected)                                            |
+| `GET/POST/DELETE /mcp`              | MCP endpoint for AI apps (Bearer token; no Origin needed)                                                |
+| `GET /ws/agent`                     | Approvals and the agent panel (WebSocket)                                                                |
+| `GET /api/history?target=&days=`    | Incidents and chart points (averaged to ≤ 720) for one host/resource, or every incident without `target` |
+| `GET/PUT /api/settings`             | Retention and file-wide thresholds (PUT writes hosts.yaml; 409 with demo data)                           |
+| `PATCH /api/hosts/:id`              | Edit name, district, tags, own thresholds (hosts.yaml in place; 422 with the problems)                   |
+| `DELETE /api/hosts/:id`             | Remove a host from hosts.yaml (its history ages out)                                                     |
+| `GET /api/agent/mcp-setup`          | Ready-to-paste Claude Code command and JSON config (contains the token)                                  |
 
 "Connect a server" (`apps/server/src/ssh/host-key-setup.ts`, `local-keys.ts`, `generate-key.ts`)
 chains these: probe → trust → pick or create a key → test → install if needed → add. Trust

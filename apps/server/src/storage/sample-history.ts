@@ -10,7 +10,8 @@ export interface SampleHistoryOptions {
 
 export const DEFAULT_HISTORY: SampleHistoryOptions = {
   bucketMs: 30_000,
-  retentionMs: 48 * 60 * 60 * 1000,
+  // 7 days by default; the Settings panel changes it (setRetention).
+  retentionMs: 7 * 24 * 60 * 60 * 1000,
 };
 
 type MetricKey =
@@ -33,7 +34,7 @@ export interface StoredSample {
 }
 
 /**
- * Keeps the last 48 hours of history at reduced resolution: polls are
+ * Keeps the last days of history (7 by default, set in Settings) at reduced resolution: polls are
  * averaged into fixed buckets (unknown values are skipped, never counted as
  * zero) and one row per host per bucket is written. Read by the time
  * scrubber in a later phase.
@@ -42,10 +43,13 @@ export class SampleHistory {
   private readonly buckets = new Map<string, Bucket>();
   private readonly insert;
 
+  private readonly options: SampleHistoryOptions;
+
   constructor(
     private readonly db: AppDatabase,
-    private readonly options: SampleHistoryOptions = DEFAULT_HISTORY,
+    options: SampleHistoryOptions = DEFAULT_HISTORY,
   ) {
+    this.options = { ...options };
     this.insert = db.prepare(`
       INSERT OR REPLACE INTO metric_samples
         (host_id, at, cpu_percent, memory_percent, network_bytes_per_sec, load_one, max_disk_percent)
@@ -94,6 +98,21 @@ export class SampleHistory {
     for (const [hostId, bucket] of this.buckets) this.write(hostId, bucket);
     this.buckets.clear();
     this.prune(now);
+  }
+
+  /** Writes the buckets still being filled without closing them (for history reads). */
+  writeOpen(): void {
+    for (const [hostId, bucket] of this.buckets) this.write(hostId, bucket);
+  }
+
+  /** Changes how long rows are kept and deletes what is now too old. */
+  setRetention(retentionMs: number, now: number): void {
+    this.options.retentionMs = retentionMs;
+    this.prune(now);
+  }
+
+  get retentionMs(): number {
+    return this.options.retentionMs;
   }
 
   prune(now: number): void {

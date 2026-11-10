@@ -47,6 +47,21 @@ const MIGRATIONS: readonly string[] = [
     PRIMARY KEY (data_mode, host_id)
   );
   `,
+  /* 2: status transitions (incidents) and app settings */ `
+  CREATE TABLE status_events (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    target_id TEXT    NOT NULL,          -- host or resource id
+    at        INTEGER NOT NULL,          -- epoch ms
+    status    TEXT    NOT NULL,          -- online | degraded | offline
+    reason    TEXT
+  );
+  CREATE INDEX status_events_target_at ON status_events (target_id, at);
+
+  CREATE TABLE app_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL                  -- JSON, never secrets
+  );
+  `,
 ];
 
 /** Opens (creating if needed) and migrates the database. Use ':memory:' in tests. */
