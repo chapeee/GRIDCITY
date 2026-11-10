@@ -3,6 +3,12 @@ import { z } from 'zod';
 import { parseHostTarget } from '../config/host-target';
 import { generateKey, KeyExistsError } from '../ssh/generate-key';
 import {
+  importPrivateKey,
+  KeyImportError,
+  KeyNameTakenError,
+  MAX_KEY_FILE_BYTES,
+} from '../ssh/key-import';
+import {
   HostKeyMismatchError,
   installPublicKey,
   PasswordRejectedError,
@@ -29,6 +35,11 @@ export interface ConnectDependencies {
 
 const TargetSchema = z.object({ target: z.string().trim().min(1) });
 const TrustSchema = TargetSchema.extend({ fingerprint: z.string().startsWith('SHA256:') });
+const ImportSchema = z.object({
+  fileName: z.string().trim().min(1).max(255),
+  /** The key file's text; validated by importPrivateKey, never logged. */
+  content: z.string().min(1).max(MAX_KEY_FILE_BYTES),
+});
 const InstallSchema = TargetSchema.extend({
   keyId: z.string().min(1),
   /** Used once for this request, never stored or logged. */
@@ -67,6 +78,26 @@ export function registerConnectRoutes(app: FastifyInstance, deps: ConnectDepende
       return reply.code(201).send({ key });
     } catch (error) {
       if (error instanceof KeyExistsError) return reply.code(409).send({ error: error.message });
+      throw error;
+    }
+  });
+
+  // Upload a key the user already has (.pem, .ppk, OpenSSH). The private key
+  // travels once over loopback, is validated, saved to the SSH folder and
+  // never logged or returned; only its public half comes back.
+  app.post('/api/ssh/keys/import', { bodyLimit: 256 * 1024 }, async (request, reply) => {
+    const body = ImportSchema.safeParse(request.body);
+    if (!body.success) return badRequest(reply, 'Choose a key file to upload.');
+    try {
+      const imported = await importPrivateKey({ sshDir: deps.sshDir, ...body.data });
+      const key = (await keys()).find((k) => k.privatePath === imported.privatePath);
+      if (imported.created) {
+        deps.audit.append('key_imported', null, `${key?.keyType ?? 'key'} ${imported.fingerprint}`);
+      }
+      return reply.code(imported.created ? 201 : 200).send({ key, created: imported.created });
+    } catch (error) {
+      if (error instanceof KeyNameTakenError) return reply.code(409).send({ error: error.message });
+      if (error instanceof KeyImportError) return badRequest(reply, error.message);
       throw error;
     }
   });

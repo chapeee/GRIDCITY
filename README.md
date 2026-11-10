@@ -71,7 +71,10 @@ the empty city). Type `user@address`, then:
 
 1. **Trust:** the app shows the server's fingerprint. Compare it and confirm; it is added to
    your `known_hosts`, like answering "yes" in `ssh`.
-2. **Key:** pick a key from your ssh-agent or `~/.ssh`, or let the app create one.
+2. **Key:** pick a key from your ssh-agent or `~/.ssh`, **upload a key file** you were given (an
+   AWS/cloud `.pem`, a PuTTY `.ppk`, or an OpenSSH `id_*`), or let the app create one. Uploaded
+   keys are copied into your SSH folder; `.ppk` files are converted to OpenSSH format. Cloud
+   servers usually already accept their key, so there is no password step.
 3. **Install:** if the server doesn't accept the key yet, enter the password **once**. The app
    adds your public key to the server's `authorized_keys`; the password is never saved.
 4. **Done:** the server is saved to `hosts.yaml` and lights up.

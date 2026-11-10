@@ -8,6 +8,7 @@ import {
   startFakeSshServer,
   type FakeSshServer,
 } from '../../apps/server/src/testing/fake-ssh-server';
+import { makePpk } from '../../apps/server/src/testing/ppk-fixture';
 
 /**
  * A complete local stack for browser tests: two in-process SSH servers
@@ -22,6 +23,10 @@ export interface LiveStack {
   untrusted: FakeSshServer;
   /** A freshly installed server: password only, no keys, not in known_hosts. */
   fresh: FakeSshServer;
+  /** A cloud-style server (no passwords) that accepts `cloudKeyPpk`. */
+  cloud: FakeSshServer;
+  /** The PuTTY key file a provider would hand out for `cloud`. */
+  cloudKeyPpk: string;
   stopServer(): Promise<void>;
   /** Everything the server printed (for diagnosing failures). */
   serverOutput(): string;
@@ -44,6 +49,8 @@ export async function startLiveStack(): Promise<LiveStack> {
   const trusted = await startFakeSshServer({ authorizedKey: keys.public, user: USER });
   const untrusted = await startFakeSshServer({ authorizedKey: keys.public, user: USER });
   const fresh = await startFakeSshServer({ user: 'root', password: FRESH_PASSWORD });
+  const cloudKey = makePpk('ed25519', { comment: 'cloud-provider-key' });
+  const cloud = await startFakeSshServer({ user: 'ubuntu', authorizedKey: cloudKey.publicLine });
 
   const configDir = join(workDir, 'config');
   const knownHosts = join(workDir, 'known_hosts');
@@ -102,6 +109,8 @@ export async function startLiveStack(): Promise<LiveStack> {
     trusted,
     untrusted,
     fresh,
+    cloud,
+    cloudKeyPpk: cloudKey.ppk,
     stopServer,
     serverOutput: () => output,
     async close() {
@@ -109,6 +118,7 @@ export async function startLiveStack(): Promise<LiveStack> {
       await trusted.close();
       await untrusted.close();
       await fresh.close();
+      await cloud.close();
       try {
         rmSync(workDir, { recursive: true, force: true });
       } catch {

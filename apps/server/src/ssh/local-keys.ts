@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import ssh2, { type ParsedKey } from 'ssh2';
+import { classifyKeyText, MAX_KEY_FILE_BYTES } from './key-import';
 import { fingerprintSha256, presentedKeyFromBlob } from './known-hosts';
 
 /**
@@ -90,6 +91,15 @@ async function listFileKeys(sshDir: string): Promise<LocalKey[]> {
   const names = await readdir(sshDir).catch(() => [] as string[]);
   const keys: LocalKey[] = [];
 
+  // Private keys without a .pub beside them (AWS .pem files, copied keys).
+  const loneNames = names
+    .filter((name) => !name.endsWith('.pub') && !names.includes(`${name}.pub`))
+    .sort();
+  for (const name of loneNames) {
+    const key = await readLonePrivateKey(join(sshDir, name), name);
+    if (key) keys.push(key);
+  }
+
   for (const publicName of names.filter((name) => name.endsWith('.pub')).sort()) {
     const privateName = publicName.slice(0, -'.pub'.length);
     const privatePath = join(sshDir, privateName);
@@ -121,5 +131,52 @@ async function listFileKeys(sshDir: string): Promise<LocalKey[]> {
           }),
     });
   }
-  return keys;
+  return keys.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/**
+ * A private key file with no .pub: the public half is derived from it.
+ * Returns null for anything that is not a private key (config, known_hosts…).
+ */
+async function readLonePrivateKey(path: string, name: string): Promise<LocalKey | null> {
+  const info = await stat(path).catch(() => null);
+  if (!info?.isFile() || info.size > MAX_KEY_FILE_BYTES) return null;
+  const text = await readFile(path, 'utf8').catch(() => '');
+  const kind = classifyKeyText(text);
+  if (kind !== 'private' && kind !== 'ppk') return null;
+
+  const unusable = (note: string): LocalKey => ({
+    id: `file:${name}`,
+    source: 'file',
+    label: `${name} · private key`,
+    keyType: 'unknown',
+    fingerprint: '',
+    publicKey: '',
+    privatePath: path,
+    usable: false,
+    note,
+  });
+
+  const parsed = ssh2.utils.parseKey(text);
+  const key = Array.isArray(parsed) ? parsed[0] : parsed;
+  if (!key || key instanceof Error) {
+    if (kind === 'ppk') return unusable('PuTTY key: use "Upload a key file" to convert it');
+    return unusable(
+      key && /passphrase|encrypted/i.test(key.message)
+        ? 'passphrase-protected: load it into ssh-agent (ssh-add) to use it'
+        : 'not a supported private key',
+    );
+  }
+  const blob = key.getPublicSSH();
+  const { keyType } = presentedKeyFromBlob(blob);
+  return {
+    id: `file:${name}`,
+    source: 'file',
+    label: `${name} · ${keyType}`,
+    keyType,
+    fingerprint: fingerprintSha256(blob),
+    publicKey: `${keyType} ${blob.toString('base64')} ${key.comment || name}`.trim(),
+    privatePath: path,
+    usable: true,
+  };
 }

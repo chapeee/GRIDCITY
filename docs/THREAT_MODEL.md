@@ -19,6 +19,9 @@ find a gap.
     confirm it**, exactly like answering "yes" in `ssh`. A host already known with a different key
     is never replaced (that is the man-in-the-middle case): you resolve it with `ssh-keygen -R`;
   - it can create a new ed25519 key in your SSH folder (via `ssh-keygen`; never overwrites a file);
+  - it can save a private key file **you upload** (`.pem`, `.ppk`, OpenSSH) into your SSH folder
+    (mode 600, never overwriting a different key). PuTTY keys are converted to OpenSSH format.
+    Passphrase-protected keys are refused, not decrypted: passphrases are never asked for or kept;
   - it uses the account password **once**, in memory, to append your public key to the server's
     `~/.ssh/authorized_keys` (one fixed script, key on stdin, skipped if already present). The
     password is sent only to a host whose key is already trusted, and is never stored, logged,
@@ -62,6 +65,7 @@ find a gap.
 | Supply-chain compromise of a dependency                 | Lockfile + `npm ci`; install scripts must be explicitly approved (`allowScripts`); small dependency surface.                                                                                                                                | Ongoing                 |
 | Agent socket / SSH folder mounted into Docker           | Opt-in via `compose.ssh.example.yaml`, with the risk stated there: anything controlling the container can use your agent and read your SSH folder while it runs. The folder is read-write for the setup dialog; `:ro` works if you skip it. | Phase 2 ✅ (documented) |
 | Trusting an impostor during "Connect a server"          | The fingerprint is shown before anything is written, with how to check it on the server. On confirm the key is probed again and must still match; changed or revoked keys are never replaced; nothing is auto-accepted.                     | v0.1 ✅                 |
+| Uploaded private key leaks                              | Sent once to the loopback server behind the usual token/cookie/Origin guards; validated (must sign and verify), saved with mode 600, never logged or returned (only the public half comes back); size-capped. Tested.                       | v0.1 ✅                 |
 | Password leaks during key installation                  | Password only in request memory; strict host key check first (untrusted host: the password is not sent); errors never contain it; the request body is not logged; the browser clears the field after each attempt. Tested.                  | v0.1 ✅                 |
 | A website makes the app install keys or trust hosts     | Same guards as every write: session token, `SameSite=Strict` cookie and our `Origin`.                                                                                                                                                       | v0.1 ✅                 |
 

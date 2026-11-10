@@ -15,6 +15,7 @@ export type AuditKind =
   | 'hosts_imported'
   | 'host_added'
   | 'key_created'
+  | 'key_imported'
   | 'host_key_trusted'
   | 'key_installed'
   | 'terminal_opened'

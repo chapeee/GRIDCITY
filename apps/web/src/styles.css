@@ -1132,6 +1132,22 @@ button:disabled {
   gap: 4px;
 }
 
+.key-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Hidden from view but still reachable by the label/button that opens it. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .key-option {
   display: grid;
   grid-template-columns: auto 1fr;

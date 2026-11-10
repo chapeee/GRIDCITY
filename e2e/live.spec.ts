@@ -162,6 +162,41 @@ test('connect a server with no terminal: trust, create key, password once, onlin
   await expect(hudStatus()).toHaveText('online', { timeout: 15_000 });
 });
 
+test('connect a cloud server by uploading its .ppk key: no password needed', async () => {
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type('connect a server');
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Connect a server' });
+
+  await dialog.getByLabel('SSH address').fill(`ubuntu@127.0.0.1:${stack.cloud.port}`);
+  await dialog.getByLabel('Name').fill('cloud-web');
+  await dialog.getByLabel('District').fill('AWS');
+  await dialog.getByRole('button', { name: 'Next' }).click();
+  await expect(dialog.locator('.fingerprint')).toContainText('SHA256:', { timeout: 15_000 });
+  await dialog.getByRole('button', { name: 'Yes, this is my server' }).click();
+
+  // Upload the provider's PuTTY key; it is converted and selected.
+  await dialog.getByLabel('Key file').setInputFiles({
+    name: 'cloud-web.ppk',
+    mimeType: 'application/octet-stream',
+    buffer: Buffer.from(stack.cloudKeyPpk),
+  });
+  const uploaded = dialog.getByRole('radio', { name: /cloud-web · ssh-ed25519/ });
+  await expect(uploaded).toBeChecked({ timeout: 10_000 });
+  await page.screenshot({ path: 'test-results/screenshots/live-connect-upload.png' });
+  await dialog.getByRole('button', { name: 'Continue' }).click();
+
+  // The server already has this key: straight to done, no password step.
+  await expect(dialog.getByText('cloud-web is connected')).toBeVisible({ timeout: 15_000 });
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type('cloud-web');
+  await expect(page.getByRole('option', { name: /cloud-web/ })).toBeVisible({ timeout: 10_000 });
+  await page.keyboard.press('Enter');
+  await expect(hudStatus()).toHaveText('online', { timeout: 15_000 });
+});
+
 test('the audit log shows connections, key refusals and terminal sessions', async () => {
   await page.keyboard.press('Escape');
   await page.keyboard.press('Control+k');

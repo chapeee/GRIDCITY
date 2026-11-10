@@ -109,6 +109,13 @@ export const listKeys = () => request<{ keys: LocalKey[]; sshDir: string }>('/ap
 /** Creates a new key pair in the user's SSH directory (never overwrites). */
 export const createKey = () => postJson<{ key?: LocalKey }>('/api/ssh/keys', {});
 
+/**
+ * Uploads a private key the user already has (.pem, .ppk, OpenSSH) into
+ * their SSH folder. PuTTY keys are converted; only the public half comes back.
+ */
+export const importKey = (fileName: string, content: string) =>
+  postJson<{ key?: LocalKey; created: boolean }>('/api/ssh/keys/import', { fileName, content });
+
 /** Reads the server's host key fingerprint without logging in. */
 export const probeHost = (target: string) =>
   postJson<HostKeyProbe>('/api/connect/probe', { target });

@@ -1,9 +1,10 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useFleetStore } from '../data/fleet-store';
 import {
   addHost,
   createKey,
+  importKey,
   installKey,
   listKeys,
   probeHost,
@@ -136,6 +137,20 @@ export function AddHostDialog() {
       await loadKeys();
       setStep('key');
     });
+
+  const keyFileInput = useRef<HTMLInputElement>(null);
+
+  /** The user picked a key file (.pem, .ppk, id_*): upload it and select it. */
+  const uploadKey = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // picking the same file again still fires
+    if (!file) return;
+    void run('Reading the key…', async () => {
+      if (file.size > 64 * 1024) throw new Error('That file is too large to be an SSH key.');
+      const { key } = await importKey(file.name, await file.text());
+      await loadKeys(key?.id);
+    });
+  };
 
   const makeKey = () =>
     void run('Creating a key…', async () => {
@@ -363,13 +378,32 @@ export function AddHostDialog() {
                 ) : (
                   <p className="wizard-hint">You don&apos;t have an SSH key yet.</p>
                 )}
-                <button type="button" onClick={makeKey} disabled={!!busy}>
-                  Create a new key for this app
-                </button>
+                <div className="key-actions">
+                  <button
+                    type="button"
+                    onClick={() => keyFileInput.current?.click()}
+                    disabled={!!busy}
+                  >
+                    Upload a key file…
+                  </button>
+                  <button type="button" onClick={makeKey} disabled={!!busy}>
+                    Create a new key for this app
+                  </button>
+                  <input
+                    ref={keyFileInput}
+                    type="file"
+                    className="visually-hidden"
+                    aria-label="Key file"
+                    accept=".pem,.ppk,.key,application/x-pem-file,text/plain,*/*"
+                    onChange={uploadKey}
+                    tabIndex={-1}
+                  />
+                </div>
                 <p className="wizard-hint">
-                  New keys go to your SSH folder like ssh-keygen would make them, without a
-                  passphrase so they also work in Docker. A key only opens servers it is installed
-                  on.
+                  Got a key from AWS, a cloud console or PuTTY? Upload the <strong>private</strong>{' '}
+                  key file (.pem, .ppk or id_…): it is copied into your SSH folder, PuTTY keys are
+                  converted, and the public half is worked out for you. Or create a new key; it only
+                  opens servers it is installed on.
                 </p>
                 <footer>
                   <button type="button" onClick={reset} disabled={!!busy}>
@@ -407,6 +441,10 @@ export function AddHostDialog() {
                   />
                   <small>Used for this one step only. Never saved, logged or shown.</small>
                 </label>
+                <p className="wizard-hint">
+                  Cloud servers (AWS, GCP, Azure…) usually turn passwords off. For those, go back
+                  and upload the key file the provider gave you instead.
+                </p>
                 <footer>
                   <button type="button" onClick={() => setStep('key')} disabled={!!busy}>
                     Back
