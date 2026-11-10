@@ -123,7 +123,7 @@ test('connect a server with no terminal: trust, create key, password once, onlin
 
   // 1. Address
   await dialog.getByLabel('SSH address').fill(`root@127.0.0.1:${stack.fresh.port}`);
-  await dialog.getByLabel('Name').fill('new-box');
+  await dialog.getByLabel('Name', { exact: true }).fill('new-box');
   await dialog.getByLabel('District').fill('Lab');
   await dialog.getByRole('button', { name: 'Next' }).click();
 
@@ -162,15 +162,17 @@ test('connect a server with no terminal: trust, create key, password once, onlin
   await expect(hudStatus()).toHaveText('online', { timeout: 15_000 });
 });
 
-test('connect a cloud server by uploading its .ppk key: no password needed', async () => {
+test('connect an AWS server: upload its .ppk, no user typed, no password', async () => {
   await page.keyboard.press('Escape');
   await page.keyboard.press('Control+k');
   await page.keyboard.type('connect a server');
   await page.keyboard.press('Enter');
   const dialog = page.getByRole('dialog', { name: 'Connect a server' });
 
-  await dialog.getByLabel('SSH address').fill(`ubuntu@127.0.0.1:${stack.cloud.port}`);
-  await dialog.getByLabel('Name').fill('cloud-web');
+  // AWS: just the address. The app finds the user (here ec2-user) itself.
+  await dialog.getByLabel('Where is this server?').selectOption('aws');
+  await dialog.getByLabel('SSH address').fill(`127.0.0.1:${stack.cloud.port}`);
+  await dialog.getByLabel('Name', { exact: true }).fill('cloud-web');
   await dialog.getByLabel('District').fill('AWS');
   await dialog.getByRole('button', { name: 'Next' }).click();
   await expect(dialog.locator('.fingerprint')).toContainText('SHA256:', { timeout: 15_000 });
@@ -193,6 +195,50 @@ test('connect a cloud server by uploading its .ppk key: no password needed', asy
   await page.keyboard.press('Control+k');
   await page.keyboard.type('cloud-web');
   await expect(page.getByRole('option', { name: /cloud-web/ })).toBeVisible({ timeout: 10_000 });
+  await page.keyboard.press('Enter');
+  await expect(hudStatus()).toHaveText('online', { timeout: 15_000 });
+});
+
+test('connect a private server through a jump host (bastion)', async () => {
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type('connect a server');
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Connect a server' });
+
+  await dialog.getByLabel('Where is this server?').selectOption('aws');
+  await dialog.getByLabel('SSH address').fill(`ubuntu@127.0.0.1:${stack.privateBox.port}`);
+  await dialog.getByRole('button', { name: /jump host/ }).click();
+  await dialog.getByLabel('Jump host (bastion)').fill(`ec2-user@127.0.0.1:${stack.bastion.port}`);
+  await dialog.getByLabel('Name', { exact: true }).fill('private-db');
+  await dialog.getByLabel('District').fill('AWS');
+  await dialog.getByRole('button', { name: 'Next' }).click();
+
+  // 1. The bastion's identity first.
+  await expect(dialog.getByText('the jump host')).toBeVisible({ timeout: 15_000 });
+  await dialog.getByRole('button', { name: 'Yes, this is my server' }).click();
+
+  // 2. The key (same key for the bastion and the server).
+  await dialog.getByLabel('Key file').setInputFiles({
+    name: 'cloud-web.ppk',
+    mimeType: 'application/octet-stream',
+    buffer: Buffer.from(stack.cloudKeyPpk),
+  });
+  await expect(dialog.getByRole('radio', { name: /cloud-web/ })).toBeChecked({ timeout: 10_000 });
+  await dialog.getByRole('button', { name: 'Continue' }).click();
+
+  // 3. The private server's own identity, checked through the tunnel.
+  await expect(dialog.locator('.fingerprint')).toContainText('SHA256:', { timeout: 15_000 });
+  await expect(dialog.getByText('the jump host')).toHaveCount(0);
+  await page.screenshot({ path: 'test-results/screenshots/live-connect-jump.png' });
+  await dialog.getByRole('button', { name: 'Yes, this is my server' }).click();
+
+  await expect(dialog.getByText('private-db is connected')).toBeVisible({ timeout: 20_000 });
+  expect(stack.bastion.tunnelsOpened).toBeGreaterThan(0);
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type('private-db');
+  await expect(page.getByRole('option', { name: /private-db/ })).toBeVisible({ timeout: 10_000 });
   await page.keyboard.press('Enter');
   await expect(hudStatus()).toHaveText('online', { timeout: 15_000 });
 });

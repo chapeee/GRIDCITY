@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import type { AddressInfo } from 'node:net';
+import { connect as netConnect, type AddressInfo } from 'node:net';
 import ssh2, { type Connection, type ParsedKey } from 'ssh2';
 
 const { Server, utils } = ssh2;
@@ -37,6 +37,8 @@ export interface FakeSshServer {
   shellLines: string[];
   /** Public keys installed through the authorized_keys script. */
   installedKeys: number;
+  /** Tunnels opened through this server (as a jump host). */
+  tunnelsOpened: number;
   /** Drops every client connection (simulates a network cut / server restart). */
   dropAllClients(): void;
   close(): Promise<void>;
@@ -46,14 +48,33 @@ const FIXTURES = ['debian-poll-1', 'debian-poll-2'].map((name) =>
   readFileSync(new URL(`../metrics/fixtures/${name}.txt`, import.meta.url), 'utf8'),
 );
 
+/**
+ * An ed25519 host key that ssh2 can parse back. Rarely, ssh2's generator
+ * produces a key its own parser rejects ("Malformed OpenSSH private key"),
+ * which made tests flaky; real keys from ssh-keygen are not affected.
+ */
+function generateUsableHostKey(): ReturnType<typeof utils.generateKeyPairSync> {
+  for (;;) {
+    const pair = utils.generateKeyPairSync('ed25519');
+    if (!(utils.parseKey(pair.private) instanceof Error)) return pair;
+  }
+}
+
 export async function startFakeSshServer(options: {
   /** Public key (OpenSSH format) the server accepts for `user`, if any. */
   authorizedKey?: string;
   user: string;
   /** Accept this password (plain and keyboard-interactive), like a fresh server. */
   password?: string;
+  /**
+   * Like an AWS image: also accept the key for "root", but every command run
+   * as root only prints "Please login as the user <this>" and fails.
+   */
+  cloudUser?: string;
+  /** Allow direct-tcpip tunnels, like a bastion (`ssh -J`). */
+  allowTunnels?: boolean;
 }): Promise<FakeSshServer> {
-  const hostKeys = utils.generateKeyPairSync('ed25519');
+  const hostKeys = generateUsableHostKey();
   /** Like ~/.ssh/authorized_keys: grows when a key is installed over SSH. */
   const authorizedKeys: ParsedKey[] = [];
   const authorize = (publicKey: string) => {
@@ -73,6 +94,7 @@ export async function startFakeSshServer(options: {
     lastWindow: null,
     shellLines: [],
     installedKeys: 0,
+    tunnelsOpened: 0,
     dropAllClients: () => {
       for (const client of clients) client.end();
     },
@@ -87,12 +109,30 @@ export async function startFakeSshServer(options: {
     clients.add(client);
     client.on('close', () => clients.delete(client));
     client.on('error', () => {});
+    /** Who this client authenticated as (the cloud-image trick depends on it). */
+    let loggedInAs = '';
+    client.on('tcpip', (accept, reject, info) => {
+      if (!options.allowTunnels) return reject();
+      fake.tunnelsOpened += 1;
+      const upstream = netConnect(info.destPort, info.destIP);
+      upstream.once('connect', () => {
+        const channel = accept();
+        channel.pipe(upstream).pipe(channel);
+        channel.on('close', () => upstream.destroy());
+        upstream.on('close', () => channel.close());
+      });
+      upstream.once('error', () => reject());
+    });
 
     const methods = options.password
       ? ['publickey', 'password', 'keyboard-interactive']
       : ['publickey'];
     client.on('authentication', (context) => {
-      if (context.username !== options.user) return context.reject(methods as never);
+      const cloudRoot = options.cloudUser !== undefined && context.username === 'root';
+      if (context.username !== options.user && !cloudRoot) {
+        return context.reject(methods as never);
+      }
+      loggedInAs = context.username;
 
       if (context.method === 'password') {
         return context.password === options.password
@@ -157,6 +197,23 @@ export async function startFakeSshServer(options: {
         });
         session.on('exec', (acceptExec, _rejectExec, info) => {
           const stream = acceptExec();
+          if (options.cloudUser && loggedInAs === 'root') {
+            stream.write(
+              `Please login as the user "${options.cloudUser}" rather than the user "root".
+
+`,
+            );
+            stream.exit(142);
+            stream.end();
+            return;
+          }
+          if (info.command.startsWith('echo ')) {
+            stream.write(`${info.command.slice(5)}
+`);
+            stream.exit(0);
+            stream.end();
+            return;
+          }
           if (info.command.includes('authorized_keys')) {
             let input = '';
             stream.on('data', (chunk: Buffer) => (input += chunk.toString('utf8')));

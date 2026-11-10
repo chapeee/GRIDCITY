@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 import { parseHostTarget } from '../config/host-target';
 import { generateKey, KeyExistsError } from '../ssh/generate-key';
@@ -15,7 +16,9 @@ import {
   probeHostKey,
   trustHostKey,
   type HostEndpoint,
+  type OpenSocket,
 } from '../ssh/host-key-setup';
+import { openThroughJump } from '../ssh/jump';
 import { knownHostsName, verifyHostKey, type KnownHostEntry } from '../ssh/known-hosts';
 import { listLocalKeys } from '../ssh/local-keys';
 import type { AuditLog } from '../storage/audit-log';
@@ -33,7 +36,12 @@ export interface ConnectDependencies {
   audit: AuditLog;
 }
 
-const TargetSchema = z.object({ target: z.string().trim().min(1) });
+/** A jump host as typed, and the key to log in to it with. */
+const JumpSchema = z.object({ target: z.string().trim().min(1), keyId: z.string().min(1) });
+const TargetSchema = z.object({
+  target: z.string().trim().min(1),
+  jump: JumpSchema.optional(),
+});
 const TrustSchema = TargetSchema.extend({ fingerprint: z.string().startsWith('SHA256:') });
 const ImportSchema = z.object({
   fileName: z.string().trim().min(1).max(255),
@@ -63,6 +71,37 @@ export function registerConnectRoutes(app: FastifyInstance, deps: ConnectDepende
   const notAnAddress = (target: string) =>
     `"${target}" is not an SSH address. Use host, user@host or user@host:port.`;
   const keys = () => listLocalKeys({ sshDir: deps.sshDir, agentSocket: deps.agentSocket });
+
+  /**
+   * For a server behind a bastion: a factory that opens a new tunnel each
+   * call (probe and trust each need their own), closing the bastion
+   * connections when the request is done.
+   */
+  const tunnelFactory = async (
+    jump: z.infer<typeof JumpSchema> | undefined,
+    destination: HostEndpoint,
+    cleanup: (() => void)[],
+  ): Promise<OpenSocket | undefined> => {
+    if (!jump) return undefined;
+    const via = endpointFrom(jump.target);
+    if (!via) throw new Error(notAnAddress(jump.target));
+    const key = (await keys()).find((k) => k.id === jump.keyId);
+    if (!key) throw new Error('Choose a key for the jump host first.');
+    const auth =
+      key.source === 'agent'
+        ? { agent: deps.agentSocket }
+        : { privateKey: await readFile(key.privatePath!) };
+    return async () => {
+      const tunnel = await openThroughJump({
+        jump: via,
+        auth,
+        knownHosts: deps.loadKnownHosts(),
+        destination,
+      });
+      cleanup.push(() => tunnel.client.end());
+      return tunnel.sock;
+    };
+  };
 
   app.get('/api/ssh/keys', async () => ({ keys: await keys(), sshDir: deps.sshDir }));
 
@@ -107,8 +146,12 @@ export function registerConnectRoutes(app: FastifyInstance, deps: ConnectDepende
     if (!body.success) return badRequest(reply, 'Enter an address, e.g. root@192.168.1.155');
     const endpoint = endpointFrom(body.data.target);
     if (!endpoint) return badRequest(reply, notAnAddress(body.data.target));
+    const cleanup: (() => void)[] = [];
     try {
-      const probed = await probeHostKey(endpoint);
+      const probed = await probeHostKey(
+        endpoint,
+        await tunnelFactory(body.data.jump, endpoint, cleanup),
+      );
       const { verdict } = verifyHostKey(
         deps.loadKnownHosts(),
         knownHostsName(endpoint.address, endpoint.port),
@@ -117,6 +160,8 @@ export function registerConnectRoutes(app: FastifyInstance, deps: ConnectDepende
       return { endpoint, keyType: probed.keyType, fingerprint: probed.fingerprint, trust: verdict };
     } catch (error) {
       return badRequest(reply, (error as Error).message);
+    } finally {
+      cleanup.forEach((close) => close());
     }
   });
 
@@ -125,12 +170,14 @@ export function registerConnectRoutes(app: FastifyInstance, deps: ConnectDepende
     if (!body.success) return badRequest(reply, 'A confirmed SHA256 fingerprint is required.');
     const endpoint = endpointFrom(body.data.target);
     if (!endpoint) return badRequest(reply, notAnAddress(body.data.target));
+    const cleanup: (() => void)[] = [];
     try {
       const result = await trustHostKey({
         endpoint,
         confirmedFingerprint: body.data.fingerprint,
         knownHosts: deps.loadKnownHosts(),
         knownHostsFile: deps.knownHostsFile,
+        openSocket: await tunnelFactory(body.data.jump, endpoint, cleanup),
       });
       if (result === 'added') {
         deps.audit.append(
@@ -144,6 +191,8 @@ export function registerConnectRoutes(app: FastifyInstance, deps: ConnectDepende
       if (error instanceof HostKeyMismatchError)
         return reply.code(409).send({ error: error.message });
       return badRequest(reply, (error as Error).message);
+    } finally {
+      cleanup.forEach((close) => close());
     }
   });
 

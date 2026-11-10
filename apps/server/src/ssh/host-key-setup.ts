@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import type { Duplex } from 'node:stream';
 import ssh2 from 'ssh2';
 import { describeConnectionError } from './host-connection';
 import {
@@ -30,7 +31,14 @@ const PROBE_TIMEOUT_MS = 10_000;
  * attempted and nothing runs on the host. Used to show the fingerprint the
  * user is asked to confirm.
  */
-export function probeHostKey(endpoint: HostEndpoint): Promise<ProbedHostKey> {
+/** Opens a fresh tunnel to the server (through a jump host), or null for direct. */
+export type OpenSocket = () => Promise<Duplex>;
+
+export async function probeHostKey(
+  endpoint: HostEndpoint,
+  openSocket?: OpenSocket,
+): Promise<ProbedHostKey> {
+  const sock = openSocket ? await openSocket() : undefined;
   return new Promise((resolve, reject) => {
     const client = new ssh2.Client();
     let captured: ProbedHostKey | null = null;
@@ -47,6 +55,7 @@ export function probeHostKey(endpoint: HostEndpoint): Promise<ProbedHostKey> {
       host: endpoint.address,
       port: endpoint.port,
       username: endpoint.user,
+      ...(sock ? { sock } : {}),
       readyTimeout: PROBE_TIMEOUT_MS,
       hostVerifier: (blob: Buffer) => {
         const presented = presentedKeyFromBlob(blob);
@@ -74,9 +83,11 @@ export async function trustHostKey(options: {
   confirmedFingerprint: string;
   knownHosts: readonly KnownHostEntry[];
   knownHostsFile: string;
+  /** For a server behind a jump host. */
+  openSocket?: OpenSocket;
 }): Promise<'added' | 'already-trusted'> {
   const { endpoint } = options;
-  const probed = await probeHostKey(endpoint);
+  const probed = await probeHostKey(endpoint, options.openSocket);
   if (probed.fingerprint !== options.confirmedFingerprint) {
     throw new HostKeyMismatchError(
       `The server now presents ${probed.fingerprint}, not the ${options.confirmedFingerprint} you confirmed. Nothing was trusted.`,

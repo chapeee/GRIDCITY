@@ -1,5 +1,7 @@
 import type { HostAuth } from '@app/shared';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { basename, join } from 'node:path';
 // ssh2 is CommonJS; plain Node ESM only exposes its default export.
 import ssh2 from 'ssh2';
 import { expandHome } from '../config/app-paths';
@@ -25,7 +27,34 @@ export interface AuthContext {
   env: NodeJS.ProcessEnv;
   platform: NodeJS.Platform;
   homeDir: string;
+  /**
+   * The SSH folder the app manages (SSH_DIR, ~/.ssh by default). Key paths
+   * written as "~/.ssh/<name>" resolve here, so hosts.yaml stays valid when
+   * the folder lives elsewhere (Docker keeps it on the data volume).
+   */
+  sshDir?: string;
   readKeyFile?: (path: string) => Promise<Buffer>;
+}
+
+/**
+ * Where a configured key file really is. "~/.ssh/name" means the managed SSH
+ * folder. An absolute path that no longer exists falls back to a file of the
+ * same name in that folder (configs written before the folder moved).
+ */
+export function resolveKeyPath(
+  configured: string,
+  context: Pick<AuthContext, 'homeDir' | 'sshDir'>,
+): string {
+  const normalized = configured.replace(/\\/g, '/');
+  if (context.sshDir && normalized.startsWith('~/.ssh/')) {
+    return join(context.sshDir, normalized.slice('~/.ssh/'.length));
+  }
+  const expanded = expandHome(configured, context.homeDir);
+  if (context.sshDir && !existsSync(expanded)) {
+    const moved = join(context.sshDir, basename(normalized));
+    if (existsSync(moved)) return moved;
+  }
+  return expanded;
 }
 
 /** A setup problem the user must fix; the message is shown in the HUD. */
@@ -53,7 +82,7 @@ export async function buildAuthOptions(
     return { agent };
   }
 
-  const keyPath = expandHome(auth.path, context.homeDir);
+  const keyPath = resolveKeyPath(auth.path, context);
   let privateKey: Buffer;
   try {
     privateKey = await (context.readKeyFile ?? readFile)(keyPath);

@@ -2,6 +2,7 @@ import type { ConnectionPhase, Host } from '@app/shared';
 // ssh2 is CommonJS; plain Node ESM only exposes its default export.
 import ssh2, { type Client, type ClientChannel, type ConnectConfig } from 'ssh2';
 import type { SshAuthOptions } from './auth-options';
+import { jumpAsHost, openThroughJump, JumpHostKeyError } from './jump';
 import { backoffDelayMs, DEFAULT_BACKOFF, type BackoffOptions } from './backoff';
 import {
   fingerprintSha256,
@@ -54,6 +55,8 @@ const MAX_EXEC_OUTPUT_BYTES = 1024 * 1024;
  */
 export class HostConnection {
   private client: Client | null = null;
+  /** The bastion connection when the host has `jump`; closed with the client. */
+  private jumpClient: Client | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private attempt = 0;
   private stopped = true;
@@ -79,6 +82,12 @@ export class HostConnection {
     this.retryTimer = null;
     this.client?.end();
     this.client = null;
+    this.closeJump();
+  }
+
+  private closeJump(): void {
+    this.jumpClient?.end();
+    this.jumpClient = null;
   }
 
   /** Drops the current connection (tests and "reconnect now"); backoff then reconnects. */
@@ -172,6 +181,31 @@ export class HostConnection {
 
     const lookupName = knownHostsName(host.address, host.port);
     const knownHosts = this.options.loadKnownHosts();
+
+    // Through a bastion: open a tunnel first, then run SSH over it.
+    let sock: ConnectConfig['sock'];
+    if (host.jump) {
+      try {
+        const jumpHost = jumpAsHost(host);
+        const tunnel = await openThroughJump({
+          jump: jumpHost,
+          auth: await this.options.buildAuth(jumpHost),
+          knownHosts,
+          destination: { address: host.address, port: host.port },
+          readyTimeoutMs: this.options.readyTimeoutMs ?? 10_000,
+          createClient: this.options.createClient,
+        });
+        this.jumpClient = tunnel.client;
+        sock = tunnel.sock;
+      } catch (error) {
+        if (error instanceof JumpHostKeyError) this.refusal = error.refusal;
+        this.lastError = (error as Error).message;
+        this.setPhase('failed');
+        this.scheduleRetry();
+        return;
+      }
+      if (this.stopped) return this.closeJump();
+    }
     const preferredAlgorithms = preferredHostKeyAlgorithms(knownHosts, lookupName);
 
     const client = (this.options.createClient ?? (() => new ssh2.Client()))();
@@ -190,6 +224,7 @@ export class HostConnection {
       if (closed) return;
       closed = true;
       if (this.client === client) this.client = null;
+      this.closeJump();
       if (this.stopped) return;
       this.setPhase('failed');
       this.scheduleRetry();
@@ -200,6 +235,7 @@ export class HostConnection {
       port: host.port,
       username: host.user,
       ...auth,
+      ...(sock ? { sock } : {}),
       readyTimeout: this.options.readyTimeoutMs ?? 10_000,
       keepaliveInterval: this.options.keepaliveIntervalMs ?? 5000,
       keepaliveCountMax: this.options.keepaliveCountMax ?? 3,

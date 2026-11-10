@@ -22,6 +22,11 @@ export interface LocalKey {
   publicKey: string;
   /** Private key file (file keys only). */
   privatePath?: string;
+  /**
+   * How hosts.yaml should refer to the key: "~/.ssh/<name>", which works
+   * natively and in Docker wherever the SSH folder is mounted.
+   */
+  configPath?: string;
   /** Usable without asking for a passphrase. */
   usable: boolean;
   /** Why a key is not usable, or a hint. */
@@ -121,6 +126,7 @@ async function listFileKeys(sshDir: string): Promise<LocalKey[]> {
       fingerprint,
       publicKey: publicLine,
       privatePath,
+      configPath: `~/.ssh/${privateName}`,
       usable,
       ...(usable
         ? {}
@@ -153,6 +159,7 @@ async function readLonePrivateKey(path: string, name: string): Promise<LocalKey 
     fingerprint: '',
     publicKey: '',
     privatePath: path,
+    configPath: `~/.ssh/${name}`,
     usable: false,
     note,
   });
@@ -177,6 +184,7 @@ async function readLonePrivateKey(path: string, name: string): Promise<LocalKey 
     fingerprint: fingerprintSha256(blob),
     publicKey: `${keyType} ${blob.toString('base64')} ${key.comment || name}`.trim(),
     privatePath: path,
+    configPath: `~/.ssh/${name}`,
     usable: true,
   };
 }

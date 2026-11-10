@@ -40,6 +40,18 @@ function describeUnsupportedAuth(input: unknown): string {
 export type HostAuth = z.infer<typeof HostAuthSchema>;
 
 /**
+ * A jump host (bastion) the connection goes through, like ssh's ProxyJump.
+ * Its host key is checked against known_hosts exactly like the server's.
+ */
+export const JumpHostSchema = z.object({
+  address: z.string().min(1),
+  port: z.number().int().min(1).max(65535).default(22),
+  user: z.string().min(1),
+  auth: HostAuthSchema.default({ method: 'agent' }),
+});
+export type JumpHost = z.infer<typeof JumpHostSchema>;
+
+/**
  * A server the user wants to see in the world, as configured in hosts.yaml.
  * This is static configuration; live data lives in {@link HostState}.
  */
@@ -60,6 +72,8 @@ export const HostSchema = z.object({
   district: z.string().min(1).default('default'),
   tags: z.array(z.string().min(1)).default([]),
   auth: HostAuthSchema.default({ method: 'agent' }),
+  /** Optional bastion for servers without a public SSH port. */
+  jump: JumpHostSchema.optional(),
 });
 export type Host = z.infer<typeof HostSchema>;
 /** Host as written by the user, before defaults are applied. */

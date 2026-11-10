@@ -13,6 +13,8 @@ export const HostDraftSchema = z.object({
   district: z.string().trim().max(64).optional(),
   tags: z.array(z.string().trim().min(1)).max(20).optional(),
   auth: HostAuthSchema.optional(),
+  /** Jump host as typed ("ec2-user@bastion.example.com"); uses the same key. */
+  jump: z.object({ target: z.string().trim().min(1) }).optional(),
 });
 export type HostDraft = z.infer<typeof HostDraftSchema>;
 
@@ -29,14 +31,27 @@ export function draftToHostInput(draft: HostDraft, defaultUser: string): HostInp
     );
   }
   const name = draft.name || target.address;
+  const user = target.user ?? defaultUser;
+  const auth = draft.auth ?? { method: 'agent' as const };
+  let jump: HostInput['jump'];
+  if (draft.jump) {
+    const via = parseHostTarget(draft.jump.target);
+    if (!via) {
+      throw new DraftError(
+        `"${draft.jump.target}" is not a jump host address. Use user@host or user@host:port.`,
+      );
+    }
+    jump = { address: via.address, port: via.port ?? 22, user: via.user ?? user, auth };
+  }
   return {
     id: idFromName(name),
     name,
     address: target.address,
     port: target.port ?? 22,
-    user: target.user ?? defaultUser,
+    user,
     district: draft.district || 'default',
     tags: draft.tags ?? [],
-    auth: draft.auth ?? { method: 'agent' },
+    auth,
+    ...(jump ? { jump } : {}),
   };
 }

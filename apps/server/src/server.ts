@@ -76,6 +76,7 @@ export async function startServer({
               env: process.env,
               platform: process.platform,
               homeDir,
+              sshDir: paths.sshDir,
             }),
         }),
     });
@@ -184,6 +185,7 @@ export async function startServer({
                 env: process.env,
                 platform: process.platform,
                 homeDir,
+                sshDir: paths.sshDir,
               }),
           }),
         importSshConfig: () =>

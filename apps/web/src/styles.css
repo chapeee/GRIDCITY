@@ -970,7 +970,8 @@ button:disabled {
   gap: 12px;
 }
 
-.add-host input:not([type='radio']) {
+.add-host input:not([type='radio']),
+.add-host select {
   width: 100%;
   padding: 8px 10px;
   font: inherit;
@@ -980,7 +981,8 @@ button:disabled {
   border-radius: var(--panel-radius);
 }
 
-.add-host input:focus-visible {
+.add-host input:focus-visible,
+.add-host select:focus-visible {
   outline: none;
   border-color: var(--color-online);
 }
@@ -1130,6 +1132,36 @@ button:disabled {
 .key-list {
   display: grid;
   gap: 4px;
+}
+
+.link-button {
+  justify-self: start;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--color-muted);
+  background: none;
+  border: none;
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+
+.link-button:hover,
+.link-button:focus-visible {
+  color: var(--color-text-bright);
+}
+
+.paste-key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.paste-key small {
+  flex: 1 1 240px;
+  color: var(--color-muted);
+  font-size: 11px;
 }
 
 .key-actions {

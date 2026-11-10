@@ -14,6 +14,7 @@ import {
   type HostKeyProbe,
   type LocalKey,
 } from '../data/server-api';
+import { DEFAULT_PROVIDER, findProvider, SERVER_PROVIDERS } from './server-providers';
 import { useUiStore } from './ui-store';
 
 /**
@@ -34,6 +35,18 @@ const STEP_LABELS: [Step, string][] = [
   ['done', 'Done'],
 ];
 
+/** "ubuntu@1.2.3.4:22" -> "1.2.3.4:22" (the target without its user). */
+function withoutUser(target: string): string {
+  const at = target.lastIndexOf('@');
+  return at === -1 ? target.trim() : target.slice(at + 1).trim();
+}
+
+/** "ubuntu@1.2.3.4" -> "ubuntu", or null when no user was typed. */
+function userOf(target: string): string | null {
+  const at = target.lastIndexOf('@');
+  return at === -1 ? null : target.slice(0, at).trim() || null;
+}
+
 /** "root@192.168.1.155:22" -> "192.168.1.155", for the name placeholder. */
 function addressFromTarget(target: string): string {
   const withoutUser = target.trim().split('@').pop() ?? '';
@@ -49,7 +62,20 @@ export function AddHostDialog() {
   const districts = useMemo(() => [...new Set(hosts.map((h) => h.district))].sort(), [hosts]);
 
   const [step, setStep] = useState<Step>('address');
+  const [providerId, setProviderId] = useState(DEFAULT_PROVIDER.id);
+  const provider = findProvider(providerId);
   const [target, setTarget] = useState('');
+  /** The target with the user that worked (found automatically for cloud images). */
+  const [workingTarget, setWorkingTarget] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  /** Optional bastion ("ec2-user@bastion…"); the server is reached through it. */
+  const [jumpTarget, setJumpTarget] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  /** Whose identity the trust step is showing: the server or its jump host. */
+  const [probeRole, setProbeRole] = useState<'server' | 'jump'>('server');
+  /** Behind a jump host, the server is probed once a key is chosen. */
+  const [serverTrusted, setServerTrusted] = useState(false);
+  const jump = jumpTarget.trim();
   const [name, setName] = useState('');
   const [district, setDistrict] = useState('');
   const [probe, setProbe] = useState<HostKeyProbe | null>(null);
@@ -73,6 +99,10 @@ export function AddHostDialog() {
     setPassword('');
     setError(null);
     setBusy(null);
+    setWorkingTarget(null);
+    setCopied(false);
+    setProbeRole('server');
+    setServerTrusted(false);
   };
   const close = () => {
     useUiStore.getState().setAddHostOpen(false);
@@ -93,13 +123,14 @@ export function AddHostDialog() {
   };
 
   const chosenKey = keys?.find((key) => key.id === keyId) ?? null;
-  const draft = (): HostDraft => ({
-    target,
+  const draft = (forTarget: string = workingTarget ?? target): HostDraft => ({
+    target: forTarget,
+    ...(jump ? { jump: { target: jump } } : {}),
     name: name.trim() || undefined,
     district: district.trim() || undefined,
     auth:
-      chosenKey?.source === 'file' && chosenKey.privatePath
-        ? { method: 'keyFile', path: chosenKey.privatePath }
+      chosenKey?.source === 'file' && (chosenKey.configPath ?? chosenKey.privatePath)
+        ? { method: 'keyFile', path: (chosenKey.configPath ?? chosenKey.privatePath)! }
         : { method: 'agent' },
   });
 
@@ -115,9 +146,11 @@ export function AddHostDialog() {
   // Step 1 -> read the server's fingerprint.
   const submitAddress = (event: FormEvent) => {
     event.preventDefault();
-    void run('Contacting the server…', async () => {
-      const result = await probeHost(target);
+    void run(jump ? 'Contacting the jump host…' : 'Contacting the server…', async () => {
+      const result = await probeHost(jump || target);
       setProbe(result);
+      setProbeRole(jump ? 'jump' : 'server');
+      if (!jump) setServerTrusted(result.trust === 'trusted');
       if (result.trust === 'trusted') {
         await loadKeys();
         setStep('key');
@@ -133,10 +166,27 @@ export function AddHostDialog() {
   const confirmTrust = () =>
     void run('Trusting the server…', async () => {
       if (!probe) return;
-      await trustHost(target, probe.fingerprint);
-      await loadKeys();
-      setStep('key');
+      if (probeRole === 'jump') {
+        await trustHost(jump, probe.fingerprint);
+        await loadKeys();
+        setStep('key');
+        return;
+      }
+      const via = jump && keyId ? { target: jump, keyId } : undefined;
+      await trustHost(serverProbeTarget(), probe.fingerprint, via);
+      setServerTrusted(true);
+      if (via) {
+        // Behind a jump host the key was already chosen: carry on testing it.
+        setStep('key');
+        await testKey();
+      } else {
+        await loadKeys();
+        setStep('key');
+      }
     });
+
+  /** The address the server is probed with (its user does not matter here). */
+  const serverProbeTarget = () => target.trim();
 
   const keyFileInput = useRef<HTMLInputElement>(null);
 
@@ -147,7 +197,12 @@ export function AddHostDialog() {
     if (!file) return;
     void run('Reading the key…', async () => {
       if (file.size > 64 * 1024) throw new Error('That file is too large to be an SSH key.');
-      const { key } = await importKey(file.name, await file.text());
+      const content = await file.text().catch(() => {
+        throw new Error(
+          `Your computer would not let the browser read "${file.name}". Its file permissions are probably locked down: copy the key to a normal folder (or give your user read access), then upload it again.`,
+        );
+      });
+      const { key } = await importKey(file.name, content);
       await loadKeys(key?.id);
     });
   };
@@ -158,8 +213,8 @@ export function AddHostDialog() {
       await loadKeys(key?.id);
     });
 
-  const save = async () => {
-    const saved = await addHost(draft());
+  const save = async (forTarget?: string) => {
+    const saved = await addHost(draft(forTarget));
     setSavedName(saved.host.name);
     setStep('done');
     useUiStore
@@ -171,17 +226,79 @@ export function AddHostDialog() {
       );
   };
 
-  // Step 3 -> does the server accept this key already?
-  const tryKey = () =>
-    void run('Testing the key…', async () => {
-      const test = await testHost(draft());
-      if (test.result.ok) return save();
-      if (test.result.problem === 'auth') {
+  // Step 3 -> does the server accept this key? Finds the user name for
+  // cloud images (AWS: ubuntu, ec2-user, admin…) when none was typed.
+  const tryKey = () => void run('Testing the key…', testKey);
+
+  const testKey = async () => {
+    if (jump && !serverTrusted && keyId) {
+      setBusy('Reaching the server through the jump host…');
+      const result = await probeHost(serverProbeTarget(), { target: jump, keyId });
+      setProbe(result);
+      setProbeRole('server');
+      if (result.trust === 'unknown') return setStep('trust');
+      if (result.trust !== 'trusted') return setStep('blocked');
+      setServerTrusted(true);
+    }
+    {
+      const address = withoutUser(target);
+      const queue = userOf(target)
+        ? [target.trim()]
+        : provider.users.length > 0
+          ? provider.users.map((user) => `${user}@${address}`)
+          : [target.trim()];
+      const firstChoice = queue[0]!;
+      const tried = new Set<string>();
+
+      while (queue.length > 0) {
+        const candidate = queue.shift()!;
+        if (tried.has(candidate)) continue;
+        tried.add(candidate);
+        const user = userOf(candidate);
+        if (user) setBusy(`Trying ${user}…`);
+        const test = await testHost(draft(candidate));
+        if (test.result.ok) {
+          setWorkingTarget(candidate);
+          return save(candidate);
+        }
+        if (test.result.problem === 'wrong-user' && test.result.suggestedUser) {
+          queue.unshift(`${test.result.suggestedUser}@${address}`); // the image told us
+          continue;
+        }
+        if (test.result.problem === 'auth') continue; // try the next user
+        throw new Error(test.advice.join('\n'));
+      }
+
+      // Nobody accepted the key.
+      if (provider.passwords && !jump) {
+        setWorkingTarget(firstChoice);
         setStep('install');
         return;
       }
-      throw new Error(test.advice.join('\n'));
-    });
+      const users = [...tried].map((candidate) => userOf(candidate) ?? '?').join(', ');
+      throw new Error(
+        provider.pasteKeyHelp
+          ? `The server did not accept this key (as ${users}). Copy the public key and add it as described above, then press Continue again.`
+          : `The server did not accept this key as ${users}. Pick the key pair this server was created with, or type the user name in the address (user@host).`,
+      );
+    }
+  };
+
+  /** Copies the chosen key's public half, in the format the provider wants. */
+  const copyPublicKey = async () => {
+    if (!chosenKey?.publicKey) return;
+    const user = userOf(target);
+    const text =
+      provider.pasteWithUser && user
+        ? `${user}:${chosenKey.publicKey.split(' ').slice(0, 2).join(' ')} ${user}`
+        : chosenKey.publicKey;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+    } catch {
+      setError(`Could not copy automatically. The public key is: ${text}`);
+    }
+  };
 
   // Step 4 -> password once, then test and save.
   const submitInstall = (event: FormEvent) => {
@@ -190,7 +307,7 @@ export function AddHostDialog() {
     setPassword(''); // never kept in state longer than one attempt
     void run('Installing the key…', async () => {
       if (!keyId) return;
-      await installKey(target, keyId, secret);
+      await installKey(workingTarget ?? target, keyId, secret);
       const test = await testHost(draft());
       if (!test.result.ok) throw new Error(test.advice.join('\n'));
       await save();
@@ -198,9 +315,11 @@ export function AddHostDialog() {
   };
 
   const stepIndex = STEP_LABELS.findIndex(([id]) => id === (step === 'blocked' ? 'trust' : step));
+  const shownTarget = workingTarget ?? target;
+  const shownUser = userOf(shownTarget);
   const endpointText = probe
-    ? `${probe.endpoint.user}@${probe.endpoint.address}${probe.endpoint.port === 22 ? '' : `:${probe.endpoint.port}`}`
-    : target;
+    ? `${shownUser ? `${shownUser}@` : ''}${probe.endpoint.address}${probe.endpoint.port === 22 ? '' : `:${probe.endpoint.port}`}`
+    : shownTarget;
 
   return (
     <AnimatePresence>
@@ -245,18 +364,62 @@ export function AddHostDialog() {
             {step === 'address' && (
               <form className="wizard-body" onSubmit={submitAddress}>
                 <label className="field">
+                  <span>Where is this server?</span>
+                  <select value={providerId} onChange={(e) => setProviderId(e.target.value)}>
+                    {SERVER_PROVIDERS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
                   <span>SSH address</span>
                   <input
                     ref={firstField}
                     value={target}
                     onChange={(e) => setTarget(e.target.value)}
-                    placeholder="root@192.168.1.155"
+                    placeholder={
+                      provider.users.length > 0
+                        ? '13.204.32.177 or a host name'
+                        : provider.id === 'gcp'
+                          ? 'yourname@34.120.1.2'
+                          : 'user@192.168.1.155'
+                    }
                     autoComplete="off"
                     spellCheck={false}
                     required
                   />
-                  <small>user@host or user@host:port, as you would type after ssh</small>
+                  <small>
+                    {provider.users.length > 0
+                      ? `IP or host name. The user is optional: the app tries ${provider.users.slice(0, 3).join(', ')}${provider.users.length > 3 ? '…' : ''} for you.`
+                      : 'user@host or user@host:port, as you would type after ssh'}
+                  </small>
                 </label>
+                {showAdvanced ? (
+                  <label className="field">
+                    <span>Jump host (bastion)</span>
+                    <input
+                      value={jumpTarget}
+                      onChange={(e) => setJumpTarget(e.target.value)}
+                      placeholder="ec2-user@bastion.example.com"
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                    <small>
+                      For servers without a public SSH port: the app connects through this host
+                      (like ssh -J), using the same key. Leave empty to connect directly.
+                    </small>
+                  </label>
+                ) : (
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setShowAdvanced(true)}
+                  >
+                    Reach it through a jump host (bastion)…
+                  </button>
+                )}
                 <div className="field-row">
                   <label className="field">
                     <span>Name</span>
@@ -297,8 +460,15 @@ export function AddHostDialog() {
             {step === 'trust' && probe && (
               <div className="wizard-body">
                 <p>
-                  First time connecting to <strong>{endpointText}</strong>. This is the
-                  server&apos;s identity:
+                  First time connecting to{' '}
+                  {probeRole === 'jump' ? (
+                    <>
+                      the jump host <strong>{jump}</strong>
+                    </>
+                  ) : (
+                    <strong>{endpointText}</strong>
+                  )}
+                  . This is its identity:
                 </p>
                 <p className="fingerprint">
                   <span>{probe.keyType}</span>
@@ -356,6 +526,7 @@ export function AddHostDialog() {
             {step === 'key' && (
               <div className="wizard-body">
                 <p>Which key should the app log in with?</p>
+                <p className="wizard-hint">{provider.keyHelp}</p>
                 {keys && keys.length > 0 ? (
                   <div className="key-list" role="radiogroup" aria-label="Keys">
                     {keys.map((key) => (
@@ -399,6 +570,14 @@ export function AddHostDialog() {
                     tabIndex={-1}
                   />
                 </div>
+                {chosenKey?.publicKey && provider.pasteKeyHelp && (
+                  <div className="paste-key">
+                    <button type="button" onClick={() => void copyPublicKey()} disabled={!!busy}>
+                      {copied ? 'Copied ✓' : 'Copy public key'}
+                    </button>
+                    <small>{provider.pasteKeyHelp}</small>
+                  </div>
+                )}
                 <p className="wizard-hint">
                   Got a key from AWS, a cloud console or PuTTY? Upload the <strong>private</strong>{' '}
                   key file (.pem, .ppk or id_…): it is copied into your SSH folder, PuTTY keys are

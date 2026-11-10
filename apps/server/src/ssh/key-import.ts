@@ -26,13 +26,15 @@ export class KeyNameTakenError extends Error {
   override name = 'KeyNameTakenError';
 }
 
-export type KeyTextKind = 'ppk' | 'private' | 'public' | 'unknown';
+export type KeyTextKind = 'ppk' | 'private' | 'public' | 'certificate' | 'unknown';
 
 /** What kind of key text this looks like, from its first line. */
 export function classifyKeyText(text: string): KeyTextKind {
   const head = text.trimStart().slice(0, 200);
   if (/^PuTTY-User-Key-File-\d+:/.test(head)) return 'ppk';
   if (/^-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/.test(head)) return 'private';
+  // TLS certificates also end in .pem (e.g. the AWS RDS CA bundle).
+  if (/^-----BEGIN (TRUSTED |X509 )?CERTIFICATE-----/.test(head)) return 'certificate';
   if (
     /^-----BEGIN (SSH2 |RSA )?PUBLIC KEY-----/.test(head) ||
     /^---- BEGIN SSH2 PUBLIC KEY ----/.test(head) ||
@@ -211,6 +213,11 @@ export function prepareKey(text: string, fallbackComment: string): PreparedKey {
   if (kind === 'public') {
     throw new KeyImportError(
       'This is a public key. Upload the PRIVATE key file instead: the .pem or .ppk your provider let you download (the public half is worked out from it).',
+    );
+  }
+  if (kind === 'certificate') {
+    throw new KeyImportError(
+      'This is a TLS certificate (for example the AWS RDS CA bundle for database connections), not an SSH key. Upload the key pair file you downloaded when the server was created.',
     );
   }
   if (kind === 'unknown') {

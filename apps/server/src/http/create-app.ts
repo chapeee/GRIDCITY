@@ -18,6 +18,9 @@ import {
   tokensMatch,
 } from '../security/session-token';
 
+/** The token survives restarts, so the cookie may too: 30 days. */
+const COOKIE_MAX_AGE_S = 30 * 24 * 60 * 60;
+
 export interface CreateAppOptions {
   projectName: string;
   version: string;
@@ -142,7 +145,7 @@ function registerSecurityGuard(
       // Remember the session so assets and API calls work without the query string.
       reply.header(
         'set-cookie',
-        `${cookieName}=${sessionToken}; HttpOnly; SameSite=Strict; Path=/`,
+        `${cookieName}=${sessionToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${COOKIE_MAX_AGE_S}`,
       );
     }
   };

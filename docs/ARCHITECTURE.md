@@ -179,8 +179,15 @@ sending the password. Audit kinds: `host_key_trusted`, `key_created`, `key_insta
 
 - Binds `127.0.0.1` / `::1` only (`decideBind`). Inside Docker it binds `0.0.0.0` in the
   container and compose publishes on the host's `127.0.0.1` only.
-- A random session token is generated on every start and printed (never logged; URLs are
-  redacted in logs). After the first visit it is kept in an `HttpOnly; SameSite=Strict` cookie.
+- A random session token is kept in `DATA_DIR/session-token` (mode 600) so the link survives
+  restarts (`--new-token` replaces it), and printed (never logged; URLs are redacted in logs).
+  After the first visit it is kept in an `HttpOnly; SameSite=Strict` cookie (30 days).
+- Key paths written as `~/.ssh/<name>` resolve to `SSH_DIR`, so hosts.yaml works natively and in
+  Docker (where `SSH_DIR=/data/ssh` on the persistent volume).
+- Jump hosts (`jump:` in hosts.yaml, `ssh/jump.ts`): strict host key check on the bastion, then
+  a direct-tcpip tunnel; the server's SSH session (and its host key check) runs end to end over it.
+- Cloud images that accept a key for the wrong user only print "Please login as the user X"; the
+  connection test runs `echo` and reports `wrong-user` with the suggested user.
 - Every request needs a localhost `Host` header (DNS rebinding) and the token.
 - WebSocket upgrades and every non-GET request also need an allowed `Origin` (this machine on the
   server or dev port). Upgrades are checked in `preValidation`, as @fastify/websocket requires.

@@ -57,6 +57,16 @@ export async function addHostToFile(hostsFile: string, input: HostInput): Promis
     district: host.district,
     ...(host.tags.length > 0 ? { tags: host.tags } : {}),
     ...(host.auth.method !== 'agent' ? { auth: host.auth } : {}),
+    ...(host.jump
+      ? {
+          jump: {
+            address: host.jump.address,
+            ...(host.jump.port !== 22 ? { port: host.jump.port } : {}),
+            user: host.jump.user,
+            ...(host.jump.auth.method !== 'agent' ? { auth: host.jump.auth } : {}),
+          },
+        }
+      : {}),
   };
   await mkdir(dirname(hostsFile), { recursive: true });
   await writeFile(hostsFile, appendHostsToYaml(text, [entry]), 'utf8');

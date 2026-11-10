@@ -44,6 +44,14 @@ export interface HostDraft {
   name?: string;
   district?: string;
   auth?: { method: 'agent' } | { method: 'keyFile'; path: string };
+  /** Jump host as typed; logs in with the same key. */
+  jump?: { target: string };
+}
+
+/** Reach the server through this bastion, logging in with this key. */
+export interface JumpVia {
+  target: string;
+  keyId: string;
 }
 
 export interface DraftHost {
@@ -60,9 +68,11 @@ export interface HostTestResponse {
     | { ok: true }
     | {
         ok: false;
-        problem: 'host-key' | 'auth' | 'unreachable' | 'other';
+        problem: 'host-key' | 'auth' | 'wrong-user' | 'unreachable' | 'other';
         message: string;
         hostKeyRefusal: { reason: 'unknown' | 'changed'; fingerprint: string } | null;
+        /** For 'wrong-user': the user the server asked for. */
+        suggestedUser?: string;
       };
   /** Next steps with commands for the server's OS. */
   advice: string[];
@@ -91,7 +101,11 @@ export interface LocalKey {
   label: string;
   keyType: string;
   fingerprint: string;
+  /** OpenSSH public key line, for pasting into a provider's console. */
+  publicKey: string;
   privatePath?: string;
+  /** Portable path for hosts.yaml ("~/.ssh/<name>"). */
+  configPath?: string;
   usable: boolean;
   note?: string;
 }
@@ -117,12 +131,16 @@ export const importKey = (fileName: string, content: string) =>
   postJson<{ key?: LocalKey; created: boolean }>('/api/ssh/keys/import', { fileName, content });
 
 /** Reads the server's host key fingerprint without logging in. */
-export const probeHost = (target: string) =>
-  postJson<HostKeyProbe>('/api/connect/probe', { target });
+export const probeHost = (target: string, jump?: JumpVia) =>
+  postJson<HostKeyProbe>('/api/connect/probe', { target, jump });
 
 /** Adds the host key to known_hosts after the user confirmed this fingerprint. */
-export const trustHost = (target: string, fingerprint: string) =>
-  postJson<{ result: 'added' | 'already-trusted' }>('/api/connect/trust', { target, fingerprint });
+export const trustHost = (target: string, fingerprint: string, jump?: JumpVia) =>
+  postJson<{ result: 'added' | 'already-trusted' }>('/api/connect/trust', {
+    target,
+    fingerprint,
+    jump,
+  });
 
 /** Installs the chosen public key on the server using the password once (never stored). */
 export const installKey = (target: string, keyId: string, password: string) =>

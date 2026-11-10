@@ -1,11 +1,15 @@
 # Run the app with Docker:  docker compose up --build
-# Then open the URL printed in the logs (it contains a one-time session token).
+# Then open the URL printed in the logs. It stays the same across restarts, so you can
+# bookmark it. To sign out every browser with a new link:
+#   docker compose exec app rm /data/session-token && docker compose restart
 #
 # - The port is published on 127.0.0.1 only: nothing else on your network can reach it.
 # - Your hosts live in ./config/hosts.yaml (created on first start; edit it any time,
 #   the running app reloads it). History and the audit log live in a named volume.
-# - To reach real servers, the container needs SSH access: see compose.ssh.example.yaml.
-#   Without it, set DATA_MODE=demo in .env to explore the simulated fleet.
+# - SSH keys and trusted host fingerprints made in the app ("Connect a server", Ctrl+K)
+#   are kept in the same volume (/data/ssh), so restarts and rebuilds never lose them.
+#   `docker compose down -v` deletes the volume, and with it those keys.
+# - To use your own ~/.ssh and ssh-agent instead, see compose.ssh.example.yaml.
 
 services:
   app:
@@ -20,6 +24,8 @@ services:
     environment:
       CONFIG_DIR: /config
       DATA_DIR: /data
+      # Keys and known_hosts managed by the app live on the persistent volume.
+      SSH_DIR: /data/ssh
       # What the app shows users as the location of hosts.yaml (the path on your machine).
       HOSTS_FILE_HINT: ./config/hosts.yaml (in the project folder)
     volumes:

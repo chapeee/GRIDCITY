@@ -55,6 +55,12 @@ export function connectionAdvice(
           : `Install it on the server (asks the password once, never stored): ssh-copy-id ${host.port === 22 ? '' : `-p ${host.port} `}${target}`,
       ];
 
+    case 'wrong-user':
+      return [
+        result.message,
+        `Use ${result.suggestedUser ?? 'the user it names'}@${host.address} instead.`,
+      ];
+
     case 'unreachable':
       return [
         result.message,

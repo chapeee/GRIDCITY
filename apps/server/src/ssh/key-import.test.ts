@@ -50,6 +50,11 @@ describe('classifyKeyText', () => {
     );
     expect(classifyKeyText('---- BEGIN SSH2 PUBLIC KEY ----\nAAAA')).toBe('public');
     expect(classifyKeyText('hello world')).toBe('unknown');
+    expect(classifyKeyText('-----BEGIN CERTIFICATE-----\nMIIE')).toBe('certificate');
+  });
+
+  it('explains that a certificate bundle is not an SSH key', () => {
+    expect(() => prepareKey('-----BEGIN CERTIFICATE-----\nMIIE\n', 'x')).toThrow(/TLS certificate/);
   });
 });
 

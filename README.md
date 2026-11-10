@@ -28,7 +28,8 @@ npm install
 npm run demo
 ```
 
-Open the URL printed in the console. It contains a one-time session token. This serves a
+Open the URL printed in the console (it contains the session token, and stays the same across
+restarts, so you can bookmark it; `--new-token` replaces it). This serves a
 **simulated fleet** (always labelled DEMO DATA) so you can explore without any SSH setup.
 
 With Docker instead: set `DATA_MODE=demo` in `.env`, then `docker compose up --build`.
@@ -67,14 +68,25 @@ npm run import-ssh-config
 ```
 
 **Easiest: Connect a server.** Press Ctrl+K and choose **Connect a server…** (or the button in
-the empty city). Type `user@address`, then:
+the empty city). Pick **where the server is** and type its address, then:
+
+| Where                                 | What you need                       | User name                                    |
+| ------------------------------------- | ----------------------------------- | -------------------------------------------- |
+| AWS (EC2, Lightsail), Oracle Cloud    | the key file (`.pem`/`.ppk`)        | found for you (`ubuntu`, `ec2-user`, `opc`…) |
+| Google Cloud                          | your key, pasted in the console     | the one you type (`you@address`)             |
+| Azure, DigitalOcean, Hetzner, any VPS | the key you chose, or the password  | `azureuser` / `root` by default              |
+| Your own server                       | the password once                   | yours (`you@address`)                        |
+| Private server behind a bastion       | the key, plus the jump host address | per server ("Reach it through a jump host…") |
+
+The steps:
 
 1. **Trust:** the app shows the server's fingerprint. Compare it and confirm; it is added to
    your `known_hosts`, like answering "yes" in `ssh`.
 2. **Key:** pick a key from your ssh-agent or `~/.ssh`, **upload a key file** you were given (an
    AWS/cloud `.pem`, a PuTTY `.ppk`, or an OpenSSH `id_*`), or let the app create one. Uploaded
    keys are copied into your SSH folder; `.ppk` files are converted to OpenSSH format. Cloud
-   servers usually already accept their key, so there is no password step.
+   servers usually already accept their key, so there is no password step. **Copy public key**
+   gives you the line to paste into a provider's console (Google Cloud gets its `user:key` form).
 3. **Install:** if the server doesn't accept the key yet, enter the password **once**. The app
    adds your public key to the server's `authorized_keys`; the password is never saved.
 4. **Done:** the server is saved to `hosts.yaml` and lights up.
@@ -86,8 +98,10 @@ built-in OpenSSH agent works. `npm run add-host -- user@address` tests and saves
 
 For production use: `npm run build && npm start` (single port, serves the built app).
 
-**Docker with real servers:** the container needs your SSH folder (and, on Linux/macOS, your
-agent socket). Copy `compose.ssh.example.yaml` to `compose.ssh.yaml`, keep your platform's block, then:
+**Docker with real servers:** plain `docker compose up --build` is enough. Keys and trusted
+fingerprints made in the app are kept in the data volume (`/data/ssh`), so restarts and rebuilds
+never lose them (`docker compose down -v` deletes them). To use your own `~/.ssh` and ssh-agent
+instead, copy `compose.ssh.example.yaml` to `compose.ssh.yaml`, keep your platform's block, then:
 
 ```bash
 docker compose -f compose.yaml -f compose.ssh.yaml up --build
@@ -186,6 +200,8 @@ environment variables win over both.
 | `WEB_PORT`               | Vite dev server port                                     | `4601`             |
 | `LOG_LEVEL`              | `fatal` … `trace`                                        | `info`             |
 | `CONFIG_DIR`, `DATA_DIR` | Where hosts.yaml and the database live                   | OS conventions     |
+| `SSH_DIR`                | Keys and known_hosts the app manages (`~/.ssh/<name>`)   | `~/.ssh`           |
+| `KNOWN_HOSTS_FILE`       | known_hosts file the app trusts and writes to            | `SSH_DIR`'s        |
 
 ## Renaming the project
 

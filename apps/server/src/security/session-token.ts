@@ -1,11 +1,45 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 /** Query parameter carrying the token in the URL printed at startup. */
 export const TOKEN_QUERY_PARAM = 'token';
 
-/** 256 bits of randomness, URL-safe. A new token is generated on every start. */
+/** 256 bits of randomness, URL-safe. */
 export function createSessionToken(): string {
   return randomBytes(32).toString('base64url');
+}
+
+const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+/**
+ * The token kept in the data folder (readable only by this user), so the
+ * printed link and the browser cookie keep working across restarts. Pass
+ * `rotate` (`--new-token`) to replace it, which signs out every browser.
+ */
+export function loadOrCreateSessionToken(file: string, options: { rotate?: boolean } = {}): string {
+  if (!options.rotate) {
+    try {
+      const saved = readFileSync(file, 'utf8').trim();
+      if (TOKEN_PATTERN.test(saved)) return saved;
+    } catch {
+      // first start, or unreadable: make a new one
+    }
+  }
+  const token = createSessionToken();
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(
+    file,
+    `${token}
+`,
+    { mode: 0o600 },
+  );
+  try {
+    chmodSync(file, 0o600);
+  } catch {
+    // best effort on Windows, where the user profile is already private
+  }
+  return token;
 }
 
 /** Constant-time comparison so response timing does not leak the token. */

@@ -1,13 +1,18 @@
 import { parseServerEnv } from './config/env';
 import { loadEnvFiles } from './config/env-files';
 import { decideBind } from './security/bind-guard';
-import { createSessionToken, TOKEN_QUERY_PARAM } from './security/session-token';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { resolveAppPaths } from './config/app-paths';
+import { loadOrCreateSessionToken, TOKEN_QUERY_PARAM } from './security/session-token';
 import { startServer } from './server';
 
 /** `--dev` is passed by `npm run dev`: pretty logs, and print the Vite URL. */
 const isDevMode = process.argv.includes('--dev');
 /** `--demo` (used by `npm run demo`) serves the simulated fleet instead of hosts.yaml. */
 const isDemoFlag = process.argv.includes('--demo');
+/** `--new-token` replaces the saved session token (signs out every browser). */
+const rotateToken = process.argv.includes('--new-token');
 
 async function main(): Promise<void> {
   loadEnvFiles();
@@ -18,7 +23,15 @@ async function main(): Promise<void> {
   if (!bind.allowed) throw new Error(bind.reason);
   if (bind.warning) process.stderr.write(`${bind.warning}\n`);
 
-  const sessionToken = createSessionToken();
+  const { dataDir } = resolveAppPaths({
+    projectName: env.PROJECT_NAME,
+    env: process.env,
+    platform: process.platform,
+    homeDir: homedir(),
+  });
+  const sessionToken = loadOrCreateSessionToken(join(dataDir, 'session-token'), {
+    rotate: rotateToken,
+  });
   const server = await startServer({ env, sessionToken, devMode: isDevMode });
 
   // Printed straight to stdout, never through the logger, so the token does

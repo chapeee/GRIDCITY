@@ -23,8 +23,12 @@ export interface LiveStack {
   untrusted: FakeSshServer;
   /** A freshly installed server: password only, no keys, not in known_hosts. */
   fresh: FakeSshServer;
-  /** A cloud-style server (no passwords) that accepts `cloudKeyPpk`. */
+  /** An AWS-style server: user ec2-user, no passwords, accepts `cloudKeyPpk`. */
   cloud: FakeSshServer;
+  /** A bastion that accepts `cloudKeyPpk` and opens tunnels. */
+  bastion: FakeSshServer;
+  /** A private server (user ubuntu) only reached through `bastion` in the test. */
+  privateBox: FakeSshServer;
   /** The PuTTY key file a provider would hand out for `cloud`. */
   cloudKeyPpk: string;
   stopServer(): Promise<void>;
@@ -50,7 +54,20 @@ export async function startLiveStack(): Promise<LiveStack> {
   const untrusted = await startFakeSshServer({ authorizedKey: keys.public, user: USER });
   const fresh = await startFakeSshServer({ user: 'root', password: FRESH_PASSWORD });
   const cloudKey = makePpk('ed25519', { comment: 'cloud-provider-key' });
-  const cloud = await startFakeSshServer({ user: 'ubuntu', authorizedKey: cloudKey.publicLine });
+  const cloud = await startFakeSshServer({
+    user: 'ec2-user',
+    authorizedKey: cloudKey.publicLine,
+    cloudUser: 'ec2-user',
+  });
+  const bastion = await startFakeSshServer({
+    user: 'ec2-user',
+    authorizedKey: cloudKey.publicLine,
+    allowTunnels: true,
+  });
+  const privateBox = await startFakeSshServer({
+    user: 'ubuntu',
+    authorizedKey: cloudKey.publicLine,
+  });
 
   const configDir = join(workDir, 'config');
   const knownHosts = join(workDir, 'known_hosts');
@@ -110,6 +127,8 @@ export async function startLiveStack(): Promise<LiveStack> {
     untrusted,
     fresh,
     cloud,
+    bastion,
+    privateBox,
     cloudKeyPpk: cloudKey.ppk,
     stopServer,
     serverOutput: () => output,
@@ -119,6 +138,8 @@ export async function startLiveStack(): Promise<LiveStack> {
       await untrusted.close();
       await fresh.close();
       await cloud.close();
+      await bastion.close();
+      await privateBox.close();
       try {
         rmSync(workDir, { recursive: true, force: true });
       } catch {
