@@ -1,4 +1,4 @@
-import { isStale } from '@app/shared';
+import { DEFAULT_RESOURCE_THRESHOLDS, isStale } from '@app/shared';
 import { Command } from 'cmdk';
 import { useFleetStore } from '../data/fleet-store';
 import { StatusDot } from './StatusDot';
@@ -34,6 +34,9 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
   const dataMode = useFleetStore((store) => store.dataMode);
   const { importHosts } = useHostImport();
   const states = useFleetStore((store) => store.states);
+  const resources = useFleetStore((store) => store.resources);
+  const resourceStates = useFleetStore((store) => store.resourceStates);
+  const focusedResource = resources.find((resource) => resource.id === focusedHostId);
   const thresholds = useFleetStore((store) => store.thresholds);
   const now = useNow(1000);
 
@@ -75,8 +78,42 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
           })}
         </Command.Group>
 
+        {resources.length > 0 && (
+          <Command.Group heading="Databases & storage">
+            {resources.map((resource) => {
+              const state = resourceStates[resource.id];
+              const stale = state
+                ? state.stale ||
+                  isStale(state.lastSeenAt, now, {
+                    pollIntervalMs: state.pollIntervalMs,
+                    staleAfterPolls: DEFAULT_RESOURCE_THRESHOLDS.staleAfterPolls,
+                  })
+                : false;
+              return (
+                <Command.Item
+                  key={resource.id}
+                  value={`resource database storage ${resource.kind} ${resource.engine} ${resource.name} ${resource.district} ${resource.target} ${resource.tags.join(' ')}`}
+                  onSelect={() => run(() => focusHost(resource.id))}
+                >
+                  <StatusDot status={state?.status ?? 'unknown'} stale={stale} />
+                  <span className="palette-item-title">{resource.name}</span>
+                  <span className="palette-item-meta">
+                    {resource.engine} · {stale ? 'stale' : (state?.status ?? 'unknown')}
+                  </span>
+                </Command.Item>
+              );
+            })}
+          </Command.Group>
+        )}
+
         <Command.Group heading="Actions">
-          {focusedHostId && (
+          {focusedResource && (
+            <Command.Item value="return to overview" onSelect={() => run(() => focusHost(null))}>
+              <span className="palette-item-title">Return to overview</span>
+              <kbd>Esc</kbd>
+            </Command.Item>
+          )}
+          {focusedHostId && !focusedResource && (
             <>
               <Command.Item
                 value="open terminal jack in"

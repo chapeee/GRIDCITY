@@ -49,7 +49,7 @@ describe('session guard', () => {
       headers: { cookie: `session_token_${port}=${sessionToken}` },
     });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({ projectName: 'example', protocolVersion: 1 });
+    expect(response.json()).toMatchObject({ projectName: 'example', protocolVersion: 2 });
   });
 
   it('accepts a Bearer token', async () => {

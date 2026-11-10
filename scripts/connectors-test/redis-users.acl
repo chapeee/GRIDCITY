@@ -1,0 +1,2 @@
+user default on >test-root ~* &* +@all
+user monitor on >test-monitor -@all +info +slowlog|get +ping

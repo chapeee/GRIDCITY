@@ -1,4 +1,4 @@
-import { DEFAULT_STATUS_THRESHOLDS, type Host } from '@app/shared';
+import { DEFAULT_RESOURCE_THRESHOLDS, DEFAULT_STATUS_THRESHOLDS, type Host } from '@app/shared';
 import { existsSync, statSync, unwatchFile, watchFile } from 'node:fs';
 import { homedir, hostname, userInfo } from 'node:os';
 import { join } from 'node:path';
@@ -15,7 +15,10 @@ import type { ServerEnv } from './config/env';
 import { loadHostsFile, type HostsConfig } from './config/hosts-file';
 import { addHostToFile } from './config/hosts-writer';
 import { importSshConfig } from './config/ssh-config-importer';
+import { loadResourcesFile, type ResourcesConfig } from './config/resources-file';
+import { createConnector, type ConnectorContext } from './connectors';
 import { DemoFleetProvider } from './fleet/demo-fleet-provider';
+import { DemoResourceProvider, ResourceFleet, type ResourceProvider } from './fleet/resource-fleet';
 import type { FleetProvider } from './fleet/fleet-provider';
 import { RealFleet } from './fleet/real-fleet';
 import { StateHub } from './fleet/state-hub';
@@ -101,14 +104,83 @@ export async function startServer({
     );
   }
 
+  // Databases, RDS and object storage (resources.yaml). Same truth rules as hosts.
+  const connectorContext: ConnectorContext = {
+    env: process.env,
+    homeDir,
+    appName: env.PROJECT_NAME,
+    now: Date.now,
+  };
+  const buildResources = (
+    config: ResourcesConfig,
+    hostIds: ReadonlySet<string>,
+  ): { provider: ResourceProvider; errors: string[] } => {
+    const errors: string[] = [];
+    const configs = config.resources.filter((resource) => {
+      if (!hostIds.has(resource.id)) return true;
+      errors.push(`resources: id "${resource.id}" is already used by a host in hosts.yaml`);
+      return false;
+    });
+    return {
+      provider: new ResourceFleet({
+        configs,
+        thresholds: config.thresholds,
+        audit,
+        createConnector: (resource) => createConnector(resource, connectorContext),
+      }),
+      errors,
+    };
+  };
+  let resourceProvider: ResourceProvider;
+  let resourceErrors: string[] = [];
+  if (env.DATA_MODE === 'demo') {
+    resourceProvider = new DemoResourceProvider();
+  } else {
+    const loaded = await loadResourcesFile(paths.resourcesFile);
+    const built = buildResources(
+      loaded.ok ? loaded.config : { resources: [], thresholds: DEFAULT_RESOURCE_THRESHOLDS },
+      new Set(provider.hosts.map((host) => host.id)),
+    );
+    resourceProvider = built.provider;
+    resourceErrors = loaded.ok ? built.errors : loaded.errors;
+  }
+
   const hub = new StateHub({
     provider,
+    resources: resourceProvider,
     projectName: env.PROJECT_NAME,
     layoutStore: new LayoutStore(db),
     history,
   });
   hub.setConfigErrors(configErrors);
+  hub.setResourceConfigErrors(resourceErrors);
   hub.start();
+
+  let lastResourcesMtime = existsSync(paths.resourcesFile)
+    ? statSync(paths.resourcesFile).mtimeMs
+    : 0;
+  const reloadResources = async () => {
+    if (env.DATA_MODE !== 'real') return;
+    lastResourcesMtime = existsSync(paths.resourcesFile)
+      ? statSync(paths.resourcesFile).mtimeMs
+      : 0;
+    const loaded = await loadResourcesFile(paths.resourcesFile);
+    if (loaded.ok) {
+      const built = buildResources(
+        loaded.config,
+        new Set(hub.currentProvider.hosts.map((host) => host.id)),
+      );
+      hub.replaceResources(built.provider);
+      hub.setResourceConfigErrors(built.errors);
+    } else {
+      hub.setResourceConfigErrors(loaded.errors); // keep the last valid resources running
+    }
+  };
+  if (env.DATA_MODE === 'real') {
+    watchFile(paths.resourcesFile, { interval: HOSTS_FILE_POLL_MS }, (current) => {
+      if (current.mtimeMs !== lastResourcesMtime) void reloadResources();
+    });
+  }
 
   // Live reload: editing hosts.yaml swaps the fleet without a restart.
   // `lastLoadedMtime` lets the app's own writes (add/import) reload at once
@@ -259,6 +331,7 @@ export async function startServer({
     configErrors,
     async stop() {
       unwatchFile(paths.hostsFile);
+      unwatchFile(paths.resourcesFile);
       agentHub.close();
       hub.stop();
       await app.close();

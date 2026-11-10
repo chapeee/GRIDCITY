@@ -1,5 +1,7 @@
 import { Color, ShaderMaterial, UniformsLib, UniformsUtils } from 'three';
-import { cityGeometry, encoding, glow, neutrals } from '../../design/tokens';
+import { cityGeometry, glow, neutrals } from '../../design/tokens';
+import { shapeShaderParams } from '../building-geometry';
+import type { BuildingShape } from '../city-layout';
 
 /**
  * One material for every tower (drawn as a single instanced mesh).
@@ -76,6 +78,11 @@ const fragmentShader = /* glsl */ `
   uniform float uBandCount;
   uniform float uBandIntensity;
   uniform float uReferenceGlow;
+  // 0 box tower, 1 disc stack (drum), 2 hexagonal prism, 3 warehouse (roof cells)
+  uniform int uShape;
+  uniform float uRadius;
+  uniform vec2 uDisc;      // disc height, gap
+  uniform vec2 uRoof;      // roof columns, rows
 
   varying vec3 vLocalPosition;
   varying vec3 vLocalNormal;
@@ -93,9 +100,32 @@ const fragmentShader = /* glsl */ `
     vec3 halfSize = uTowerSize * 0.5;
     vec3 centered = vLocalPosition - vec3(0.0, halfSize.y, 0.0);
     vec3 toFace = halfSize - abs(centered);
-    float smallest = min(toFace.x, min(toFace.y, toFace.z));
-    float largest = max(toFace.x, max(toFace.y, toFace.z));
-    float edgeDistance = toFace.x + toFace.y + toFace.z - smallest - largest;
+    bool isSideFace = abs(vLocalNormal.y) < 0.5;
+    float edgeDistance;
+    float awayFromVerticalEdges = 1.0;
+    if (uShape == 1) {
+      // Disc stack: rims of every disc.
+      float period = uDisc.x + uDisc.y;
+      float inDisc = mod(vLocalPosition.y, period);
+      float toCap = min(inDisc, uDisc.x - inDisc);
+      float toSide = uRadius - length(vLocalPosition.xz);
+      edgeDistance = isSideFace ? toCap : toSide;
+    } else if (uShape == 2) {
+      // Hexagonal prism: top/bottom rims and the six vertical corners.
+      float sector = 1.0471976;
+      float angle = atan(vLocalPosition.x, vLocalPosition.z);
+      float toCorner = abs(angle - round(angle / sector) * sector) * length(vLocalPosition.xz);
+      float faceAngle = (floor(angle / sector) + 0.5) * sector;
+      float toSide = uRadius * 0.8660254 - dot(vLocalPosition.xz, vec2(sin(faceAngle), cos(faceAngle)));
+      float toCap = min(vLocalPosition.y, uTowerSize.y - vLocalPosition.y);
+      edgeDistance = isSideFace ? min(toCap, toCorner) : toSide;
+      awayFromVerticalEdges = smoothstep(uEdgeWidth * 2.0, uEdgeWidth * 3.5, toCorner);
+    } else {
+      float smallest = min(toFace.x, min(toFace.y, toFace.z));
+      float largest = max(toFace.x, max(toFace.y, toFace.z));
+      edgeDistance = toFace.x + toFace.y + toFace.z - smallest - largest;
+      awayFromVerticalEdges = smoothstep(uEdgeWidth * 2.0, uEdgeWidth * 3.5, max(toFace.x, toFace.z));
+    }
     float edge = 1.0 - smoothstep(uEdgeWidth * 0.35, uEdgeWidth, edgeDistance);
 
     // CPU pulse. Frozen towers hold the phase they froze at: no motion.
@@ -105,17 +135,31 @@ const fragmentShader = /* glsl */ `
     vec3 color = uBodyColor;
     color += vGlowColor * vGlowIntensity * uGlowScale * pulse * edge;
 
-    // Memory: thin horizontal light strips on the side faces, lit bottom-up.
-    bool isSideFace = abs(vLocalNormal.y) < 0.5;
-    if (isSideFace && vMemoryLitBands >= 0.0) {
-      float bandPosition = (vLocalPosition.y / uTowerSize.y) * uBandCount;
-      float bandIndex = floor(bandPosition);
-      float stripe = 1.0 - smoothstep(0.035, 0.075, abs(fract(bandPosition) - 0.5));
-      float awayFromVerticalEdges = smoothstep(uEdgeWidth * 2.0, uEdgeWidth * 3.5, max(toFace.x, toFace.z));
-      vec3 bandColor = bandIndex < vMemoryLitBands
-        ? vGlowColor * uBandIntensity * uGlowScale * (vGlowIntensity / uReferenceGlow)
-        : uUnlitBandColor;
-      color += bandColor * stripe * awayFromVerticalEdges;
+    vec3 litBandColor = vGlowColor * uBandIntensity * uGlowScale * (vGlowIntensity / uReferenceGlow);
+    if (uShape == 3) {
+      // Warehouse: a grid of roof cells, lit front-left first (stored bytes).
+      if (vLocalNormal.y > 0.5 && vMemoryLitBands >= 0.0) {
+        vec2 roofUv = (vLocalPosition.xz + halfSize.xz) / uTowerSize.xz;
+        vec2 cell = floor(roofUv * uRoof);
+        vec2 inCell = fract(roofUv * uRoof);
+        float inset = step(0.16, inCell.x) * step(inCell.x, 0.84) * step(0.2, inCell.y) * step(inCell.y, 0.8);
+        float cellIndex = (uRoof.y - 1.0 - cell.y) * uRoof.x + cell.x;
+        color += (cellIndex < vMemoryLitBands ? litBandColor : uUnlitBandColor) * inset * 0.8;
+      }
+    } else if (isSideFace && vMemoryLitBands >= 0.0) {
+      // Bands lit bottom-up: memory (towers) or connections (drums, prisms).
+      float bandIndex;
+      float stripe;
+      if (uShape == 1) {
+        float period = uDisc.x + uDisc.y;
+        bandIndex = floor(vLocalPosition.y / period);
+        stripe = 1.0 - smoothstep(0.04, 0.08, abs(mod(vLocalPosition.y, period) - uDisc.x * 0.5) / period);
+      } else {
+        float bandPosition = (vLocalPosition.y / uTowerSize.y) * uBandCount;
+        bandIndex = floor(bandPosition);
+        stripe = 1.0 - smoothstep(0.035, 0.075, abs(fract(bandPosition) - 0.5));
+      }
+      color += (bandIndex < vMemoryLitBands ? litBandColor : uUnlitBandColor) * stripe * awayFromVerticalEdges;
     }
 
     // Stale data is desaturated.
@@ -129,7 +173,8 @@ const fragmentShader = /* glsl */ `
   }
 `;
 
-export function createTowerMaterial(): ShaderMaterial {
+export function createTowerMaterial(shape: BuildingShape = 'tower'): ShaderMaterial {
+  const params = shapeShaderParams(shape);
   return new ShaderMaterial({
     vertexShader,
     fragmentShader,
@@ -141,11 +186,13 @@ export function createTowerMaterial(): ShaderMaterial {
         uGlowScale: { value: 1 },
         uBodyColor: { value: new Color(neutrals.grid).multiplyScalar(0.55) },
         uUnlitBandColor: { value: new Color(neutrals.muted).multiplyScalar(glow.memoryBandUnlit) },
-        uTowerSize: {
-          value: [cityGeometry.towerWidth, cityGeometry.towerHeight, cityGeometry.towerWidth],
-        },
+        uTowerSize: { value: [...params.size] },
         uEdgeWidth: { value: cityGeometry.towerEdgeWidth },
-        uBandCount: { value: encoding.memoryBandCount },
+        uBandCount: { value: params.bandCount },
+        uShape: { value: params.mode },
+        uRadius: { value: 'radius' in params ? (params.radius ?? 0) : 0 },
+        uDisc: { value: 'disc' in params && params.disc ? [...params.disc] : [1, 0] },
+        uRoof: { value: 'roof' in params && params.roof ? [...params.roof] : [1, 1] },
         uBandIntensity: { value: glow.memoryBandLit },
         // Bands dim together with the edges (e.g. stale hosts).
         uReferenceGlow: { value: glow.towerEdge },

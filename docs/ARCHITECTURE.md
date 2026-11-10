@@ -36,10 +36,11 @@ only.
 
 ```
 apps/server/src/
-├── config/    env, app paths, hosts.yaml (zod), ssh config parser + importer
+├── config/    env, app paths, hosts.yaml and resources.yaml (zod), ssh config parser + importer
+├── connectors/ one file per resource kind behind the Connector interface
 ├── ssh/       known_hosts verification, auth options, backoff, HostConnection
 ├── metrics/   collector script, pure parsers (+ real fixtures), rate math
-├── fleet/     HostRuntime (pure), RealFleet, DemoFleetProvider, StateHub
+├── fleet/     HostRuntime (pure), RealFleet, DemoFleetProvider, ResourceFleet, StateHub
 ├── storage/   SQLite migrations, AuditLog, SampleHistory, LayoutStore
 ├── http/      app + security guard, /ws/state, JSON API
 ├── security/  bind guard, session token, origin rules
@@ -49,12 +50,13 @@ apps/server/src/
 
 ### Config and files
 
-| What          | Default location (from `PROJECT_NAME`, e.g. `example`)                    | Override           |
-| ------------- | ------------------------------------------------------------------------- | ------------------ |
-| `hosts.yaml`  | Linux/macOS `~/.config/example/` · Windows `%APPDATA%\example\`           | `CONFIG_DIR`       |
-| `state.db`    | Linux/macOS `~/.local/share/example/` · Windows `%LOCALAPPDATA%\example\` | `DATA_DIR`         |
-| `known_hosts` | `~/.ssh/known_hosts` + system file (read only)                            | `KNOWN_HOSTS_FILE` |
-| SSH config    | `~/.ssh/config` (importer only)                                           | `SSH_CONFIG_FILE`  |
+| What             | Default location (from `PROJECT_NAME`, e.g. `example`)                    | Override           |
+| ---------------- | ------------------------------------------------------------------------- | ------------------ |
+| `hosts.yaml`     | Linux/macOS `~/.config/example/` · Windows `%APPDATA%\example\`           | `CONFIG_DIR`       |
+| `resources.yaml` | next to `hosts.yaml`                                                      | `CONFIG_DIR`       |
+| `state.db`       | Linux/macOS `~/.local/share/example/` · Windows `%LOCALAPPDATA%\example\` | `DATA_DIR`         |
+| `known_hosts`    | `~/.ssh/known_hosts` + system file (read only)                            | `KNOWN_HOSTS_FILE` |
+| SSH config       | `~/.ssh/config` (importer only)                                           | `SSH_CONFIG_FILE`  |
 
 `hosts.yaml` is created with a commented template on first start. The server polls it every 2 s
 and **reloads the fleet live**. If an edit makes it invalid, the last valid fleet keeps running
@@ -104,6 +106,45 @@ Parsers are tested against **real captures** from Debian and Alpine (busybox) co
 synthetic Ubuntu VM fixture. A poll that times out (3 × interval) or returns incomplete output
 is a **failed poll**: values are kept, nothing is invented, and the host goes **stale**.
 
+### Resources beyond SSH (`connectors/`, `fleet/resource-fleet.ts`)
+
+Databases, RDS and S3-compatible storage come from `resources.yaml` (zod, live reload like
+`hosts.yaml`; an invalid edit keeps the last valid set and shows the errors). Each kind is one
+file returning a `Connector` (`resources()`, `poll()`, `close()`); `connectors/index.ts` is the
+only place that knows every kind. Adding a kind = one connector file, one schema in
+`resources-file.ts`, one shape mapping in the web app.
+
+| Kind     | Library                                    | Read per poll                                                                                                                                                                                                                               | Default interval |
+| -------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| postgres | `pg`                                       | `pg_stat_database` (transactions, block hits/reads), `pg_stat_activity` (connections, active > `slowQueryMs`), `max_connections`, `pg_database_size`, replay lag on replicas. Session: `default_transaction_read_only`, `statement_timeout` | 10 s             |
+| mysql    | `mysql2`                                   | `SHOW GLOBAL STATUS` (Questions, Threads_connected, Slow_queries, buffer pool), `@@max_connections`, processlist time > limit, `SHOW REPLICA STATUS` (fallback `SLAVE`), `information_schema` size                                          | 10 s             |
+| mongodb  | `mongodb`                                  | `serverStatus` (connections, opcounters, WiredTiger cache), `listDatabases` size, `currentOp` > limit, `replSetGetStatus` lag                                                                                                               | 10 s             |
+| redis    | `ioredis`                                  | `INFO` (clients, maxclients, commands, hits/misses, memory, role, master link), `SLOWLOG GET 1` (new entries by id)                                                                                                                         | 10 s             |
+| mssql    | `mssql`                                    | `dm_os_performance_counters` (batch requests, user connections, buffer cache hit), `dm_exec_requests` > limit, `master_files`, AG lag                                                                                                       | 10 s             |
+| sqlite   | `better-sqlite3`                           | opened read-only per poll (no lock held): file and WAL size, page/freelist counts, journal mode, table count                                                                                                                                | 10 s             |
+| rds      | `@aws-sdk/client-rds`, `client-cloudwatch` | `DescribeDBInstances` (discovery, status, allocated storage), one `GetMetricData` for CPU, FreeStorageSpace, DatabaseConnections, Read/WriteIOPS, ReplicaLag                                                                                | 60 s             |
+| s3       | `@aws-sdk/client-s3`                       | `ListBuckets` (or the configured list), `HeadBucket` latency, paginated `ListObjectsV2` up to `maxObjects`; growth from the last hour of polls                                                                                              | 5 min            |
+
+- **Rates** (ops/s, cache hit) come from counter deltas between polls (`CounterTracker`): unknown
+  on the first poll and after a counter reset, never invented. Cache hit is judged only with ≥ 100
+  reads in the poll.
+- **Discovery:** RDS and S3 entries expand into one resource per instance or bucket
+  (`<entry id>-<name>`). When the list changes, the hub re-assigns sticky slots and sends everyone
+  a fresh snapshot. If listing fails, the known resources (or one placeholder) go offline with the
+  reason.
+- **State:** `applyOutcome` / `runtimeToState` (pure) apply the shared rules in
+  `packages/shared/src/resource-status.ts`: offline when a poll fails (values become unknown,
+  `lastSeenAt` kept), unknown before the first poll, degraded on any broken rule, online
+  otherwise. A poll that times out (3 × interval, at least 20 s) changes nothing, so the resource
+  goes stale. CloudWatch datapoints older than 5 minutes keep their own time as `lastSeenAt`.
+- **Audit:** `resource_reachable` / `resource_unreachable` on transitions only, with the
+  scrubbed reason.
+- **Secrets:** `readPassword` resolves `passwordEnv` / `passwordFile` at connect time;
+  `redactSecrets` scrubs every error before it is logged, audited or sent.
+- **Demo:** `packages/shared/src/demo/demo-resources.ts` runs ten demo resources through the real
+  rules (a lagging replica, an offline cache, a stale RDS instance, a growing bucket…), served by
+  `DemoResourceProvider` or the in-browser demo source.
+
 ### State
 
 `HostRuntime` (pure functions) turns connection phases and polls into a `HostState` using the
@@ -128,10 +169,12 @@ No keys, passphrases or passwords are ever stored.
 
 ## WebSocket protocol
 
-Defined in [`packages/shared/src/protocol.ts`](../packages/shared/src/protocol.ts) (version 1).
+Defined in [`packages/shared/src/protocol.ts`](../packages/shared/src/protocol.ts) (version 2).
 
-- Server → client: `hello`, `snapshot`, `hostStates` (diff), `hostRemoved`, `hostKeyRefused`,
-  `error`.
+- Server → client: `hello`, `snapshot` (hosts, states, layout slots, and since v2 `resources`
+  and `resourceStates`), `hostStates` (diff), `resourceStates` (diff), `hostRemoved`,
+  `hostKeyRefused`, `error`. Hosts and resources share one slot assignment and ids are unique
+  across both (a resource id that clashes with a host is refused).
 - Client → server: `ping`, `resync`.
 - `dataMode` is fixed per server run (`DATA_MODE=real|demo`). Demo and real data never mix.
 
@@ -262,6 +305,12 @@ container. `compose.ssh.example.yaml` has all three.
 
 - **Unit:** parsers against real fixtures, status rules, runtime, hub, storage, config, SSH
   helpers.
+- **Connectors against real instances** (`npm run test:connectors`,
+  `compose.connectors-test.yaml`): PostgreSQL 17, MySQL 8.4, MongoDB 8, Redis 7.4 (minimal ACL
+  user), MinIO and, with `--mssql`, SQL Server 2022, each with a read-only monitoring user. Checks
+  readings and rates, slow-query detection, the read-only session, wrong passwords (never echoed),
+  closed ports, a container stopped and started again, bucket growth and the `maxObjects` cap.
+  SQLite runs on real files in the normal suite; RDS and CloudWatch use `aws-sdk-client-mock`.
 - **End to end over SSH** (`real-fleet.integration.test.ts`): an in-process SSH server checks
   key auth, polling, unknown/changed host key refusal, offline on disconnect and recovery,
   stale when polling is blocked, garbage output, rejected keys and closed ports.
@@ -278,7 +327,8 @@ container. `compose.ssh.example.yaml` has all three.
 ```
 apps/web/src/
 ├── data/      fleet store (zustand) + pure reducer, data-source interface, demo source
-├── world/     3D scene (R3F). Pure helpers: host-visuals.ts (data → light), city-layout.ts,
+├── world/     3D scene (R3F). Pure helpers: host-visuals.ts and resource-visuals.ts
+│              (data → light), building-geometry.ts (fixed shapes), city-layout.ts,
 │              camera-poses.ts. Components: TowerField, DiskRings, NetworkParticles,
 │              WorldLabels, CityFloor, FocusMarker, CameraRig, PostEffects, PerfProbe
 ├── ui/        2D layer: FocusHud, CommandPalette, overlays, shortcuts, formatters
@@ -288,7 +338,9 @@ apps/web/src/
 - **Data and scene are separate.** Server messages go through the pure `reduceFleet`;
   `useCityModel` turns fleet state into a layout and one `HostVisual` per host.
 - **One draw call per layer.** Towers, disk rings and particles are each a single instanced
-  mesh (or point cloud) with a custom shader.
+  mesh (or point cloud) with a custom shader. Each resource shape (drum, prism, caged drum,
+  warehouse) is one more instanced mesh using the same material in another shape mode, and all
+  RDS cages are one line-segment mesh.
 - **WebGL2, not WebGPU (yet).** `postprocessing` and troika only support `WebGLRenderer`.
 - **Layout slots** come from the server (`snapshot.layoutSlots`); the in-browser demo source
   assigns them deterministically.

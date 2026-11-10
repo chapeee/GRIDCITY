@@ -1,6 +1,7 @@
 import {
   assignSlots,
   createDemoFleet,
+  createDemoResources,
   createUnknownHostState,
   DEFAULT_STATUS_THRESHOLDS,
   PROTOCOL_VERSION,
@@ -33,15 +34,22 @@ export function createDemoDataSource(options: DemoOptions, projectName: string):
         projectName,
         thresholds,
       });
+      const resources = createDemoResources({ seed: options.seed, startedAt: Date.now() });
       listener({
         type: 'snapshot',
         hosts: [...fleet.hosts],
         states: fleet.hosts.map((host) => createUnknownHostState(host.id)),
-        // Demo hosts are deterministic, so fresh assignments are stable across reloads.
-        layoutSlots: assignSlots(fleet.hosts, {}),
+        // Demo data is deterministic, so fresh assignments are stable across reloads.
+        layoutSlots: assignSlots([...fleet.hosts, ...resources.resources], {}),
+        resources: resources.resources,
+        resourceStates: resources.tick(Date.now()),
       });
 
-      const poll = () => listener({ type: 'hostStates', states: fleet.tick(Date.now()) });
+      const poll = () => {
+        const now = Date.now();
+        listener({ type: 'hostStates', states: fleet.tick(now) });
+        listener({ type: 'resourceStates', states: resources.tick(now) });
+      };
       let interval: ReturnType<typeof setInterval> | undefined;
       const firstPoll = setTimeout(() => {
         poll();

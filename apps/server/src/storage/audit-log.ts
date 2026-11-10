@@ -24,7 +24,10 @@ export type AuditKind =
   | 'agent_command_run'
   | 'agent_command_denied'
   | 'agent_started'
-  | 'agent_stopped';
+  | 'agent_stopped'
+  // Databases, RDS and buckets: reachability transitions only.
+  | 'resource_reachable'
+  | 'resource_unreachable';
 
 export interface AuditEntry {
   id: number;

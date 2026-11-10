@@ -1,21 +1,22 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import {
-  BoxGeometry,
   Color,
   InstancedBufferAttribute,
   Matrix4,
   type InstancedMesh,
   type ShaderMaterial,
 } from 'three';
-import { cityGeometry } from '../design/tokens';
-import type { TowerPlacement } from './city-layout';
+import { buildShapeGeometry } from './building-geometry';
+import type { BuildingShape, TowerPlacement } from './city-layout';
 import type { FreezeTracker } from './freeze-tracker';
 import type { HostVisual } from './host-visuals';
 import { createTowerMaterial, TOWER_INSTANCE_ATTRIBUTES } from './materials/tower-material';
 
 interface TowerFieldProps {
   towers: readonly TowerPlacement[];
+  /** Which buildings this field draws; each shape is its own instanced mesh. */
+  shape?: BuildingShape;
   visuals: ReadonlyMap<string, HostVisual>;
   freezeTracker: FreezeTracker;
   glowScale: number;
@@ -25,24 +26,24 @@ interface TowerFieldProps {
 /** Pointer travel (px) above which a press counts as a camera drag, not a click. */
 const CLICK_DRAG_TOLERANCE_PX = 5;
 
-/** All towers as one instanced mesh: one draw call regardless of host count. */
+/** All buildings of one shape as one instanced mesh: one draw call regardless of count. */
 export function TowerField({
-  towers,
+  towers: allTowers,
+  shape = 'tower',
   visuals,
   freezeTracker,
   glowScale,
   onSelect,
 }: TowerFieldProps) {
   const meshRef = useRef<InstancedMesh>(null);
+  const towers = useMemo(
+    () => allTowers.filter((tower) => (tower.shape ?? 'tower') === shape),
+    [allTowers, shape],
+  );
   const count = towers.length;
 
   const geometry = useMemo(() => {
-    const box = new BoxGeometry(
-      cityGeometry.towerWidth,
-      cityGeometry.towerHeight,
-      cityGeometry.towerWidth,
-    );
-    box.translate(0, cityGeometry.towerHeight / 2, 0); // base sits on the floor
+    const box = buildShapeGeometry(shape);
     for (const [name, size] of Object.entries(TOWER_INSTANCE_ATTRIBUTES)) {
       box.setAttribute(
         name,
@@ -50,9 +51,9 @@ export function TowerField({
       );
     }
     return box;
-  }, [count]);
+  }, [count, shape]);
 
-  const material = useMemo(() => createTowerMaterial(), []);
+  const material = useMemo(() => createTowerMaterial(shape), [shape]);
 
   // Positions only change when the layout does.
   useLayoutEffect(() => {

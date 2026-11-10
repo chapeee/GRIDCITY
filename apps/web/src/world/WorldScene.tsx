@@ -10,7 +10,18 @@ import { FreezeTracker } from './freeze-tracker';
 import { NetworkParticles } from './NetworkParticles';
 import { PerfProbe } from './PerfProbe';
 import { PostEffects } from './PostEffects';
+import type { BuildingShape } from './city-layout';
+import { ResourceCages } from './ResourceCages';
 import { TowerField } from './TowerField';
+
+/** One instanced mesh per shape; a shape with no buildings draws nothing. */
+const BUILDING_SHAPES: readonly BuildingShape[] = [
+  'tower',
+  'drum',
+  'prism',
+  'caged-drum',
+  'warehouse',
+];
 import type { CityModel } from './use-city-model';
 import { useWorldTuning } from './use-world-tuning';
 import { WorldLabels } from './WorldLabels';
@@ -54,13 +65,18 @@ export function WorldScene({ model }: WorldSceneProps) {
       <fog attach="fog" args={[atmosphere.fogColor, atmosphere.fogNear, atmosphere.fogFar]} />
 
       <CityFloor districts={layout.districts} />
-      <TowerField
-        towers={layout.towers}
-        visuals={visuals}
-        freezeTracker={freezeTracker}
-        glowScale={tuning.glowScale}
-        onSelect={focusHost}
-      />
+      {BUILDING_SHAPES.map((shape) => (
+        <TowerField
+          key={shape}
+          shape={shape}
+          towers={layout.towers}
+          visuals={visuals}
+          freezeTracker={freezeTracker}
+          glowScale={tuning.glowScale}
+          onSelect={focusHost}
+        />
+      ))}
+      <ResourceCages towers={layout.towers} />
       <DiskRings towers={layout.towers} visuals={visuals} glowScale={tuning.glowScale} />
       <FocusMarker tower={layout.towers.find((tower) => tower.hostId === focusedHostId)} />
       {!liteMode && (

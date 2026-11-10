@@ -1,4 +1,10 @@
-import { isStale, type HostState, type StatusThresholds } from '@app/shared';
+import {
+  DEFAULT_RESOURCE_THRESHOLDS,
+  isStale,
+  type HostState,
+  type ResourceState,
+  type StatusThresholds,
+} from '@app/shared';
 
 /**
  * Ambient mode ("second monitor"): the camera drifts between hosts that need
@@ -38,4 +44,17 @@ export function nextAmbientTarget(
   if (candidates.length === 0) return null;
   const index = current === null ? -1 : candidates.indexOf(current);
   return candidates[(index + 1) % candidates.length] ?? null;
+}
+
+/** The same rule for databases, RDS and buckets (each has its own poll interval). */
+export function resourceNeedsAttention(state: ResourceState | undefined, now: number): boolean {
+  if (!state || state.status === 'unknown') return false;
+  if (state.status === 'offline' || state.status === 'degraded') return true;
+  return (
+    state.stale ||
+    isStale(state.lastSeenAt, now, {
+      pollIntervalMs: state.pollIntervalMs,
+      staleAfterPolls: DEFAULT_RESOURCE_THRESHOLDS.staleAfterPolls,
+    })
+  );
 }

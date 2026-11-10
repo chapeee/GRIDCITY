@@ -1,6 +1,7 @@
 import { Billboard, Text } from '@react-three/drei';
 import labelFontUrl from '@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff?url';
-import { accents, cityGeometry, neutrals } from '../design/tokens';
+import { accents, neutrals } from '../design/tokens';
+import { buildingHeight } from './building-geometry';
 import type { DistrictPlacement, TowerPlacement } from './city-layout';
 import type { HostVisual, LabelTone } from './host-visuals';
 
@@ -26,7 +27,8 @@ const CAPTION_COLOR: Record<LabelTone, string> = {
   dim: neutrals.muted,
 };
 
-const NAME_HEIGHT = cityGeometry.towerHeight + 1.5;
+/** Names float this far above the top of each building. */
+const NAME_OFFSET = 1.5;
 /** District names float just above the floor, in front of their district. */
 const DISTRICT_LABEL_HEIGHT = 0.9;
 const DISTRICT_LABEL_FRONT_OFFSET = 5;
@@ -48,7 +50,10 @@ export function WorldLabels({
           const busy = agentBusy?.get(tower.hostId);
           const caption = busy ? `AI: ${busy}` : visual?.caption;
           return (
-            <Billboard key={tower.hostId} position={[tower.x, NAME_HEIGHT, tower.z]}>
+            <Billboard
+              key={tower.hostId}
+              position={[tower.x, buildingHeight(tower.shape ?? 'tower') + NAME_OFFSET, tower.z]}
+            >
               <Text
                 font={labelFontUrl}
                 fontSize={0.62}
@@ -57,7 +62,7 @@ export function WorldLabels({
                 anchorY="bottom"
                 raycast={() => null}
               >
-                {tower.hostId}
+                {tower.label ?? tower.hostId}
               </Text>
               {caption && (
                 <Text

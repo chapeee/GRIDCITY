@@ -1,6 +1,11 @@
 import { useEffect } from 'react';
 import { useFleetStore } from '../data/fleet-store';
-import { AMBIENT_DWELL_MS, hostsNeedingAttention, nextAmbientTarget } from '../world/ambient-tour';
+import {
+  AMBIENT_DWELL_MS,
+  hostsNeedingAttention,
+  nextAmbientTarget,
+  resourceNeedsAttention,
+} from '../world/ambient-tour';
 import { useUiStore } from './ui-store';
 
 /**
@@ -15,10 +20,14 @@ export function useAmbientDirector(navigationOrder: readonly string[]): void {
   useEffect(() => {
     if (!ambientMode) return;
     const advance = () => {
-      const { states, thresholds } = useFleetStore.getState();
+      const { states, thresholds, resourceStates } = useFleetStore.getState();
       const ui = useUiStore.getState();
       if (ui.terminal) return;
-      const candidates = hostsNeedingAttention(navigationOrder, states, Date.now(), thresholds);
+      const now = Date.now();
+      const hostStops = new Set(hostsNeedingAttention(navigationOrder, states, now, thresholds));
+      const candidates = navigationOrder.filter(
+        (id) => hostStops.has(id) || resourceNeedsAttention(resourceStates[id], now),
+      );
       ui.ambientFocus(nextAmbientTarget(candidates, ui.focusedHostId));
     };
     advance();

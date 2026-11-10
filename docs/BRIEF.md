@@ -27,6 +27,16 @@ because the name lives only in `PROJECT_NAME`.
    with their own sign-in. The app stores no vendor login, and does not offer a Claude
    subscription login in the panel (Anthropic's terms).
 
+10. **Beyond SSH (decided 2026-11-10):** the city also watches databases (PostgreSQL, MySQL/MariaDB,
+    MongoDB, Redis, SQL Server, SQLite), AWS RDS through CloudWatch, and S3-compatible object
+    storage (AWS S3, DigitalOcean Spaces, MinIO, Cloudflare R2). Each kind is one connector behind a
+    common interface (`apps/server/src/connectors`), built on its standard library (amendment 5):
+    `pg`, `mysql2`, `mongodb`, `ioredis`, `mssql`, `better-sqlite3`, and AWS SDK v3
+    (`client-rds`, `client-cloudwatch`, `client-s3`). Connectors only read statistics. Passwords
+    are named (an environment variable or a file), never stored; AWS uses the standard credential
+    chain. Each kind has its own fixed building shape (docs/VISUAL_LANGUAGE.md). This lifts S3 and
+    databases out of the v0.1 non-goals.
+
 ---
 
 # Project: <project name> (working codename)

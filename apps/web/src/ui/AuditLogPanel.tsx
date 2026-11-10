@@ -24,6 +24,8 @@ const KIND_LABEL: Record<string, string> = {
   agent_command_denied: 'AI command denied',
   agent_started: 'agent started',
   agent_stopped: 'agent stopped',
+  resource_reachable: 'resource reachable',
+  resource_unreachable: 'resource unreachable',
 };
 
 /** Kinds that deserve the alert accent. */
@@ -32,6 +34,7 @@ const ALERT_KINDS = new Set([
   'connection_lost',
   'connection_failed',
   'agent_command_denied',
+  'resource_unreachable',
 ]);
 
 const formatTime = (at: number) =>

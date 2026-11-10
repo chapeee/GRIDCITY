@@ -154,7 +154,7 @@ describe('StateHub', () => {
     expect(received[0]).toMatchObject({
       dataMode: 'real',
       projectName: 'example',
-      protocolVersion: 1,
+      protocolVersion: 2,
     });
     expect(received[1]).toMatchObject({ layoutSlots: { a: 0, b: 1 } });
     hub.stop();

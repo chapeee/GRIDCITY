@@ -84,6 +84,34 @@ export const encoding = {
   staleSaturation: 0.15,
   /** Stale data also dims to this brightness (0..1), so frozen never reads as "hot". */
   staleBrightness: 0.45,
+  /** Resources: queries/ops per second on a log scale to the same pulse range. */
+  opsPerSec: { floor: 1, ceiling: 10_000 },
+  /** Lit bands for connections: drums have 3 discs, prisms 6 bands. */
+  connectionBands: { drum: 3, prism: 6 },
+  /** Bucket roof cells lit = stored bytes on a log scale (1 KiB .. 10 TiB). */
+  roofCells: 10,
+  bucketBytes: { floor: 1024, ceiling: 10 * 1024 ** 4 },
+  /** Bucket growth (bytes/hour, positive only) on a log scale to particle rate. */
+  growthBytesPerHour: { floor: 1024 ** 2, ceiling: 100 * 1024 ** 3 },
+} as const;
+
+/**
+ * Fixed shapes for resources, in world units (see docs/VISUAL_LANGUAGE.md).
+ * Like towers, their geometry never changes with data.
+ */
+export const resourceGeometry = {
+  drum: { radius: 1.25, discHeight: 1.1, discGap: 0.35, discs: 3 },
+  prism: { radius: 1.2, height: 4.2 },
+  /** RDS: a drum (4 discs) inside a thin static cage marking "managed". */
+  cagedDrum: {
+    radius: 1.15,
+    discHeight: 1.05,
+    discGap: 0.3,
+    discs: 4,
+    cageWidth: 3.0,
+    cageHeight: 6.4,
+  },
+  warehouse: { width: 4.4, depth: 3.2, height: 1.6, roofColumns: 5, roofRows: 2 },
 } as const;
 
 /** Durations in milliseconds. */

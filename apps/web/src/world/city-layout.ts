@@ -10,7 +10,9 @@
  * the server's SQLite database.
  */
 
-import type { LayoutHost, SlotAssignments } from '@app/shared';
+import type { LayoutHost, ResourceShape, SlotAssignments } from '@app/shared';
+
+export type BuildingShape = 'tower' | ResourceShape;
 
 export { assignSlots, type LayoutHost, type SlotAssignments } from '@app/shared';
 
@@ -22,8 +24,13 @@ export interface LayoutDimensions {
 }
 
 export interface TowerPlacement {
+  /** Host or resource id (they share one layout). */
   hostId: string;
   district: string;
+  /** Fixed shape: a tower for hosts, one shape per resource kind. */
+  shape?: BuildingShape;
+  /** Text above the building (host id, resource name). */
+  label?: string;
   /** World position of the tower base center on the floor (x, z). */
   x: number;
   z: number;

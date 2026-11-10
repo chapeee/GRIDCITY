@@ -2,7 +2,8 @@
 
 **Your servers as a living city of light.** A local-first infrastructure tool: every SSH host
 becomes a tower whose light tells the truth about it, and you can dive into any tower for a real
-terminal.
+terminal. Databases (PostgreSQL, MySQL/MariaDB, MongoDB, Redis, SQL Server, SQLite), AWS RDS and
+S3-compatible buckets join the city as buildings of their own.
 
 ![Flying through the city, focusing a degraded host, and jacking in](docs/media/demo.gif)
 
@@ -111,6 +112,54 @@ instead, copy `compose.ssh.example.yaml` to `compose.ssh.yaml`, keep your platfo
 docker compose -f compose.yaml -f compose.ssh.yaml up --build
 ```
 
+## Databases, RDS and object storage
+
+Add them to `resources.yaml`, next to `hosts.yaml` (created with a commented example on first
+start, reloaded live). Each kind is watched by one connector built on the standard open-source
+library for it, and gets its own building in the city:
+
+| Kind                                 | Library                                              | Building                  |
+| ------------------------------------ | ---------------------------------------------------- | ------------------------- |
+| PostgreSQL                           | `pg`                                                 | drum (3 stacked discs)    |
+| MySQL / MariaDB                      | `mysql2`                                             | drum                      |
+| MongoDB                              | `mongodb` (official)                                 | drum                      |
+| SQL Server                           | `mssql`                                              | drum                      |
+| SQLite (a file on this machine)      | `better-sqlite3`                                     | drum                      |
+| Redis / Valkey                       | `ioredis`                                            | hexagonal prism           |
+| AWS RDS (every instance in a region) | `@aws-sdk/client-rds` + `@aws-sdk/client-cloudwatch` | drum in a thin cage       |
+| S3, DigitalOcean Spaces, MinIO, R2   | `@aws-sdk/client-s3` with a custom endpoint          | warehouse, one per bucket |
+
+```yaml
+resources:
+  - kind: postgres
+    id: orders-db
+    host: db.internal
+    user: monitor # GRANT pg_monitor TO monitor;
+    passwordEnv: ORDERS_DB_PASSWORD # the password itself is never written here
+  - kind: redis
+    id: cache
+    host: 10.0.0.7
+    passwordFile: ~/.secrets/redis # first line of the file
+  - kind: rds
+    id: aws-prod
+    region: eu-west-1 # your normal AWS credentials or `profile:`
+  - kind: s3
+    id: media
+    provider: spaces
+    endpoint: https://blr1.digitaloceanspaces.com
+    accessKeyIdEnv: SPACES_KEY
+    secretAccessKeyEnv: SPACES_SECRET
+```
+
+What you see: up/down, connections against the maximum, queries per second, slow queries,
+replica lag, cache hit ratio and size for databases; CPU, free storage, connections, IOPS and
+replica lag from CloudWatch for RDS; object count, size, growth per hour and reachability for
+buckets. Anything an engine (or your user's grants) does not expose shows as a dash, never as
+zero. Click a building or find it in Ctrl+K for its panel. The demo has DEMO DATA equivalents of
+every kind.
+
+Test the connectors against real instances in Docker: `npm run test:connectors`.
+
 ## Let an AI work on your servers
 
 Use the AI you already have. Nothing is wired to one vendor's API, and **every command an AI
@@ -163,6 +212,11 @@ subscription logins, so the app never asks for one. With MCP, Claude Code stays 
 | Dark, motionless tower                  | **offline**; the HUD says why                           |
 | Grey, dim, frozen tower, "last seen …"  | **stale**: data stopped arriving                        |
 | Faint outline only                      | not measured yet                                        |
+| Drum · hexagonal prism · caged drum     | a database · Redis · an RDS instance                    |
+| Drum discs / prism strips lit upward    | connections used of the maximum                         |
+| Pulse speed on a drum or prism          | queries (or commands) per second, log scale             |
+| Low warehouse, roof cells lit           | a bucket; lit cells = stored size (log scale)           |
+| Particles over a warehouse              | the bucket is growing (log scale)                       |
 
 Every encoding, and the reasoning behind it: [docs/VISUAL_LANGUAGE.md](docs/VISUAL_LANGUAGE.md).
 
@@ -211,6 +265,19 @@ frames are slow), the audit log, importing from `~/.ssh/config`, and replaying t
   startup, and only from its own page (Host and Origin checks block other websites).
 
 Details and limits: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+
+## What this does with your database and cloud access
+
+- Each connector **only reads statistics**: `pg_stat_*` views (in a read-only session), `SHOW
+STATUS`, MongoDB's `serverStatus`, Redis `INFO`, SQL Server DMVs (`ApplicationIntent=ReadOnly`),
+  SQLite opened read-only, `DescribeDBInstances` and `GetMetricData`, and for buckets
+  `ListBuckets`, `HeadBucket` and `ListObjectsV2`. It never reads your rows or objects, and never
+  writes. Use a read-only monitoring user anyway; `resources.yaml` shows the grants for each.
+- **Passwords are never stored.** `resources.yaml` names an environment variable or a file; a
+  `password:` key or a password inside a URL is refused. AWS uses your normal credential chain
+  (env, `~/.aws`, SSO, instance role) or a named `profile`. Error messages are scrubbed of secrets
+  before they are logged or shown.
+- Reachability changes are written to the audit log (reachable / unreachable, never every retry).
 
 ## Development
 

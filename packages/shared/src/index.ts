@@ -8,3 +8,6 @@ export * from './demo/demo-fleet';
 export * from './layout-slots';
 export * from './terminal-protocol';
 export * from './agent-protocol';
+export * from './resource';
+export * from './resource-status';
+export * from './demo/demo-resources';

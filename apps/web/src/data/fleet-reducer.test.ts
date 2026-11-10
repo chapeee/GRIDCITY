@@ -28,7 +28,7 @@ const polled = (id: string, lastSeenAt: number): HostState => ({
   network: [{ iface: 'eth0', rxBytesPerSec: 100, txBytesPerSec: 50 }],
 });
 
-const hello = (dataMode: 'real' | 'demo', protocolVersion = 1): ServerMessage => ({
+const hello = (dataMode: 'real' | 'demo', protocolVersion = 2): ServerMessage => ({
   type: 'hello',
   protocolVersion,
   dataMode,
@@ -53,7 +53,14 @@ describe('reduceFleet', () => {
   it('wipes everything when the data mode changes (never mix demo and real)', () => {
     const demo = apply([
       hello('demo'),
-      { type: 'snapshot', layoutSlots: {}, hosts: [host('a')], states: [polled('a', 1000)] },
+      {
+        type: 'snapshot',
+        resources: [],
+        resourceStates: [],
+        layoutSlots: {},
+        hosts: [host('a')],
+        states: [polled('a', 1000)],
+      },
     ]);
     const real = reduceFleet(demo, hello('real'));
     expect(real.hosts).toEqual([]);
@@ -65,6 +72,8 @@ describe('reduceFleet', () => {
     const fleet = apply([
       {
         type: 'snapshot',
+        resources: [],
+        resourceStates: [],
         layoutSlots: {},
         hosts: [host('a')],
         states: [createUnknownHostState('a')],
@@ -93,6 +102,8 @@ describe('reduceFleet', () => {
     const fleet = apply([
       {
         type: 'snapshot',
+        resources: [],
+        resourceStates: [],
         layoutSlots: {},
         hosts: [host('a'), host('b')],
         states: [polled('a', 1), polled('b', 1)],

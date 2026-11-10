@@ -27,14 +27,31 @@ find a gap.
     password is sent only to a host whose key is already trusted, and is never stored, logged,
     returned in an error or kept by the browser after the attempt.
 
+## What this tool does with your database and cloud access
+
+- It connects **from your machine** to the databases, RDS regions and S3-compatible endpoints in
+  `resources.yaml`, with credentials **by reference**: an environment variable or a file you point
+  to (read at connect time), or for AWS the standard credential chain or a named profile. Nothing
+  secret is written to `resources.yaml`, the database or the logs; the file refuses a `password:`
+  key and passwords inside URLs.
+- Every connector **reads statistics only**: PostgreSQL in a read-only session
+  (`default_transaction_read_only`, statement timeout), MySQL `SHOW` and `information_schema`,
+  MongoDB admin read commands, Redis `INFO` and `SLOWLOG GET 1`, SQL Server DMVs with
+  `ApplicationIntent=ReadOnly`, SQLite opened read-only and never created, AWS
+  `DescribeDBInstances` and `GetMetricData`, S3 `ListBuckets`, `HeadBucket` and `ListObjectsV2`.
+  It never reads rows or object contents and never writes. A read-only monitoring user is still
+  recommended (the `resources.yaml` template shows the grants); the Redis connector works with an
+  ACL of `+info +slowlog|get +ping`.
+
 ## Assets
 
-| Asset                                | Why it matters                                      |
-| ------------------------------------ | --------------------------------------------------- |
-| Access to your servers (agent, keys) | Full control of every configured host.              |
-| Open terminal sessions               | Live shells on your servers.                        |
-| Session token                        | Grants the browser UI, and therefore the terminals. |
-| Host inventory and metrics           | Reveals infrastructure layout.                      |
+| Asset                                | Why it matters                                               |
+| ------------------------------------ | ------------------------------------------------------------ |
+| Access to your servers (agent, keys) | Full control of every configured host.                       |
+| Open terminal sessions               | Live shells on your servers.                                 |
+| Session token                        | Grants the browser UI, and therefore the terminals.          |
+| Host inventory and metrics           | Reveals infrastructure layout.                               |
+| Database and cloud credentials       | Read access to statistics (and, with a broad user, to data). |
 
 ## Trust boundaries
 
@@ -75,6 +92,12 @@ find a gap.
 | Prompt injection (server output steers the AI)          | What a command prints goes back to the AI and may contain instructions. The approval card is the control: the AI can only ask, and you decide each command. Prefer "Allow" to "Allow all" on servers that matter.                                                                               | v0.1 (documented)       |
 | A website makes the app install keys or trust hosts     | Same guards as every write: session token, `SameSite=Strict` cookie and our `Origin`.                                                                                                                                                                                                           | v0.1 ✅                 |
 
+| Database or cloud passwords stored in config | `resources.yaml` accepts only references (`passwordEnv`, `passwordFile`, `accessKeyIdEnv`/`secretAccessKeyEnv`, an AWS profile). Inline `password`/`secret`/`token` keys and `user:password@` URLs are refused with an explanation. Tested. | v0.2 ✅ |
+| Secrets leak through driver error messages | Every connector error goes through `redactSecrets` (known secret values, URL passwords, `password=` pairs) before it reaches logs, the audit log or the browser. Tested with real wrong-password errors. | v0.2 ✅ |
+| A connector changes data | Only statistics queries and read-only API calls; PostgreSQL sessions are read-only, SQL Server connects with read-only intent, SQLite opens read-only. Use read-only users regardless: a broad user could read data if this code were changed. | v0.2 ✅ |
+| Hostile or huge responses from a database or endpoint | Fixed queries with 5 s timeouts, polls capped at 3 × the interval, bucket listing stops at `maxObjects` (shown as "≥ N"); unexpected values become unknown. | v0.2 ✅ |
+| The credential chain picks the wrong AWS account | RDS and S3 use exactly the SDK's chain or the named `profile`; the HUD shows region and endpoint, so a mismatch is visible. Use a dedicated read-only IAM user (`rds:DescribeDBInstances`, `cloudwatch:GetMetricData`, `s3:ListAllMyBuckets`, `s3:ListBucket`). | v0.2 (documented) |
+
 ## Explicit non-goals and honest limits
 
 - **Keystroke-level command auditing is not claimed.** The audit log records terminal session
@@ -85,6 +108,9 @@ find a gap.
   serves the web app's static files to anyone on `127.0.0.1`; only `/api` and `/ws` (proxied to
   the server) require the token. The code is open source anyway. Production builds guard every
   request.
+- **Database statistics need grants.** Without `pg_monitor`, `PROCESS`, `clusterMonitor` or
+  `VIEW SERVER STATE`, some values (other sessions' slow queries, replica lag) are unknown and shown
+  as dashes, never guessed.
 - **Not a multi-user tool.** Anyone who can run code as your OS user can read the printed token.
 - **No protection against a compromised local machine.** If your machine is compromised, your SSH
   access already is.

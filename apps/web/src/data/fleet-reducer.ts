@@ -5,6 +5,8 @@ import {
   type DataMode,
   type Host,
   type HostState,
+  type Resource,
+  type ResourceState,
   type ServerMessage,
   type SlotAssignments,
   type StatusThresholds,
@@ -38,7 +40,18 @@ export interface FleetSnapshot {
   states: Record<string, HostState>;
   history: Record<string, MetricSample[]>;
   hostKeyRefusals: Record<string, HostKeyRefusal>;
+  /** Databases, RDS instances and buckets (protocol v2). */
+  resources: Resource[];
+  resourceStates: Record<string, ResourceState>;
+  /** One point per resource poll: its main metric, for the HUD sparkline. */
+  resourceHistory: Record<string, ResourceSample[]>;
   lastError: string | null;
+}
+
+export interface ResourceSample {
+  at: number;
+  /** ops/s, CPU % (RDS) or stored bytes (buckets, SQLite); null while unknown. */
+  value: number | null;
 }
 
 /** Samples kept per host: 3 minutes at the default 2 s poll interval. */
@@ -54,6 +67,9 @@ export const EMPTY_FLEET: FleetSnapshot = {
   states: {},
   history: {},
   hostKeyRefusals: {},
+  resources: [],
+  resourceStates: {},
+  resourceHistory: {},
   lastError: null,
 };
 
@@ -90,7 +106,23 @@ export function reduceFleet(fleet: FleetSnapshot, message: ServerMessage): Fleet
         states,
         history,
         hostKeyRefusals: keepKeys(fleet.hostKeyRefusals, ids),
+        ...applyResourceSnapshot(fleet, message.resources, message.resourceStates),
       };
+    }
+
+    case 'resourceStates': {
+      const resourceStates = { ...fleet.resourceStates };
+      const resourceHistory = { ...fleet.resourceHistory };
+      const known = new Set(fleet.resources.map((resource) => resource.id));
+      for (const state of message.states) {
+        if (!known.has(state.resourceId)) continue;
+        resourceStates[state.resourceId] = state;
+        resourceHistory[state.resourceId] = appendResourceSample(
+          resourceHistory[state.resourceId],
+          state,
+        );
+      }
+      return { ...fleet, resourceStates, resourceHistory };
     }
 
     case 'hostStates': {
@@ -158,6 +190,42 @@ function appendSample(samples: MetricSample[] = [], state: HostState): MetricSam
         : null,
   };
   const next = [...samples, sample];
+  return next.length > HISTORY_LENGTH ? next.slice(next.length - HISTORY_LENGTH) : next;
+}
+
+function applyResourceSnapshot(
+  fleet: FleetSnapshot,
+  resources: Resource[],
+  states: ResourceState[],
+): Pick<FleetSnapshot, 'resources' | 'resourceStates' | 'resourceHistory'> {
+  const ids = new Set(resources.map((resource) => resource.id));
+  const resourceHistory = keepKeys(fleet.resourceHistory, ids);
+  const resourceStates: Record<string, ResourceState> = {};
+  for (const state of states) {
+    if (!ids.has(state.resourceId)) continue;
+    resourceStates[state.resourceId] = state;
+    resourceHistory[state.resourceId] = appendResourceSample(
+      resourceHistory[state.resourceId],
+      state,
+    );
+  }
+  return { resources, resourceStates, resourceHistory };
+}
+
+/** The value a resource's sparkline follows (same as its pulse or roof light). */
+export function resourceHeadline(state: ResourceState): number | null {
+  const { gauges } = state;
+  return gauges.opsPerSec ?? gauges.cpuPercent ?? gauges.storage?.usedBytes ?? null;
+}
+
+function appendResourceSample(
+  samples: ResourceSample[] = [],
+  state: ResourceState,
+): ResourceSample[] {
+  if (state.lastSeenAt === null || state.status === 'offline') return samples;
+  const last = samples.at(-1);
+  if (last && last.at >= state.lastSeenAt) return samples;
+  const next = [...samples, { at: state.lastSeenAt, value: resourceHeadline(state) }];
   return next.length > HISTORY_LENGTH ? next.slice(next.length - HISTORY_LENGTH) : next;
 }
 

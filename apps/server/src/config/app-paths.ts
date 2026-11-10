@@ -7,6 +7,7 @@ export interface AppPaths {
   /** Holds the SQLite database. */
   dataDir: string;
   hostsFile: string;
+  resourcesFile: string;
   databaseFile: string;
   /** The user's SSH directory (keys, known_hosts). Overridable for Docker. */
   sshDir: string;
@@ -70,6 +71,7 @@ export function resolveAppPaths({ projectName, env, platform, homeDir }: PathCon
     configDir,
     dataDir,
     hostsFile: p.join(configDir, 'hosts.yaml'),
+    resourcesFile: p.join(configDir, 'resources.yaml'),
     databaseFile: p.join(dataDir, 'state.db'),
     sshDir,
     knownHostsFiles: env.KNOWN_HOSTS_FILE

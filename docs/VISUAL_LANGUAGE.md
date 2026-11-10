@@ -56,6 +56,46 @@ metrics, so spatial memory stays stable. Data is expressed through light only.
 An offline or stale server must never look operational. The client recomputes staleness every
 second from `lastSeenAt`, so towers freeze even if the server itself stops sending.
 
+## Resource encodings (databases, RDS, buckets)
+
+Mapping code: [`apps/web/src/world/resource-visuals.ts`](../apps/web/src/world/resource-visuals.ts)
+(unit tested); shapes: [`building-geometry.ts`](../apps/web/src/world/building-geometry.ts). Each
+kind has one **fixed shape**, so the kind reads at a glance and never changes with data. Same
+palette, same three accents, same truth states as towers (offline dark and still, stale grey and
+frozen, unknown a faint outline). They share districts and the sticky slot layout with hosts.
+
+| Kind                                                   | Shape                                              |
+| ------------------------------------------------------ | -------------------------------------------------- |
+| PostgreSQL, MySQL/MariaDB, MongoDB, SQL Server, SQLite | **Drum**: 3 stacked discs                          |
+| Redis                                                  | **Hexagonal prism**, half a tower high             |
+| AWS RDS instance                                       | **Caged drum**: 4 discs inside a thin static frame |
+| S3-compatible bucket                                   | **Warehouse**: low wide slab, 5 × 2 roof cells     |
+
+| Effect                    | Data field                              | Mapping                                                                                                                     | When `null`  |
+| ------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| Edge glow color           | `ResourceState.status`                  | Same as towers (rims of each disc, prism corners and rims, slab edges)                                                      | n/a          |
+| Pulse speed (drum, prism) | `gauges.opsPerSec`                      | Log scale: ≤ 1 op/s → 0.2 Hz, 10 000 op/s → 2.0 Hz (same range as CPU)                                                      | Steady glow  |
+| Pulse speed (caged drum)  | `gauges.cpuPercent` (CloudWatch)        | Linear, like a host's CPU                                                                                                   | Steady glow  |
+| Pulse (warehouse)         | none                                    | Storage has no "load": buckets never pulse                                                                                  | —            |
+| Lit discs / strips        | `gauges.connections.used / max`         | Drum: one disc per third, lit bottom-up; prism: 6 strips. RDS reports no maximum, so it has none                            | No discs lit |
+| Roof cells (warehouse)    | `gauges.storage.usedBytes`              | Log scale, 1 KiB → 0 cells, 10 TiB → 10 cells (front-left first; at least 1 once anything is stored)                        | No cells     |
+| Base ring (one arc)       | `gauges.storage.usedBytes / totalBytes` | Only when a limit exists: Redis `maxmemory`, RDS allocated storage. Amber exactly when the server's storage rule fired      | No ring      |
+| Rising particles          | `gauges.growthBytesPerHour` (buckets)   | Positive growth only, log scale 1 MiB/h → none, 100 GiB/h → max rate. Shrinking or capped counts: none                      | No particles |
+| Name label                | `Resource.name`                         | Text above the building                                                                                                     | —            |
+| Caption                   | status / staleness / `Resource.engine`  | Healthy → engine ("PostgreSQL", "RDS · mysql", "S3 · R2"); degraded → reason (amber); stale and offline as towers           | —            |
+| Cage (RDS only)           | none (kind marker)                      | Thin static frame in `neutrals.gridSection`. Never lit, never animated: an offline instance is a dark drum in a faint frame | —            |
+
+Degraded rules (server, [`resource-status.ts`](../packages/shared/src/resource-status.ts)):
+connections > 90 % of max, replica lag > 30 s, slow queries for 3 polls in a row, cache hit < 90 %
+(judged only with ≥ 100 reads in the poll), storage > 90 % of a known limit, RDS CPU > 90 % for
+3 polls, or a connector warning (replica link down, replication stopped, instance rebooting). All
+configurable in `resources.yaml`. Stale: no data for 3 of that resource's own poll intervals.
+CloudWatch datapoints keep their own timestamp, so old metrics freeze instead of looking live.
+
+The resource HUD lists every metric the connector reported (dashes for unknown, "≥ N" when a
+bucket count was capped) and one sparkline of the value that drives the building's light. It has
+no "Jack in": Enter on a resource says there is no shell.
+
 ## World
 
 | Effect          | Driven by          | Notes                                                                 |
@@ -98,7 +138,7 @@ These show _what the user is doing_, never host health.
 | Intro (≈ 3.8 s, first visit) | page load, until seen once                             | A glowing lens opens and swallows the screen ("entering the machine"), then the camera descends onto the city. Towers are not staged: they start as unknown outlines and light up only as real connections succeed. Any key or click skips; replayable from the palette. |
 | Ambient mode                 | A key or palette                                       | Calm 3.2 s flights (`sine.inOut`) between hosts that need attention (offline, degraded, stale), 12 s each, with a slow orbit; slow orbit of the whole city when all is healthy. "AMBIENT" badge. Esc or grabbing the camera stops it.                                    |
 | Audit log panel              | palette                                                | Append-only server trail; refusals and lost connections in the alert accent. States that keystrokes are not recorded.                                                                                                                                                    |
-| "DEMO DATA" badge            | `hello.dataMode === 'demo'`                            | Permanent while in demo mode.                                                                                                                                                                                                                                            |
+| "DEMO DATA" badge            | `hello.dataMode === 'demo'`                            | Permanent while in demo mode. Covers demo hosts and demo resources alike.                                                                                                                                                                                                |
 
 ## Decided (Phase 1 defaults, open to change)
 

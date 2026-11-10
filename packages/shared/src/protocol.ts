@@ -1,13 +1,14 @@
 import { z } from 'zod';
 import { HostSchema } from './host';
 import { HostStateSchema } from './host-state';
+import { ResourceSchema, ResourceStateSchema } from './resource';
 import { StatusThresholdsSchema } from './thresholds';
 
 /**
  * Version of the WebSocket protocol below. Bump on any breaking change so a
  * stale browser tab can tell the user to reload instead of misreading data.
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /**
  * Where the data comes from. Real and demo data are never mixed in one
@@ -36,8 +37,16 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     type: z.literal('snapshot'),
     hosts: z.array(HostSchema),
     states: z.array(HostStateSchema),
-    /** Sticky layout slot per host id (persisted by the server). */
+    /** Sticky layout slot per host or resource id (persisted by the server). */
     layoutSlots: z.record(z.string(), z.number().int().nonnegative()),
+    /** Databases, RDS instances and buckets (protocol v2). */
+    resources: z.array(ResourceSchema).default([]),
+    resourceStates: z.array(ResourceStateSchema).default([]),
+  }),
+  /** Diff at resource granularity: only resources whose state changed. */
+  z.object({
+    type: z.literal('resourceStates'),
+    states: z.array(ResourceStateSchema),
   }),
   /** Diff at host granularity: only hosts whose state changed. */
   z.object({

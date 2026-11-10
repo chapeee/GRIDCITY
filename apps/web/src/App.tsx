@@ -8,6 +8,7 @@ import { AgentPanel, ApprovalCards } from './ui/AgentPanel';
 import { AuditLogPanel } from './ui/AuditLogPanel';
 import { CommandPalette } from './ui/CommandPalette';
 import { canOpenTerminal, FocusHud } from './ui/FocusHud';
+import { ResourceHud } from './ui/ResourceHud';
 import {
   LiteModeSuggestion,
   NoticeToast,
@@ -33,6 +34,15 @@ export function App() {
   const tuningPanelVisible = useUiStore((store) => store.tuningPanelVisible);
 
   const jackIn = useCallback((hostId: string) => {
+    const resource = useFleetStore.getState().resources.find((r) => r.id === hostId);
+    if (resource) {
+      useUiStore
+        .getState()
+        .showNotice(
+          `${resource.name} is a ${resource.engine} resource: there is no shell to open.`,
+        );
+      return;
+    }
     const status = useFleetStore.getState().states[hostId]?.status ?? 'unknown';
     const ui = useUiStore.getState();
     if (!canOpenTerminal(status)) {
@@ -56,6 +66,7 @@ export function App() {
       <StatusBanners />
       <EmptyFleet />
       <FocusHud onJackIn={jackIn} />
+      <ResourceHud />
       <ShortcutHints />
       <PerfOverlay />
       <LiteModeSuggestion />
