@@ -154,13 +154,25 @@ shell instead of faking one.
 
 ## HTTP API
 
-| Route                               | Purpose                                     |
-| ----------------------------------- | ------------------------------------------- |
-| `GET /api/meta`                     | Project name, version, protocol version     |
-| `GET /ws/state`                     | Live fleet stream (WebSocket)               |
-| `GET /ws/terminal/:hostId`          | Interactive shell (WebSocket)               |
-| `POST /api/hosts/import-ssh-config` | Import from `~/.ssh/config` into hosts.yaml |
-| `GET /api/audit?limit=200`          | Audit log, newest first                     |
+| Route                               | Purpose                                                       |
+| ----------------------------------- | ------------------------------------------------------------- |
+| `GET /api/meta`                     | Project name, version, protocol version                       |
+| `GET /ws/state`                     | Live fleet stream (WebSocket)                                 |
+| `GET /ws/terminal/:hostId`          | Interactive shell (WebSocket)                                 |
+| `POST /api/hosts`                   | Add one host (draft) to hosts.yaml                            |
+| `POST /api/hosts/test`              | Test a draft connection; saves nothing                        |
+| `POST /api/hosts/import-ssh-config` | Import from `~/.ssh/config` into hosts.yaml                   |
+| `GET /api/audit?limit=200`          | Audit log, newest first                                       |
+| `GET /api/ssh/keys`                 | Keys in ssh-agent and the SSH folder (public halves only)     |
+| `POST /api/ssh/keys`                | Create a new ed25519 key (409 if the file exists)             |
+| `POST /api/connect/probe`           | Read a server's host key fingerprint, no login                |
+| `POST /api/connect/trust`           | Append a confirmed host key to known_hosts (409 if changed)   |
+| `POST /api/connect/install`         | Install a public key with the password once (422 if rejected) |
+
+"Connect a server" (`apps/server/src/ssh/host-key-setup.ts`, `local-keys.ts`, `generate-key.ts`)
+chains these: probe → trust → pick or create a key → test → install if needed → add. Trust
+re-probes and requires the confirmed fingerprint; install verifies the host key strictly before
+sending the password. Audit kinds: `host_key_trusted`, `key_created`, `key_installed`, `host_added`.
 
 ## Local security
 

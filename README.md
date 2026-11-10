@@ -66,17 +66,25 @@ command palette, or from a terminal (safe to run again):
 npm run import-ssh-config
 ```
 
-**Before you connect:**
+**Easiest: Connect a server.** Press Ctrl+K and choose **Connect a server…** (or the button in
+the empty city). Type `user@address`, then:
 
-1. Each host must already be in `~/.ssh/known_hosts`: connect once with `ssh` and verify the
-   fingerprint. The app reads `known_hosts` but never writes to it.
-2. Your key must be in a running ssh-agent (`ssh-add`), or set `auth: { method: keyFile, path:
-~/.ssh/id_ed25519 }` for an **unencrypted** key. On Windows the built-in OpenSSH agent works.
+1. **Trust:** the app shows the server's fingerprint. Compare it and confirm; it is added to
+   your `known_hosts`, like answering "yes" in `ssh`.
+2. **Key:** pick a key from your ssh-agent or `~/.ssh`, or let the app create one.
+3. **Install:** if the server doesn't accept the key yet, enter the password **once**. The app
+   adds your public key to the server's `authorized_keys`; the password is never saved.
+4. **Done:** the server is saved to `hosts.yaml` and lights up.
+
+**Doing it by hand instead:** each host must be in `~/.ssh/known_hosts` (connect once with `ssh`
+and verify the fingerprint), and your key must be in a running ssh-agent (`ssh-add`), or set
+`auth: { method: keyFile, path: ~/.ssh/id_ed25519 }` for an **unencrypted** key. On Windows the
+built-in OpenSSH agent works. `npm run add-host -- user@address` tests and saves one host.
 
 For production use: `npm run build && npm start` (single port, serves the built app).
 
-**Docker with real servers:** the container needs your `known_hosts` and an agent socket or key
-file. Copy `compose.ssh.example.yaml` to `compose.ssh.yaml`, keep your platform's block, then:
+**Docker with real servers:** the container needs your SSH folder (and, on Linux/macOS, your
+agent socket). Copy `compose.ssh.example.yaml` to `compose.ssh.yaml`, keep your platform's block, then:
 
 ```bash
 docker compose -f compose.yaml -f compose.ssh.yaml up --build
@@ -122,8 +130,12 @@ frames are slow), the audit log, importing from `~/.ssh/config`, and replaying t
 - It opens one SSH connection **from your machine** to each host in `hosts.yaml`, using your
   ssh-agent or the key file you configured. Keys are read at connect time and never copied,
   logged or stored. Passphrases are never asked for.
-- It verifies every host key against your `known_hosts` (read only). Unknown, changed or revoked
-  keys are refused and shown with their fingerprint; **nothing runs on that host**.
+- It verifies every host key against your `known_hosts`. Unknown, changed or revoked keys are
+  refused and shown with their fingerprint; **nothing runs on that host**.
+- It writes to your SSH setup only inside **Connect a server**, after you act: it appends a host
+  key you confirmed to `known_hosts` (never replacing a changed one), may create a new key file
+  (never overwriting one), and uses a password once, in memory, to add your public key to the
+  server's `authorized_keys`.
 - Every 2 seconds it runs **one fixed, read-only script** per host that reads `/proc`, `df` and
   `/etc/os-release`. It installs nothing and changes nothing on your servers.
 - When you jack in, it opens an interactive shell on the existing connection. What you type runs

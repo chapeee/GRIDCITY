@@ -8,7 +8,13 @@ export interface AppPaths {
   dataDir: string;
   hostsFile: string;
   databaseFile: string;
-  /** known_hosts files to verify host keys against, user file first. Read only. */
+  /** The user's SSH directory (keys, known_hosts). Overridable for Docker. */
+  sshDir: string;
+  /**
+   * known_hosts files to verify host keys against, user file first. The app
+   * only writes to the first one, and only when the user confirms a
+   * fingerprint in the "Connect a server" flow.
+   */
   knownHostsFiles: string[];
   /** OpenSSH client config used by the importer. */
   sshConfigFile: string;
@@ -54,6 +60,8 @@ export function resolveAppPaths({ projectName, env, platform, homeDir }: PathCon
       ? p.join(env.LOCALAPPDATA ?? p.join(homeDir, 'AppData', 'Local'), slug)
       : p.join(env.XDG_DATA_HOME ?? p.join(homeDir, '.local', 'share'), slug));
 
+  const sshDir = env.SSH_DIR ?? p.join(homeDir, '.ssh');
+
   const systemKnownHosts = isWindows
     ? p.join(env.PROGRAMDATA ?? 'C:\\ProgramData', 'ssh', 'ssh_known_hosts')
     : '/etc/ssh/ssh_known_hosts';
@@ -63,10 +71,11 @@ export function resolveAppPaths({ projectName, env, platform, homeDir }: PathCon
     dataDir,
     hostsFile: p.join(configDir, 'hosts.yaml'),
     databaseFile: p.join(dataDir, 'state.db'),
+    sshDir,
     knownHostsFiles: env.KNOWN_HOSTS_FILE
       ? [env.KNOWN_HOSTS_FILE]
-      : [p.join(homeDir, '.ssh', 'known_hosts'), systemKnownHosts],
-    sshConfigFile: env.SSH_CONFIG_FILE ?? p.join(homeDir, '.ssh', 'config'),
+      : [p.join(sshDir, 'known_hosts'), systemKnownHosts],
+    sshConfigFile: env.SSH_CONFIG_FILE ?? p.join(sshDir, 'config'),
   };
 }
 

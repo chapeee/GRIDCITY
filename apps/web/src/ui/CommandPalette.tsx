@@ -93,11 +93,11 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
           )}
           {useServerLink.getState().source === 'server' && (
             <Command.Item
-              value="add a host new server ssh"
+              value="connect a server add host new ssh"
               onSelect={() => run(() => useUiStore.getState().setAddHostOpen(true))}
             >
-              <span className="palette-item-title">Add a host…</span>
-              <span className="palette-item-meta">type user@address, test, save</span>
+              <span className="palette-item-title">Connect a server…</span>
+              <span className="palette-item-meta">address, trust, key: no terminal needed</span>
             </Command.Item>
           )}
           {dataMode === 'real' && (

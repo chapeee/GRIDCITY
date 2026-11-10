@@ -82,6 +82,45 @@ export const testHost = (draft: HostDraft) => postJson<HostTestResponse>('/api/h
 export const addHost = (draft: HostDraft) =>
   postJson<{ host: DraftHost; demoMode: boolean }>('/api/hosts', draft);
 
+// ---- "Connect a server" flow ----------------------------------------------
+
+/** A key the server found in ssh-agent or ~/.ssh (public half only). */
+export interface LocalKey {
+  id: string;
+  source: 'agent' | 'file';
+  label: string;
+  keyType: string;
+  fingerprint: string;
+  privatePath?: string;
+  usable: boolean;
+  note?: string;
+}
+
+export interface HostKeyProbe {
+  endpoint: { address: string; port: number; user: string };
+  keyType: string;
+  fingerprint: string;
+  /** Against known_hosts: trusted, unknown (never seen), changed or revoked. */
+  trust: 'trusted' | 'unknown' | 'changed' | 'revoked';
+}
+
+export const listKeys = () => request<{ keys: LocalKey[]; sshDir: string }>('/api/ssh/keys');
+
+/** Creates a new key pair in the user's SSH directory (never overwrites). */
+export const createKey = () => postJson<{ key?: LocalKey }>('/api/ssh/keys', {});
+
+/** Reads the server's host key fingerprint without logging in. */
+export const probeHost = (target: string) =>
+  postJson<HostKeyProbe>('/api/connect/probe', { target });
+
+/** Adds the host key to known_hosts after the user confirmed this fingerprint. */
+export const trustHost = (target: string, fingerprint: string) =>
+  postJson<{ result: 'added' | 'already-trusted' }>('/api/connect/trust', { target, fingerprint });
+
+/** Installs the chosen public key on the server using the password once (never stored). */
+export const installKey = (target: string, keyId: string, password: string) =>
+  postJson<{ installed: true }>('/api/connect/install', { target, keyId, password });
+
 export const importSshConfig = () =>
   request<ImportReport>('/api/hosts/import-ssh-config', { method: 'POST' });
 

@@ -1,9 +1,9 @@
 import { DEFAULT_STATUS_THRESHOLDS, type Host } from '@app/shared';
 import { existsSync, statSync, unwatchFile, watchFile } from 'node:fs';
-import { homedir, userInfo } from 'node:os';
+import { homedir, hostname, userInfo } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import packageJson from '../package.json' with { type: 'json' };
-import { resolveAppPaths, type AppPaths } from './config/app-paths';
+import { projectSlug, resolveAppPaths, type AppPaths } from './config/app-paths';
 import type { ServerEnv } from './config/env';
 import { loadHostsFile, type HostsConfig } from './config/hosts-file';
 import { addHostToFile } from './config/hosts-writer';
@@ -13,11 +13,12 @@ import type { FleetProvider } from './fleet/fleet-provider';
 import { RealFleet } from './fleet/real-fleet';
 import { StateHub } from './fleet/state-hub';
 import { registerApiRoutes } from './http/api-routes';
+import { registerConnectRoutes } from './http/connect-routes';
 import { createApp } from './http/create-app';
 import { registerStateSocket } from './http/state-socket';
 import { registerTerminalSocket } from './http/terminal-socket';
 import { buildAllowedOrigins } from './security/origin';
-import { buildAuthOptions } from './ssh/auth-options';
+import { buildAuthOptions, defaultAgentSocket } from './ssh/auth-options';
 import { HostConnection } from './ssh/host-connection';
 import { readKnownHostsFiles } from './ssh/known-hosts-files';
 import { testConnection } from './ssh/test-connection';
@@ -155,6 +156,16 @@ export async function startServer({
             ? { kind: 'connection', connection }
             : { kind: 'unavailable', message: `Unknown host "${hostId}".` };
         },
+      });
+      registerConnectRoutes(instance, {
+        sshDir: paths.sshDir,
+        knownHostsFile: paths.knownHostsFiles[0] ?? 'known_hosts',
+        loadKnownHosts: () => readKnownHostsFiles(paths.knownHostsFiles),
+        agentSocket: defaultAgentSocket(process.env, process.platform),
+        keyBaseName: `${projectSlug(env.PROJECT_NAME)}_ed25519`,
+        keyComment: `${projectSlug(env.PROJECT_NAME)}@${hostname()}`,
+        defaultUser: userInfo().username,
+        audit,
       });
       registerApiRoutes(instance, {
         audit,

@@ -7,6 +7,14 @@ import { expandHome } from '../config/app-paths';
 /** Windows ships OpenSSH's agent as a named pipe instead of SSH_AUTH_SOCK. */
 export const WINDOWS_OPENSSH_AGENT_PIPE = '\\\\.\\pipe\\openssh-ssh-agent';
 
+/** The ssh-agent to use: SSH_AUTH_SOCK, or the Windows OpenSSH pipe. */
+export function defaultAgentSocket(
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+): string | undefined {
+  return env.SSH_AUTH_SOCK ?? (platform === 'win32' ? WINDOWS_OPENSSH_AGENT_PIPE : undefined);
+}
+
 /** Authentication options passed to ssh2. Held in memory only for the connect call. */
 export interface SshAuthOptions {
   agent?: string;

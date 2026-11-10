@@ -20,6 +20,8 @@ export interface LiveStack {
   trusted: FakeSshServer;
   /** Host "stranger", whose key is deliberately not in known_hosts. */
   untrusted: FakeSshServer;
+  /** A freshly installed server: password only, no keys, not in known_hosts. */
+  fresh: FakeSshServer;
   stopServer(): Promise<void>;
   /** Everything the server printed (for diagnosing failures). */
   serverOutput(): string;
@@ -28,6 +30,8 @@ export interface LiveStack {
 
 const PORT = 4698;
 const USER = 'ops';
+/** Password of the fresh server in the connect-a-server test. */
+export const FRESH_PASSWORD = 'fresh-server-password';
 
 export async function startLiveStack(): Promise<LiveStack> {
   const workDir = mkdtempSync(join(tmpdir(), 'live-stack-'));
@@ -39,6 +43,7 @@ export async function startLiveStack(): Promise<LiveStack> {
 
   const trusted = await startFakeSshServer({ authorizedKey: keys.public, user: USER });
   const untrusted = await startFakeSshServer({ authorizedKey: keys.public, user: USER });
+  const fresh = await startFakeSshServer({ user: 'root', password: FRESH_PASSWORD });
 
   const configDir = join(workDir, 'config');
   const knownHosts = join(workDir, 'known_hosts');
@@ -59,6 +64,12 @@ export async function startLiveStack(): Promise<LiveStack> {
       CONFIG_DIR: configDir,
       DATA_DIR: join(workDir, 'data'),
       KNOWN_HOSTS_FILE: knownHosts,
+      // A private SSH folder and no agent: tests never see the developer's real keys.
+      SSH_DIR: join(workDir, 'ssh'),
+      SSH_AUTH_SOCK:
+        process.platform === 'win32'
+          ? '\\\\.\\pipe\\no-agent-for-tests'
+          : '/nonexistent/agent.sock',
       LOG_LEVEL: process.env.LIVE_LOG_LEVEL ?? 'warn',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -90,12 +101,14 @@ export async function startLiveStack(): Promise<LiveStack> {
     url: `http://127.0.0.1:${PORT}/?token=${token}`,
     trusted,
     untrusted,
+    fresh,
     stopServer,
     serverOutput: () => output,
     async close() {
       await stopServer();
       await trusted.close();
       await untrusted.close();
+      await fresh.close();
       try {
         rmSync(workDir, { recursive: true, force: true });
       } catch {

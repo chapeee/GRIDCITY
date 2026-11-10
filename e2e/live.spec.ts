@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { startLiveStack, type LiveStack } from './support/live-stack';
+import { FRESH_PASSWORD, startLiveStack, type LiveStack } from './support/live-stack';
 
 /**
  * The truth rules, verified in the real UI over real SSH:
@@ -113,37 +113,53 @@ test('jacking in opens a real shell: input, resize, exit back to the city, audit
   expect(kinds).toEqual(expect.arrayContaining(['terminal_opened', 'terminal_closed']));
 });
 
-test('adding a host by address: test shows the fix, "Add anyway" puts it in the city', async () => {
+test('connect a server with no terminal: trust, create key, password once, online', async () => {
   await page.keyboard.press('Escape');
   await page.keyboard.press('Control+k');
-  await page.keyboard.type('add a host');
+  await page.keyboard.type('connect a server');
   await page.keyboard.press('Enter');
-  const dialog = page.getByRole('dialog', { name: 'Add a host' });
+  const dialog = page.getByRole('dialog', { name: 'Connect a server' });
   await expect(dialog).toBeVisible();
 
-  // The untrusted server, as a new user so it is not a duplicate of "stranger".
-  await dialog.getByLabel('SSH address').fill(`root@127.0.0.1:${stack.untrusted.port}`);
+  // 1. Address
+  await dialog.getByLabel('SSH address').fill(`root@127.0.0.1:${stack.fresh.port}`);
   await dialog.getByLabel('Name').fill('new-box');
   await dialog.getByLabel('District').fill('Lab');
-  await dialog.getByRole('button', { name: 'Test & add' }).click();
+  await dialog.getByRole('button', { name: 'Next' }).click();
 
-  const advice = dialog.getByLabel('How to fix the connection');
-  await expect(advice).toContainText('not trusted yet', { timeout: 15_000 });
-  await expect(advice).toContainText('SHA256:');
-  await expect(advice.getByRole('button', { name: 'Copy' }).first()).toBeVisible();
-  await page.screenshot({ path: 'test-results/screenshots/live-add-host.png' });
+  // 2. Trust: the fingerprint is shown before anything is trusted.
+  await expect(dialog.locator('.fingerprint')).toContainText('SHA256:', { timeout: 15_000 });
+  await page.screenshot({ path: 'test-results/screenshots/live-connect-trust.png' });
+  await dialog.getByRole('button', { name: 'Yes, this is my server' }).click();
 
-  await dialog.getByRole('button', { name: 'Add anyway' }).click();
+  // 3. Key: none yet, so create one.
+  await expect(dialog.getByText("You don't have an SSH key yet.")).toBeVisible();
+  await dialog.getByRole('button', { name: 'Create a new key for this app' }).click();
+  await expect(dialog.getByRole('radio')).toBeChecked();
+  await dialog.getByRole('button', { name: 'Continue' }).click();
+
+  // 4. Install: a wrong password is refused, then the right one works.
+  const password = dialog.getByLabel(/Password for/);
+  await expect(password).toBeVisible({ timeout: 15_000 });
+  await password.fill('not-the-password');
+  await dialog.getByRole('button', { name: 'Install key and connect' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('rejected the password');
+  await expect(password).toHaveValue(''); // never kept after an attempt
+  await password.fill(FRESH_PASSWORD);
+  await page.screenshot({ path: 'test-results/screenshots/live-connect-password.png' });
+  await dialog.getByRole('button', { name: 'Install key and connect' }).click();
+
+  // 5. Done: the key is on the server and the host is live.
+  await expect(dialog.getByText('new-box is connected')).toBeVisible({ timeout: 15_000 });
+  expect(stack.fresh.installedKeys).toBe(1);
+  await dialog.getByRole('button', { name: 'Done' }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByText('Added new-box')).toBeVisible();
 
-  // The new tower appears immediately and can be focused.
   await page.keyboard.press('Control+k');
   await page.keyboard.type('new-box');
   await expect(page.getByRole('option', { name: /new-box/ })).toBeVisible({ timeout: 10_000 });
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('heading', { name: 'new-box' })).toBeVisible();
-  await expect(hudStatus()).toHaveText('offline', { timeout: 15_000 });
+  await expect(hudStatus()).toHaveText('online', { timeout: 15_000 });
 });
 
 test('the audit log shows connections, key refusals and terminal sessions', async () => {

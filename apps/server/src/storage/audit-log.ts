@@ -14,6 +14,9 @@ export type AuditKind =
   | 'host_key_refused'
   | 'hosts_imported'
   | 'host_added'
+  | 'key_created'
+  | 'host_key_trusted'
+  | 'key_installed'
   | 'terminal_opened'
   | 'terminal_closed';
 

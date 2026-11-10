@@ -88,13 +88,13 @@ export function EmptyFleet() {
       <p>Add your servers and each one becomes a tower of light.</p>
       <ol>
         <li>
-          Add one by its address, with a connection test:
+          Connect a server step by step (no terminal needed):
           <button
             type="button"
             className="button-primary"
             onClick={() => useUiStore.getState().setAddHostOpen(true)}
           >
-            Add a host
+            Connect a server
           </button>
         </li>
         <li>

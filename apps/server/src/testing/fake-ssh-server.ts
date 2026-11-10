@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
-import ssh2, { type Connection } from 'ssh2';
+import ssh2, { type Connection, type ParsedKey } from 'ssh2';
 
 const { Server, utils } = ssh2;
 
@@ -35,6 +35,8 @@ export interface FakeSshServer {
   lastWindow: { cols: number; rows: number } | null;
   /** Lines received by the fake shell, in order. */
   shellLines: string[];
+  /** Public keys installed through the authorized_keys script. */
+  installedKeys: number;
   /** Drops every client connection (simulates a network cut / server restart). */
   dropAllClients(): void;
   close(): Promise<void>;
@@ -45,14 +47,21 @@ const FIXTURES = ['debian-poll-1', 'debian-poll-2'].map((name) =>
 );
 
 export async function startFakeSshServer(options: {
-  /** Public key (OpenSSH format) the server accepts for `user`. */
-  authorizedKey: string;
+  /** Public key (OpenSSH format) the server accepts for `user`, if any. */
+  authorizedKey?: string;
   user: string;
+  /** Accept this password (plain and keyboard-interactive), like a fresh server. */
+  password?: string;
 }): Promise<FakeSshServer> {
   const hostKeys = utils.generateKeyPairSync('ed25519');
-  const authorized = utils.parseKey(options.authorizedKey);
-  if (authorized instanceof Error) throw authorized;
-  const authorizedBlob = authorized.getPublicSSH();
+  /** Like ~/.ssh/authorized_keys: grows when a key is installed over SSH. */
+  const authorizedKeys: ParsedKey[] = [];
+  const authorize = (publicKey: string) => {
+    const parsed = utils.parseKey(publicKey);
+    if (parsed instanceof Error) throw parsed;
+    authorizedKeys.push(parsed);
+  };
+  if (options.authorizedKey) authorize(options.authorizedKey);
   const clients = new Set<Connection>();
 
   const fake: FakeSshServer = {
@@ -63,6 +72,7 @@ export async function startFakeSshServer(options: {
     execCount: 0,
     lastWindow: null,
     shellLines: [],
+    installedKeys: 0,
     dropAllClients: () => {
       for (const client of clients) client.end();
     },
@@ -78,17 +88,36 @@ export async function startFakeSshServer(options: {
     client.on('close', () => clients.delete(client));
     client.on('error', () => {});
 
+    const methods = options.password
+      ? ['publickey', 'password', 'keyboard-interactive']
+      : ['publickey'];
     client.on('authentication', (context) => {
-      const keyMatches =
-        context.method === 'publickey' &&
-        context.username === options.user &&
-        context.key.algo === authorized.type &&
-        context.key.data.length === authorizedBlob.length &&
-        timingSafeEqual(context.key.data, authorizedBlob);
-      if (!keyMatches) return context.reject(['publickey']);
+      if (context.username !== options.user) return context.reject(methods as never);
+
+      if (context.method === 'password') {
+        return context.password === options.password
+          ? context.accept()
+          : context.reject(methods as never);
+      }
+      if (context.method === 'keyboard-interactive' && options.password) {
+        return context.prompt([{ prompt: 'Password: ', echo: false }], (answers) =>
+          answers[0] === options.password ? context.accept() : context.reject(methods as never),
+        );
+      }
+      if (context.method !== 'publickey') return context.reject(methods as never);
+
+      const match = authorizedKeys.find((key) => {
+        const blob = key.getPublicSSH();
+        return (
+          context.key.algo === key.type &&
+          context.key.data.length === blob.length &&
+          timingSafeEqual(context.key.data, blob)
+        );
+      });
+      if (!match) return context.reject(methods as never);
       if (!context.signature) return context.accept(); // key probe
-      const valid = authorized.verify(context.blob!, context.signature, context.hashAlgo);
-      return valid === true ? context.accept() : context.reject(['publickey']);
+      const valid = match.verify(context.blob!, context.signature, context.hashAlgo);
+      return valid === true ? context.accept() : context.reject(methods as never);
     });
 
     client.on('ready', () => {
@@ -126,8 +155,24 @@ export async function startFakeSshServer(options: {
             }
           });
         });
-        session.on('exec', (acceptExec) => {
+        session.on('exec', (acceptExec, _rejectExec, info) => {
           const stream = acceptExec();
+          if (info.command.includes('authorized_keys')) {
+            let input = '';
+            stream.on('data', (chunk: Buffer) => (input += chunk.toString('utf8')));
+            stream.once('end', () => {
+              try {
+                authorize(input.trim());
+                fake.installedKeys += 1;
+                stream.exit(0);
+              } catch {
+                stream.stderr.write('invalid key\n');
+                stream.exit(1);
+              }
+              stream.end();
+            });
+            return;
+          }
           const output = FIXTURES[fake.execCount % FIXTURES.length]!;
           fake.execCount += 1;
           if (fake.execBehavior === 'stall') return; // never answers

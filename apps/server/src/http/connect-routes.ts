@@ -1,0 +1,148 @@
+import type { FastifyInstance, FastifyReply } from 'fastify';
+import { z } from 'zod';
+import { parseHostTarget } from '../config/host-target';
+import { generateKey, KeyExistsError } from '../ssh/generate-key';
+import {
+  HostKeyMismatchError,
+  installPublicKey,
+  PasswordRejectedError,
+  probeHostKey,
+  trustHostKey,
+  type HostEndpoint,
+} from '../ssh/host-key-setup';
+import { knownHostsName, verifyHostKey, type KnownHostEntry } from '../ssh/known-hosts';
+import { listLocalKeys } from '../ssh/local-keys';
+import type { AuditLog } from '../storage/audit-log';
+
+export interface ConnectDependencies {
+  sshDir: string;
+  /** The known_hosts file the user confirms keys into (the first one). */
+  knownHostsFile: string;
+  loadKnownHosts(): KnownHostEntry[];
+  agentSocket?: string;
+  /** File name for a generated key, e.g. "example_ed25519" (from PROJECT_NAME). */
+  keyBaseName: string;
+  keyComment: string;
+  defaultUser: string;
+  audit: AuditLog;
+}
+
+const TargetSchema = z.object({ target: z.string().trim().min(1) });
+const TrustSchema = TargetSchema.extend({ fingerprint: z.string().startsWith('SHA256:') });
+const InstallSchema = TargetSchema.extend({
+  keyId: z.string().min(1),
+  /** Used once for this request, never stored or logged. */
+  password: z.string().min(1).max(1024),
+});
+
+/**
+ * The "Connect a server" flow: list or create a key, confirm and trust the
+ * host key, install the public key with the password once. Each step is an
+ * explicit user action in the UI; nothing is trusted or installed implicitly.
+ */
+export function registerConnectRoutes(app: FastifyInstance, deps: ConnectDependencies): void {
+  const endpointFrom = (target: string): HostEndpoint | null => {
+    const parsed = parseHostTarget(target);
+    return parsed
+      ? { address: parsed.address, port: parsed.port ?? 22, user: parsed.user ?? deps.defaultUser }
+      : null;
+  };
+  const badRequest = (reply: FastifyReply, message: string) =>
+    reply.code(422).send({ error: message });
+  const notAnAddress = (target: string) =>
+    `"${target}" is not an SSH address. Use host, user@host or user@host:port.`;
+  const keys = () => listLocalKeys({ sshDir: deps.sshDir, agentSocket: deps.agentSocket });
+
+  app.get('/api/ssh/keys', async () => ({ keys: await keys(), sshDir: deps.sshDir }));
+
+  app.post('/api/ssh/keys', async (_request, reply) => {
+    try {
+      const generated = await generateKey({
+        sshDir: deps.sshDir,
+        baseName: deps.keyBaseName,
+        comment: deps.keyComment,
+      });
+      const key = (await keys()).find((k) => k.privatePath === generated.privatePath);
+      deps.audit.append('key_created', null, key ? `${key.keyType} ${key.fingerprint}` : null);
+      return reply.code(201).send({ key });
+    } catch (error) {
+      if (error instanceof KeyExistsError) return reply.code(409).send({ error: error.message });
+      throw error;
+    }
+  });
+
+  app.post('/api/connect/probe', async (request, reply) => {
+    const body = TargetSchema.safeParse(request.body);
+    if (!body.success) return badRequest(reply, 'Enter an address, e.g. root@192.168.1.155');
+    const endpoint = endpointFrom(body.data.target);
+    if (!endpoint) return badRequest(reply, notAnAddress(body.data.target));
+    try {
+      const probed = await probeHostKey(endpoint);
+      const { verdict } = verifyHostKey(
+        deps.loadKnownHosts(),
+        knownHostsName(endpoint.address, endpoint.port),
+        probed,
+      );
+      return { endpoint, keyType: probed.keyType, fingerprint: probed.fingerprint, trust: verdict };
+    } catch (error) {
+      return badRequest(reply, (error as Error).message);
+    }
+  });
+
+  app.post('/api/connect/trust', async (request, reply) => {
+    const body = TrustSchema.safeParse(request.body);
+    if (!body.success) return badRequest(reply, 'A confirmed SHA256 fingerprint is required.');
+    const endpoint = endpointFrom(body.data.target);
+    if (!endpoint) return badRequest(reply, notAnAddress(body.data.target));
+    try {
+      const result = await trustHostKey({
+        endpoint,
+        confirmedFingerprint: body.data.fingerprint,
+        knownHosts: deps.loadKnownHosts(),
+        knownHostsFile: deps.knownHostsFile,
+      });
+      if (result === 'added') {
+        deps.audit.append(
+          'host_key_trusted',
+          null,
+          `${knownHostsName(endpoint.address, endpoint.port)} ${body.data.fingerprint}`,
+        );
+      }
+      return { result };
+    } catch (error) {
+      if (error instanceof HostKeyMismatchError)
+        return reply.code(409).send({ error: error.message });
+      return badRequest(reply, (error as Error).message);
+    }
+  });
+
+  app.post('/api/connect/install', async (request, reply) => {
+    const body = InstallSchema.safeParse(request.body);
+    if (!body.success) return badRequest(reply, 'Choose a key and enter the server password.');
+    const endpoint = endpointFrom(body.data.target);
+    if (!endpoint) return badRequest(reply, notAnAddress(body.data.target));
+    const key = (await keys()).find((k) => k.id === body.data.keyId);
+    if (!key) return badRequest(reply, 'That key is no longer available.');
+    try {
+      await installPublicKey({
+        endpoint,
+        publicKey: key.publicKey,
+        password: body.data.password,
+        knownHosts: deps.loadKnownHosts(),
+      });
+      deps.audit.append(
+        'key_installed',
+        null,
+        `${key.keyType} ${key.fingerprint} on ${endpoint.user}@${knownHostsName(endpoint.address, endpoint.port)}`,
+      );
+      return { installed: true };
+    } catch (error) {
+      // 422, not 401: 401 means "your session expired" to the browser.
+      if (error instanceof PasswordRejectedError)
+        return reply.code(422).send({ error: error.message });
+      if (error instanceof HostKeyMismatchError)
+        return reply.code(409).send({ error: error.message });
+      return badRequest(reply, (error as Error).message);
+    }
+  });
+}

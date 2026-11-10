@@ -17,6 +17,10 @@ because the name lives only in `PROJECT_NAME`.
    but keep the dependency surface small and justify additions.
 6. **Palette:** taken from myselfraj.com (see docs/VISUAL_LANGUAGE.md).
 7. **Commits:** follow the gitsmith format in `.commitconfig.json`.
+8. **In-app server setup (decided 2026-11-10):** "Connect a server" may append a host key to
+   `known_hosts` after the user confirms its fingerprint (never replacing a changed key), create
+   a key file (never overwriting), and use an account password once, in memory only, to install
+   a public key. This narrows principle 4 to: secrets are never stored, logged or echoed.
 
 ---
 
