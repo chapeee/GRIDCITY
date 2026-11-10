@@ -3,6 +3,7 @@ import { useFleetStore } from '../data/fleet-store';
 import { fetchMeta } from '../data/server-api';
 import { useServerLink } from '../data/server-link';
 import { useHostImport } from './use-host-import';
+import { useUiStore } from './ui-store';
 
 /**
  * Banners for states the user must never misread: a lost server link, an
@@ -87,7 +88,17 @@ export function EmptyFleet() {
       <p>Add your servers and each one becomes a tower of light.</p>
       <ol>
         <li>
-          Import every host from your SSH config:
+          Add one by its address, with a connection test:
+          <button
+            type="button"
+            className="button-primary"
+            onClick={() => useUiStore.getState().setAddHostOpen(true)}
+          >
+            Add a host
+          </button>
+        </li>
+        <li>
+          Or import every host from your SSH config:
           <button
             type="button"
             className="button-primary"

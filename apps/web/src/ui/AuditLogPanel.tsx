@@ -13,6 +13,7 @@ const KIND_LABEL: Record<string, string> = {
   connection_failed: 'connection failed',
   host_key_refused: 'host key refused',
   hosts_imported: 'hosts imported',
+  host_added: 'host added',
   terminal_opened: 'terminal opened',
   terminal_closed: 'terminal closed',
 };

@@ -26,7 +26,8 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
 
       // Inside the terminal every key belongs to the shell (it handles its own exit chord);
       // during the intro the first key only skips it.
-      if (ui.terminal || ui.introPlaying) return;
+      // The add-host form handles its own keys.
+      if (ui.terminal || ui.introPlaying || ui.addHostOpen) return;
 
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();

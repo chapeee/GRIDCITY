@@ -37,6 +37,7 @@ interface UiStore {
   /** The entrance sequence is playing. Auto-skipped after the first visit. */
   introPlaying: boolean;
   auditLogOpen: boolean;
+  addHostOpen: boolean;
 
   focusHost(hostId: string | null): void;
   setPaletteOpen(open: boolean): void;
@@ -60,6 +61,7 @@ interface UiStore {
   startIntro(): void;
   endIntro(): void;
   setAuditLogOpen(open: boolean): void;
+  setAddHostOpen(open: boolean): void;
 }
 
 /**
@@ -89,6 +91,7 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   ambientMode: false,
   introPlaying: !readStoredJson(INTRO_SEEN_KEY, false) && !prefersReducedMotion(),
   auditLogOpen: false,
+  addHostOpen: false,
 
   // Any manual navigation takes the camera back from ambient mode.
   focusHost: (hostId) => set({ focusedHostId: hostId, ambientMode: false }),
@@ -122,4 +125,5 @@ export const useUiStore = create<UiStore>()((set, get) => ({
     set({ introPlaying: false });
   },
   setAuditLogOpen: (open) => set({ auditLogOpen: open }),
+  setAddHostOpen: (open) => set({ addHostOpen: open, paletteOpen: false }),
 }));

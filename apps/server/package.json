@@ -9,7 +9,8 @@
     "build": "node build.mjs",
     "start": "node --enable-source-maps dist/index.js",
     "typecheck": "tsc -p tsconfig.json",
-    "import-ssh-config": "tsx src/cli/import-ssh-config.ts"
+    "import-ssh-config": "tsx src/cli/import-ssh-config.ts",
+    "add-host": "tsx src/cli/add-host.ts"
   },
   "dependencies": {
     "@app/shared": "*",

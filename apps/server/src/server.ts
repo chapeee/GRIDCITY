@@ -6,6 +6,7 @@ import packageJson from '../package.json' with { type: 'json' };
 import { resolveAppPaths, type AppPaths } from './config/app-paths';
 import type { ServerEnv } from './config/env';
 import { loadHostsFile, type HostsConfig } from './config/hosts-file';
+import { addHostToFile } from './config/hosts-writer';
 import { importSshConfig } from './config/ssh-config-importer';
 import { DemoFleetProvider } from './fleet/demo-fleet-provider';
 import type { FleetProvider } from './fleet/fleet-provider';
@@ -19,6 +20,7 @@ import { buildAllowedOrigins } from './security/origin';
 import { buildAuthOptions } from './ssh/auth-options';
 import { HostConnection } from './ssh/host-connection';
 import { readKnownHostsFiles } from './ssh/known-hosts-files';
+import { testConnection } from './ssh/test-connection';
 import { AuditLog } from './storage/audit-log';
 import { openDatabase } from './storage/database';
 import { LayoutStore } from './storage/layout-store';
@@ -124,7 +126,10 @@ export async function startServer({
     logger: { level: env.LOG_LEVEL, transport: devMode ? { target: 'pino-pretty' } : undefined },
     describe: () => ({
       dataMode: env.DATA_MODE,
-      ...(env.DATA_MODE === 'real' ? { hostsFile: paths.hostsFile } : {}),
+      // In Docker the real path is inside the container; compose provides the host-side hint.
+      ...(env.DATA_MODE === 'real'
+        ? { hostsFile: process.env.HOSTS_FILE_HINT ?? paths.hostsFile }
+        : {}),
     }),
     registerRoutes: async (instance) => {
       await registerStateSocket(instance, hub);
@@ -146,6 +151,19 @@ export async function startServer({
       });
       registerApiRoutes(instance, {
         audit,
+        defaultUser: userInfo().username,
+        demoMode: env.DATA_MODE === 'demo',
+        addHost: (host) => addHostToFile(paths.hostsFile, host),
+        testConnection: (host) =>
+          testConnection(host, {
+            loadKnownHosts: () => readKnownHostsFiles(paths.knownHostsFiles),
+            buildAuth: (target) =>
+              buildAuthOptions(target.auth, {
+                env: process.env,
+                platform: process.platform,
+                homeDir,
+              }),
+          }),
         importSshConfig: () =>
           importSshConfig({
             sshConfigFile: paths.sshConfigFile,

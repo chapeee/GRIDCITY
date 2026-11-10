@@ -83,6 +83,10 @@ describe('state WebSocket and API over a real socket', () => {
             warnings: [],
             hostsFile: '/h',
           }),
+          defaultUser: 'me',
+          demoMode: false,
+          addHost: async (host) => host,
+          testConnection: async () => ({ ok: true }),
         });
       },
     });
@@ -160,6 +164,46 @@ describe('state WebSocket and API over a real socket', () => {
     const ok = await fetch(url, { method: 'POST', headers: { ...auth, Origin: ALLOWED_ORIGIN } });
     expect(ok.status).toBe(200);
     expect(await ok.json()).toMatchObject({ added: ['x'] });
+  });
+
+  it('adds a host from a typed address, with readable errors for bad input', async () => {
+    const url = `http://${baseUrl}/api/hosts`;
+    const headers = {
+      Authorization: `Bearer ${TOKEN}`,
+      Origin: ALLOWED_ORIGIN,
+      'content-type': 'application/json',
+    };
+    const ok = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ target: 'root@192.168.1.155', name: 'web-01' }),
+    });
+    expect(ok.status).toBe(201);
+    expect(await ok.json()).toMatchObject({
+      host: { id: 'web-01', address: '192.168.1.155', user: 'root', port: 22 },
+      demoMode: false,
+    });
+
+    const bad = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ target: 'not an address' }),
+    });
+    expect(bad.status).toBe(422);
+    expect(((await bad.json()) as { error: string }).error).toMatch(/not an SSH address/);
+  });
+
+  it('tests a connection without saving anything', async () => {
+    const response = await fetch(`http://${baseUrl}/api/hosts/test`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${TOKEN}`,
+        Origin: ALLOWED_ORIGIN,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ target: 'ops@10.0.0.9' }),
+    });
+    expect(await response.json()).toMatchObject({ host: { user: 'ops' }, result: { ok: true } });
   });
 
   it('serves the audit log to authenticated readers', async () => {

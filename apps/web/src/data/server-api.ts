@@ -37,6 +37,51 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const fetchMeta = () => request<ServerMeta>('/api/meta');
 
+/** What the "Add host" dialog sends; the server derives everything else. */
+export interface HostDraft {
+  /** As typed: "root@192.168.1.155", "ops@box.lan:2222". */
+  target: string;
+  name?: string;
+  district?: string;
+  auth?: { method: 'agent' } | { method: 'keyFile'; path: string };
+}
+
+export interface DraftHost {
+  id: string;
+  name: string;
+  address: string;
+  port: number;
+  user: string;
+}
+
+export interface HostTestResponse {
+  host: DraftHost;
+  result:
+    | { ok: true }
+    | {
+        ok: false;
+        problem: 'host-key' | 'auth' | 'unreachable' | 'other';
+        message: string;
+        hostKeyRefusal: { reason: 'unknown' | 'changed'; fingerprint: string } | null;
+      };
+  /** Next steps with commands for the server's OS. */
+  advice: string[];
+}
+
+const postJson = <T>(path: string, body: unknown) =>
+  request<T>(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+/** Tests an SSH connection with the city's exact checks. Saves nothing. */
+export const testHost = (draft: HostDraft) => postJson<HostTestResponse>('/api/hosts/test', draft);
+
+/** Appends the host to hosts.yaml; the city reloads it live. */
+export const addHost = (draft: HostDraft) =>
+  postJson<{ host: DraftHost; demoMode: boolean }>('/api/hosts', draft);
+
 export const importSshConfig = () =>
   request<ImportReport>('/api/hosts/import-ssh-config', { method: 'POST' });
 

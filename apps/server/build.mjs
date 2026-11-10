@@ -11,7 +11,11 @@ const external = Object.keys(pkg.dependencies ?? {}).filter((name) => !name.star
 
 await build({
   // The server, plus the import command (usable without dev tools in Docker).
-  entryPoints: { index: 'src/index.ts', 'import-ssh-config': 'src/cli/import-ssh-config.ts' },
+  entryPoints: {
+    index: 'src/index.ts',
+    'import-ssh-config': 'src/cli/import-ssh-config.ts',
+    'add-host': 'src/cli/add-host.ts',
+  },
   outdir: 'dist',
   bundle: true,
   platform: 'node',

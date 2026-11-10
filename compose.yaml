@@ -20,6 +20,8 @@ services:
     environment:
       CONFIG_DIR: /config
       DATA_DIR: /data
+      # What the app shows users as the location of hosts.yaml (the path on your machine).
+      HOSTS_FILE_HINT: ./config/hosts.yaml (in the project folder)
     volumes:
       - ./config:/config
       - app-data:/data

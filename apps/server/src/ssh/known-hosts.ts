@@ -105,11 +105,25 @@ const ALGORITHMS_BY_KEY_TYPE: Record<string, string[]> = {
   'ssh-rsa': ['rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa'],
 };
 
+/** Every host key algorithm we accept, strongest first. */
+const ALL_HOST_KEY_ALGORITHMS = [
+  'ssh-ed25519',
+  'ecdsa-sha2-nistp256',
+  'ecdsa-sha2-nistp384',
+  'ecdsa-sha2-nistp521',
+  'rsa-sha2-512',
+  'rsa-sha2-256',
+  'ssh-rsa',
+];
+
 /**
- * Host key algorithms to offer, limited to the types already trusted for
- * this host (as OpenSSH does). Without this, a server offering ed25519 when
- * only its RSA key is known would look like a changed key.
- * Returns null when nothing is known (use the library defaults).
+ * Host key algorithms to offer: the types already trusted for this host
+ * first (as OpenSSH does), then the rest. Preferring known types means a
+ * server that also has an ed25519 key is not mistaken for a changed key when
+ * only its RSA key is trusted. Keeping the others as a fallback means a server
+ * that lost the trusted type still completes the handshake, so the key check
+ * can refuse it with a clear "host key changed" instead of a cryptic
+ * negotiation error. Returns null when nothing is known (library defaults).
  */
 export function preferredHostKeyAlgorithms(
   entries: readonly KnownHostEntry[],
@@ -118,7 +132,8 @@ export function preferredHostKeyAlgorithms(
   const algorithms = entries
     .filter((entry) => entry.marker === null && entryMatchesHost(entry, lookupName))
     .flatMap((entry) => ALGORITHMS_BY_KEY_TYPE[entry.keyType] ?? []);
-  return algorithms.length > 0 ? [...new Set(algorithms)] : null;
+  if (algorithms.length === 0) return null;
+  return [...new Set([...algorithms, ...ALL_HOST_KEY_ALGORITHMS])];
 }
 
 /** Reads the key type from an SSH public key blob (length-prefixed string). */

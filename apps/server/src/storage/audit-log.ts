@@ -13,6 +13,7 @@ export type AuditKind =
   | 'connection_failed'
   | 'host_key_refused'
   | 'hosts_imported'
+  | 'host_added'
   | 'terminal_opened'
   | 'terminal_closed';
 

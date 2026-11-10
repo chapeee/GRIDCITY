@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback } from 'react';
 import { useFleetDataSource } from './data/use-fleet-data-source';
 import { useFleetStore } from './data/fleet-store';
+import { AddHostDialog } from './ui/AddHostDialog';
 import { AuditLogPanel } from './ui/AuditLogPanel';
 import { CommandPalette } from './ui/CommandPalette';
 import { canOpenTerminal, FocusHud } from './ui/FocusHud';
@@ -54,6 +55,7 @@ export function App() {
       <NoticeToast />
       <CommandPalette onJackIn={jackIn} />
       <AuditLogPanel />
+      <AddHostDialog />
       <DiveOverlay />
       <TerminalView />
       <IntroOverlay />

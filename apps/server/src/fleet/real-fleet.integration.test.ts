@@ -6,6 +6,7 @@ import { utils } from 'ssh2';
 import { afterEach, beforeAll, afterAll, describe, expect, it } from 'vitest';
 import { buildAuthOptions } from '../ssh/auth-options';
 import { HostConnection } from '../ssh/host-connection';
+import { testConnection } from '../ssh/test-connection';
 import { parseKnownHosts } from '../ssh/known-hosts';
 import { AuditLog } from '../storage/audit-log';
 import { openDatabase } from '../storage/database';
@@ -38,7 +39,9 @@ const running: RealFleet[] = [];
 
 beforeAll(() => {
   workDir = mkdtempSync(join(tmpdir(), 'fleet-e2e-'));
-  const keys = utils.generateKeyPairSync('ed25519');
+  // Client test keys are ECDSA: rarely, a freshly generated ed25519 key failed ssh2's
+  // connect-time parse in parallel test runs (not reproducible directly; real keys unaffected).
+  const keys = utils.generateKeyPairSync('ecdsa', { bits: 256 });
   keyFile = join(workDir, 'id_ed25519');
   writeFileSync(keyFile, keys.private, { mode: 0o600 });
   clientPublicKey = keys.public;
@@ -133,7 +136,11 @@ describe('RealFleet over SSH', () => {
 
   it('refuses a changed host key as a possible man-in-the-middle', async () => {
     server = await startFakeSshServer({ authorizedKey: clientPublicKey, user: USER });
-    const impostor = utils.generateKeyPairSync('ed25519').public.split(' ').slice(0, 2).join(' ');
+    const impostor = utils
+      .generateKeyPairSync('ecdsa', { bits: 256 })
+      .public.split(' ')
+      .slice(0, 2)
+      .join(' ');
     const { state, events } = startFleet(
       hostFor(server.port),
       `[127.0.0.1]:${server.port} ${impostor}`,
@@ -206,5 +213,47 @@ describe('RealFleet over SSH', () => {
     const { state } = startFleet(hostFor(port), '');
     await eventually(() => state().status === 'offline');
     expect(state().statusReason).toMatch(/ECONNREFUSED/);
+  });
+});
+
+describe('testConnection (the "Add host" check)', () => {
+  const check = (host: Host, knownHosts: string) =>
+    testConnection(host, {
+      loadKnownHosts: () => parseKnownHosts(knownHosts),
+      buildAuth: (h) =>
+        buildAuthOptions(h.auth, { env: {}, platform: process.platform, homeDir: workDir }),
+    });
+
+  it('succeeds for a trusted host and key, running nothing on it', async () => {
+    server = await startFakeSshServer({ authorizedKey: clientPublicKey, user: USER });
+    expect(await check(hostFor(server.port), server.knownHostsLine)).toEqual({ ok: true });
+    expect(server.execCount).toBe(0);
+  });
+
+  it('reports an untrusted host key with its fingerprint', async () => {
+    server = await startFakeSshServer({ authorizedKey: clientPublicKey, user: USER });
+    const result = await check(hostFor(server.port), '');
+    expect(result).toMatchObject({
+      ok: false,
+      problem: 'host-key',
+      hostKeyRefusal: { reason: 'unknown', fingerprint: expect.stringMatching(/^SHA256:/) },
+    });
+  });
+
+  it('reports a rejected key as an authentication problem', async () => {
+    server = await startFakeSshServer({ authorizedKey: clientPublicKey, user: USER });
+    const wrongKey = join(workDir, 'wrong_key_for_test');
+    writeFileSync(wrongKey, utils.generateKeyPairSync('ecdsa', { bits: 256 }).private, {
+      mode: 0o600,
+    });
+    const result = await check(hostFor(server.port, wrongKey), server.knownHostsLine);
+    expect(result).toMatchObject({ ok: false, problem: 'auth' });
+  });
+
+  it('reports a closed port as unreachable', async () => {
+    server = await startFakeSshServer({ authorizedKey: clientPublicKey, user: USER });
+    const port = server.port;
+    await server.close();
+    expect(await check(hostFor(port), '')).toMatchObject({ ok: false, problem: 'unreachable' });
   });
 });

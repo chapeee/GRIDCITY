@@ -28,7 +28,8 @@
     "import-ssh-config": "npm run import-ssh-config -w @app/server",
     "smoke": "npm run build && node scripts/smoke-server.mjs",
     "demo": "concurrently -k -n server,web -c cyan,magenta \"npm run dev -w @app/server -- --demo\" \"npm run dev -w @app/web\"",
-    "media": "node scripts/record-media.mjs"
+    "media": "node scripts/record-media.mjs",
+    "add-host": "npm run add-host -w @app/server --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

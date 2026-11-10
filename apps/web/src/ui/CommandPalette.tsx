@@ -2,6 +2,7 @@ import { isStale } from '@app/shared';
 import { Command } from 'cmdk';
 import { useFleetStore } from '../data/fleet-store';
 import { StatusDot } from './StatusDot';
+import { useServerLink } from '../data/server-link';
 import { useHostImport } from './use-host-import';
 import { useNow } from './use-now';
 import { useUiStore } from './ui-store';
@@ -89,6 +90,15 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
                 <kbd>Esc</kbd>
               </Command.Item>
             </>
+          )}
+          {useServerLink.getState().source === 'server' && (
+            <Command.Item
+              value="add a host new server ssh"
+              onSelect={() => run(() => useUiStore.getState().setAddHostOpen(true))}
+            >
+              <span className="palette-item-title">Add a host…</span>
+              <span className="palette-item-meta">type user@address, test, save</span>
+            </Command.Item>
           )}
           {dataMode === 'real' && (
             <Command.Item

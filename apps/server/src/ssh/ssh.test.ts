@@ -81,12 +81,15 @@ describe('known_hosts verification', () => {
     const entries = parseKnownHosts(
       `old.box ssh-rsa AAAAB3NzaC1yc2E=\nnew.box ${key.keyType} ${key.keyBase64}`,
     );
-    expect(preferredHostKeyAlgorithms(entries, 'old.box')).toEqual([
+    // Known types first, then the rest as a fallback (so a lost key type is
+    // still caught by the host key check instead of failing negotiation).
+    expect(preferredHostKeyAlgorithms(entries, 'old.box')?.slice(0, 3)).toEqual([
       'rsa-sha2-512',
       'rsa-sha2-256',
       'ssh-rsa',
     ]);
-    expect(preferredHostKeyAlgorithms(entries, 'new.box')).toEqual(['ssh-ed25519']);
+    expect(preferredHostKeyAlgorithms(entries, 'old.box')).toContain('ssh-ed25519');
+    expect(preferredHostKeyAlgorithms(entries, 'new.box')?.[0]).toBe('ssh-ed25519');
     expect(preferredHostKeyAlgorithms(entries, 'unknown.box')).toBeNull();
   });
 
@@ -120,7 +123,7 @@ describe('buildAuthOptions', () => {
   });
 
   it('reads an unencrypted key file', async () => {
-    const pair = utils.generateKeyPairSync('ed25519');
+    const pair = utils.generateKeyPairSync('ecdsa', { bits: 256 }); // ssh2's ed25519 generator is occasionally malformed
     const options = await buildAuthOptions(
       { method: 'keyFile', path: '~/.ssh/id' },
       { ...base, readKeyFile: async () => Buffer.from(pair.private) },

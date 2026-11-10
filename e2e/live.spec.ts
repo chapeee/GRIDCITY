@@ -113,6 +113,35 @@ test('jacking in opens a real shell: input, resize, exit back to the city, audit
   expect(kinds).toEqual(expect.arrayContaining(['terminal_opened', 'terminal_closed']));
 });
 
+test('adding a host by address: test shows the fix, "Add anyway" puts it in the city', async () => {
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type('add a host');
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Add a host' });
+  await expect(dialog).toBeVisible();
+
+  // The untrusted server, as a new user so it is not a duplicate of "stranger".
+  await dialog.getByLabel('SSH address').fill(`root@127.0.0.1:${stack.untrusted.port}`);
+  await dialog.getByLabel('Name').fill('new-box');
+  await dialog.getByLabel('District').fill('Lab');
+  await dialog.getByRole('button', { name: 'Test & add' }).click();
+
+  const advice = dialog.getByLabel('How to fix the connection');
+  await expect(advice).toContainText('not trusted yet', { timeout: 15_000 });
+  await expect(advice).toContainText('SHA256:');
+  await expect(advice.getByRole('button', { name: 'Copy' }).first()).toBeVisible();
+  await page.screenshot({ path: 'test-results/screenshots/live-add-host.png' });
+
+  await dialog.getByRole('button', { name: 'Add anyway' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText('Added new-box')).toBeVisible();
+
+  // hosts.yaml reloads live: the new tower appears and can be focused.
+  await focus('new-box');
+  await expect(hudStatus()).toHaveText('offline', { timeout: 15_000 });
+});
+
 test('the audit log shows connections, key refusals and terminal sessions', async () => {
   await page.keyboard.press('Escape');
   await page.keyboard.press('Control+k');
