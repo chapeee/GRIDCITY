@@ -7,14 +7,36 @@ import { z } from 'zod';
  * ssh-agent, and `keyFile` stores only a *path* that is read at connect time.
  * Private keys, passphrases and passwords never reach our storage.
  */
-export const HostAuthSchema = z.discriminatedUnion('method', [
-  z.object({ method: z.literal('agent') }),
-  z.object({
-    method: z.literal('keyFile'),
-    /** Absolute or `~`-relative path to a private key on the local machine. */
-    path: z.string().min(1, 'keyFile auth needs a path to the private key'),
-  }),
-]);
+export const HostAuthSchema = z.discriminatedUnion(
+  'method',
+  [
+    z.object({ method: z.literal('agent') }),
+    z.object({
+      method: z.literal('keyFile'),
+      /** Absolute or `~`-relative path to a private key on the local machine. */
+      path: z.string().min(1, 'keyFile auth needs a path to the private key'),
+    }),
+  ],
+  { error: (issue) => describeUnsupportedAuth(issue.input) },
+);
+
+/**
+ * Explains an unsupported auth method. Password auth gets a specific answer:
+ * it would mean storing the password, which this project never does.
+ */
+function describeUnsupportedAuth(input: unknown): string {
+  const method =
+    typeof input === 'object' && input !== null && 'method' in input
+      ? String((input as { method: unknown }).method)
+      : undefined;
+  if (method && /pass/i.test(method)) {
+    return (
+      `"${method}" is not supported: passwords are never stored. ` +
+      'Use your ssh-agent (method: agent) or a key file (method: keyFile, path: ~/.ssh/id_ed25519).'
+    );
+  }
+  return `auth.method must be "agent" or "keyFile"${method ? ` (got "${method}")` : ''}.`;
+}
 export type HostAuth = z.infer<typeof HostAuthSchema>;
 
 /**
@@ -24,7 +46,7 @@ export type HostAuth = z.infer<typeof HostAuthSchema>;
 export const HostSchema = z.object({
   /** Stable identifier. Used for layout persistence, so it must not change on rename. */
   id: z
-    .string()
+    .string({ error: 'id must be text such as "web-01" (a-z, 0-9, "-" and "_")' })
     .min(1)
     .regex(/^[a-z0-9][a-z0-9_-]*$/, 'id may only contain a-z, 0-9, "-" and "_"'),
   /** Human-readable label shown on the tower and in the command palette. */

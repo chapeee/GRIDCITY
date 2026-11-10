@@ -40,7 +40,9 @@ let baseUrl: string;
 
 beforeAll(async () => {
   workDir = mkdtempSync(join(tmpdir(), 'terminal-e2e-'));
-  const keys = ssh2.utils.generateKeyPairSync('ed25519');
+  // Client test keys are ECDSA: rarely, a freshly generated ed25519 key failed ssh2's
+  // connect-time parse in parallel test runs (not reproducible directly; real keys unaffected).
+  const keys = ssh2.utils.generateKeyPairSync('ecdsa', { bits: 256 });
   const keyFile = join(workDir, 'id');
   writeFileSync(keyFile, keys.private, { mode: 0o600 });
   sshServer = await startFakeSshServer({ authorizedKey: keys.public, user: 'ops' });

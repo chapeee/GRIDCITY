@@ -93,7 +93,8 @@ test('jacking in to demo data dives in and says there is no real shell', async (
   await openWorld(page);
   await focusViaPalette(page, 'web-01');
   await page.keyboard.press('Enter');
-  await expect(page.getByLabel('Terminal on web-01')).toBeVisible({ timeout: 5000 });
+  // Generous: under Docker's software WebGL a single frame of the dive can take seconds.
+  await expect(page.getByLabel('Terminal on web-01')).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.terminal-status')).toHaveText('demo data');
   await page.waitForTimeout(400);
   await screenshot(page, 'terminal-demo');

@@ -31,6 +31,23 @@ describe('HostSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('explains that password auth is unsupported because passwords are never stored', () => {
+    const result = HostSchema.safeParse({
+      id: 'a',
+      name: 'a',
+      address: 'a',
+      user: 'a',
+      auth: { method: 'sshPassword', password: 'x' },
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toMatch(/passwords are never stored.*agent.*keyFile/);
+  });
+
+  it('explains a numeric id', () => {
+    const result = HostSchema.safeParse({ id: 1, name: 'a', address: 'a', user: 'a' });
+    expect(result.error?.issues[0]?.message).toMatch(/id must be text such as "web-01"/);
+  });
+
   it('rejects out-of-range ports', () => {
     const result = HostSchema.safeParse({ id: 'a', name: 'a', address: 'a', user: 'a', port: 0 });
     expect(result.success).toBe(false);

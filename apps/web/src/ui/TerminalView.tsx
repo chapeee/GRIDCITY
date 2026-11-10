@@ -9,6 +9,7 @@ import { useServerLink } from '../data/server-link';
 import { accents, neutrals } from '../design/tokens';
 import { openTerminalSession, type TerminalStatus } from './terminal-session';
 import { useUiStore } from './ui-store';
+import { hasHardwareWebGL } from './webgl-capability';
 
 /** Delay before returning to the city after the shell exits cleanly, ms. */
 const RETURN_AFTER_EXIT_MS = 700;
@@ -80,12 +81,15 @@ export function TerminalView() {
     const fit = new FitAddon();
     terminal.loadAddon(fit);
     terminal.open(container);
-    try {
-      const webgl = new WebglAddon();
-      webgl.onContextLoss(() => webgl.dispose()); // falls back to the DOM renderer
-      terminal.loadAddon(webgl);
-    } catch {
-      // WebGL unavailable: the DOM renderer is used.
+    // GPU renderer only on real GPUs; the DOM renderer is faster on software WebGL.
+    if (hasHardwareWebGL()) {
+      try {
+        const webgl = new WebglAddon();
+        webgl.onContextLoss(() => webgl.dispose()); // falls back to the DOM renderer
+        terminal.loadAddon(webgl);
+      } catch {
+        // WebGL unavailable: the DOM renderer is used.
+      }
     }
     fit.fit();
     terminal.focus();

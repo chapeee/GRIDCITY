@@ -16,6 +16,13 @@ interface CameraRigProps {
 
 type OrbitControlsHandle = ComponentRef<typeof OrbitControls>;
 
+/**
+ * Camera flights and the jack-in dive follow the wall clock. GSAP's default
+ * lag smoothing treats a frame slower than 500 ms as 33 ms, which on a slow
+ * machine stretched the 450 ms dive to many seconds.
+ */
+gsap.ticker.lagSmoothing(0);
+
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 

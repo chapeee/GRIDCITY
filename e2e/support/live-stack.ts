@@ -21,6 +21,8 @@ export interface LiveStack {
   /** Host "stranger", whose key is deliberately not in known_hosts. */
   untrusted: FakeSshServer;
   stopServer(): Promise<void>;
+  /** Everything the server printed (for diagnosing failures). */
+  serverOutput(): string;
   close(): Promise<void>;
 }
 
@@ -29,7 +31,9 @@ const USER = 'ops';
 
 export async function startLiveStack(): Promise<LiveStack> {
   const workDir = mkdtempSync(join(tmpdir(), 'live-stack-'));
-  const keys = ssh2.utils.generateKeyPairSync('ed25519');
+  // Client test keys are ECDSA: rarely, a freshly generated ed25519 key failed ssh2's
+  // connect-time parse in parallel test runs (not reproducible directly; real keys unaffected).
+  const keys = ssh2.utils.generateKeyPairSync('ecdsa', { bits: 256 });
   const keyFile = join(workDir, 'id_ed25519');
   writeFileSync(keyFile, keys.private, { mode: 0o600 });
 
@@ -55,7 +59,7 @@ export async function startLiveStack(): Promise<LiveStack> {
       CONFIG_DIR: configDir,
       DATA_DIR: join(workDir, 'data'),
       KNOWN_HOSTS_FILE: knownHosts,
-      LOG_LEVEL: 'warn',
+      LOG_LEVEL: process.env.LIVE_LOG_LEVEL ?? 'warn',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -87,6 +91,7 @@ export async function startLiveStack(): Promise<LiveStack> {
     trusted,
     untrusted,
     stopServer,
+    serverOutput: () => output,
     async close() {
       await stopServer();
       await trusted.close();

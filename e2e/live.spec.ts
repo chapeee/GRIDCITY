@@ -82,7 +82,8 @@ test('jacking in opens a real shell: input, resize, exit back to the city, audit
   await focus('lab-01');
   await expect(hudStatus()).toHaveText('online', { timeout: 15_000 });
   await page.keyboard.press('Enter');
-  await expect(page.locator('.terminal-status')).toHaveText('connected', { timeout: 10_000 });
+  // Generous: under Docker's software WebGL a single frame of the dive can take seconds.
+  await expect(page.locator('.terminal-status')).toHaveText('connected', { timeout: 30_000 });
   expect(stack.trusted.lastWindow?.cols).toBeGreaterThan(40);
 
   await page.keyboard.type('echo hello');
