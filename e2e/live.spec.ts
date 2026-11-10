@@ -137,8 +137,12 @@ test('adding a host by address: test shows the fix, "Add anyway" puts it in the 
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText('Added new-box')).toBeVisible();
 
-  // hosts.yaml reloads live: the new tower appears and can be focused.
-  await focus('new-box');
+  // The new tower appears immediately and can be focused.
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type('new-box');
+  await expect(page.getByRole('option', { name: /new-box/ })).toBeVisible({ timeout: 10_000 });
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'new-box' })).toBeVisible();
   await expect(hudStatus()).toHaveText('offline', { timeout: 15_000 });
 });
 

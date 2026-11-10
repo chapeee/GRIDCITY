@@ -1,5 +1,5 @@
 import { DEFAULT_STATUS_THRESHOLDS, type Host } from '@app/shared';
-import { unwatchFile, watchFile } from 'node:fs';
+import { existsSync, statSync, unwatchFile, watchFile } from 'node:fs';
 import { homedir, userInfo } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import packageJson from '../package.json' with { type: 'json' };
@@ -101,17 +101,24 @@ export async function startServer({
   hub.setConfigErrors(configErrors);
   hub.start();
 
-  // Live reload: editing hosts.yaml (or importing) swaps the fleet without a restart.
+  // Live reload: editing hosts.yaml swaps the fleet without a restart.
+  // `lastLoadedMtime` lets the app's own writes (add/import) reload at once
+  // without the file watcher reloading the same content a second time.
+  let lastLoadedMtime = existsSync(paths.hostsFile) ? statSync(paths.hostsFile).mtimeMs : 0;
+  const reloadHosts = async () => {
+    if (env.DATA_MODE !== 'real') return;
+    lastLoadedMtime = existsSync(paths.hostsFile) ? statSync(paths.hostsFile).mtimeMs : 0;
+    const loaded = await loadHostsFile(paths.hostsFile);
+    if (loaded.ok) {
+      hub.replaceProvider(createRealFleet(loaded.config));
+      hub.setConfigErrors([]);
+    } else {
+      hub.setConfigErrors(loaded.errors); // keep the last valid fleet running
+    }
+  };
   if (env.DATA_MODE === 'real') {
-    watchFile(paths.hostsFile, { interval: HOSTS_FILE_POLL_MS }, async (current, previous) => {
-      if (current.mtimeMs === previous.mtimeMs) return;
-      const loaded = await loadHostsFile(paths.hostsFile);
-      if (loaded.ok) {
-        hub.replaceProvider(createRealFleet(loaded.config));
-        hub.setConfigErrors([]);
-      } else {
-        hub.setConfigErrors(loaded.errors); // keep the last valid fleet running
-      }
+    watchFile(paths.hostsFile, { interval: HOSTS_FILE_POLL_MS }, (current) => {
+      if (current.mtimeMs !== lastLoadedMtime) void reloadHosts();
     });
   }
 
@@ -153,7 +160,11 @@ export async function startServer({
         audit,
         defaultUser: userInfo().username,
         demoMode: env.DATA_MODE === 'demo',
-        addHost: (host) => addHostToFile(paths.hostsFile, host),
+        addHost: async (host) => {
+          const saved = await addHostToFile(paths.hostsFile, host);
+          await reloadHosts(); // the new tower appears immediately
+          return saved;
+        },
         testConnection: (host) =>
           testConnection(host, {
             loadKnownHosts: () => readKnownHostsFiles(paths.knownHostsFiles),
