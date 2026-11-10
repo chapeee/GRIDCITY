@@ -29,7 +29,8 @@
     "smoke": "npm run build && node scripts/smoke-server.mjs",
     "demo": "concurrently -k -n server,web -c cyan,magenta \"npm run dev -w @app/server -- --demo\" \"npm run dev -w @app/web\"",
     "media": "node scripts/record-media.mjs",
-    "add-host": "npm run add-host -w @app/server --"
+    "add-host": "npm run add-host -w @app/server --",
+    "commit": "gitsmith --no-ai"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -40,6 +41,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "gifenc": "^1.0.3",
+    "gitsmith": "^0.2.1",
     "globals": "^17.14.0",
     "pngjs": "^7.0.0",
     "prettier": "^3.9.10",

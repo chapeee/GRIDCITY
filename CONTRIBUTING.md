@@ -59,7 +59,8 @@ Or run everything in Docker: `npm run docker:test` and `npm run docker:e2e`.
 
 Commit messages follow the [gitsmith](https://www.npmjs.com/package/gitsmith) format configured
 in `.commitconfig.json`: `type(scope): message`, header up to 72 characters, using the listed
-types and scopes.
+types and scopes. gitsmith is a dev dependency: stage your changes and run `npm run commit`, which
+asks for the type, scope and message.
 
 ## License
 
