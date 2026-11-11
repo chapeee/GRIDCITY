@@ -94,7 +94,7 @@ export function CityFloor({ districts, tones, reflections }: CityFloorProps) {
         sectionSize={cityGeometry.slotSpacing}
         sectionThickness={0.9}
         sectionColor={neutrals.gridSection}
-        fadeDistance={260}
+        fadeDistance={420}
         fadeStrength={1.6}
         raycast={() => null}
       />

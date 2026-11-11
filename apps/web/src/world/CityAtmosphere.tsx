@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { useMemo, useRef } from 'react';
 import {
   AdditiveBlending,
   BackSide,
   BufferAttribute,
   BufferGeometry,
   Color,
+  Group,
   ShaderMaterial,
 } from 'three';
 import { accents, atmosphere, neutrals } from '../design/tokens';
@@ -127,8 +129,15 @@ export function CityAtmosphere({ stars = true }: { stars?: boolean }) {
     [],
   );
 
+  // The sky is at infinity: it travels with the camera, so panning or zooming far
+  // never reaches its edge, and the stars never shift against the horizon.
+  const groupRef = useRef<Group>(null);
+  useFrame(({ camera }) => {
+    groupRef.current?.position.set(camera.position.x, 0, camera.position.z);
+  });
+
   return (
-    <group>
+    <group ref={groupRef}>
       <mesh material={domeMaterial} raycast={() => null} renderOrder={-10}>
         <sphereGeometry args={[DOME_RADIUS, 48, 24]} />
       </mesh>

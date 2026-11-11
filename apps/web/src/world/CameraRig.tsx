@@ -24,7 +24,7 @@ type OrbitControlsHandle = ComponentRef<typeof OrbitControls>;
 gsap.ticker.lagSmoothing(0);
 
 /** How far past the outermost district the look-at point may pan (world units). */
-const PAN_MARGIN = 40;
+const PAN_MARGIN = 160;
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 const isTypingTarget = (target: EventTarget | null) =>
   target instanceof HTMLElement &&

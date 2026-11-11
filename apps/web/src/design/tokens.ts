@@ -151,8 +151,8 @@ export const easings = {
 /** Scene atmosphere. */
 export const atmosphere = {
   fogColor: neutrals.void,
-  fogNear: 60,
-  fogFar: 260,
+  fogNear: 100,
+  fogFar: 480,
 } as const;
 
 /**
@@ -191,10 +191,10 @@ export const camera = {
   focusHeightRatio: 0.55,
   /** Shift the focused tower left of center so the HUD fits on the right (world units). */
   focusScreenShift: 5,
-  minDistance: 8,
-  maxDistance: 320,
+  minDistance: 3,
+  maxDistance: 420,
   /** Keep the camera above the floor. Radians from straight down. */
-  maxPolarAngle: 1.38,
+  maxPolarAngle: 1.54,
   /** Orbit speed in ambient mode (OrbitControls autoRotate units; 2 = 30 s per turn). */
   ambientOrbitSpeed: 0.35,
   /** Pixels per arrow-key press (OrbitControls units). */
