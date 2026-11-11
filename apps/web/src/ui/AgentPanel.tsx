@@ -38,8 +38,21 @@ export function ApprovalCards() {
 
 function ApprovalCard({ approval }: { approval: AgentApproval }) {
   const send = useAgentStore((store) => store.send);
-  const decide = (decision: 'allow' | 'allow-host' | 'deny') =>
-    send({ type: 'decide', approvalId: approval.id, decision });
+  const [note, setNote] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [showNote, setShowNote] = useState(false);
+  const needsAnswer = approval.input !== null && !approval.input.optional && answer === '';
+  const decide = (decision: 'allow' | 'allow-host' | 'deny') => {
+    send({
+      type: 'decide',
+      approvalId: approval.id,
+      decision,
+      note: note.trim() || undefined,
+      // The answer goes to the command's stdin only; it is dropped with the card.
+      answer: decision === 'deny' || answer === '' ? undefined : answer,
+    });
+    setAnswer('');
+  };
   return (
     <motion.section
       className="approval-card"
@@ -55,8 +68,42 @@ function ApprovalCard({ approval }: { approval: AgentApproval }) {
       </p>
       <pre className="approval-command">{approval.command}</pre>
       {approval.reason && <p className="approval-reason">{approval.reason}</p>}
+      {approval.input && (
+        <label className="approval-input">
+          <span>{approval.input.prompt}</span>
+          <input
+            type={approval.input.secret ? 'password' : 'text'}
+            autoComplete="off"
+            value={answer}
+            onChange={(event) => setAnswer(event.target.value)}
+            placeholder={approval.input.optional ? 'optional' : 'required to allow'}
+          />
+          <small>Goes to the command only. Never shown to the AI, never logged.</small>
+        </label>
+      )}
+      {showNote ? (
+        <label className="approval-input">
+          <span>Note for {approval.client}</span>
+          <input
+            type="text"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="e.g. use apt, not snap · or why you deny"
+          />
+        </label>
+      ) : (
+        <button type="button" className="link-button" onClick={() => setShowNote(true)}>
+          Add a note for the AI…
+        </button>
+      )}
       <div className="approval-actions">
-        <button type="button" className="button-primary" onClick={() => decide('allow')}>
+        <button
+          type="button"
+          className="button-primary"
+          onClick={() => decide('allow')}
+          disabled={needsAnswer}
+          title={needsAnswer ? 'The command needs your input first' : undefined}
+        >
           Allow
         </button>
         <button type="button" onClick={() => decide('allow-host')} title="Until the app restarts">

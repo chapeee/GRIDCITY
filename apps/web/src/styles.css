@@ -1814,3 +1814,33 @@ button:disabled {
   margin: 0;
   padding-left: 16px;
 }
+
+.approval-input {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.approval-input input {
+  font: inherit;
+  padding: 6px 8px;
+  color: var(--color-text-bright);
+  background: var(--color-base);
+  border: var(--panel-border);
+}
+
+.approval-input small {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.approval-card .link-button {
+  margin: 0 0 10px;
+  padding: 0;
+  border: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  text-decoration: underline dotted;
+}

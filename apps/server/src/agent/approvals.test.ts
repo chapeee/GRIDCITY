@@ -17,7 +17,7 @@ describe('ApprovalGate', () => {
     expect(gate.approvals[0]).toMatchObject({ command: 'df -h', client: 'Claude Code' });
 
     gate.decide(gate.approvals[0]!.id, 'allow');
-    await expect(outcome).resolves.toEqual({ allowed: true, by: 'you' });
+    await expect(outcome).resolves.toEqual({ allowed: true, by: 'you', note: null, answer: null });
     expect(gate.approvals).toHaveLength(0);
   });
 
@@ -25,7 +25,7 @@ describe('ApprovalGate', () => {
     const gate = new ApprovalGate();
     const outcome = gate.request(ask());
     gate.decide(gate.approvals[0]!.id, 'deny');
-    await expect(outcome).resolves.toEqual({ allowed: false, why: 'denied' });
+    await expect(outcome).resolves.toEqual({ allowed: false, why: 'denied', note: null });
   });
 
   it('"allow on this server" trusts that host only, until untrusted', async () => {
@@ -35,12 +35,19 @@ describe('ApprovalGate', () => {
     const other = gate.request(ask('db-1', 'uptime'));
     gate.decide(gate.approvals[0]!.id, 'allow-host');
 
-    await expect(first).resolves.toEqual({ allowed: true, by: 'you' });
-    await expect(waiting).resolves.toEqual({ allowed: true, by: 'trusted-host' });
+    await expect(first).resolves.toEqual({ allowed: true, by: 'you', note: null, answer: null });
+    await expect(waiting).resolves.toEqual({
+      allowed: true,
+      by: 'trusted-host',
+      note: null,
+      answer: null,
+    });
     expect(gate.approvals.map((a) => a.hostId)).toEqual(['db-1']); // still asks for db-1
     await expect(gate.request(ask('web-1'))).resolves.toEqual({
       allowed: true,
       by: 'trusted-host',
+      note: null,
+      answer: null,
     });
     expect(gate.trustedHosts).toEqual(['web-1']);
 
@@ -48,7 +55,7 @@ describe('ApprovalGate', () => {
     void gate.request(ask('web-1'));
     expect(gate.approvals.map((a) => a.hostId)).toEqual(['db-1', 'web-1']);
     gate.cancelAll();
-    await expect(other).resolves.toEqual({ allowed: false, why: 'cancelled' });
+    await expect(other).resolves.toEqual({ allowed: false, why: 'cancelled', note: null });
   });
 
   it('denies requests nobody answers', async () => {
@@ -57,7 +64,7 @@ describe('ApprovalGate', () => {
       const gate = new ApprovalGate({ timeoutMs: 1000 });
       const outcome = gate.request(ask());
       vi.advanceTimersByTime(1001);
-      await expect(outcome).resolves.toEqual({ allowed: false, why: 'timeout' });
+      await expect(outcome).resolves.toEqual({ allowed: false, why: 'timeout', note: null });
     } finally {
       vi.useRealTimers();
     }
@@ -68,7 +75,7 @@ describe('ApprovalGate', () => {
     const controller = new AbortController();
     const outcome = gate.request(ask(), controller.signal);
     controller.abort();
-    await expect(outcome).resolves.toEqual({ allowed: false, why: 'cancelled' });
+    await expect(outcome).resolves.toEqual({ allowed: false, why: 'cancelled', note: null });
     expect(gate.approvals).toHaveLength(0);
   });
 

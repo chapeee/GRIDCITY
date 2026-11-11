@@ -13,6 +13,22 @@ import { z } from 'zod';
  * {@link AgentApproval} the user allows or denies here. Nothing runs first.
  */
 
+/**
+ * Something the command itself reads on stdin that only the user knows: a
+ * sudo password, a token for `--password-stdin`, a y/n answer. The approval
+ * card shows a field for it; the value goes straight to the command and is
+ * never shown to the AI or written to the audit log.
+ */
+export const ApprovalInputSchema = z.object({
+  /** What to ask, e.g. "sudo password for ubuntu". */
+  prompt: z.string(),
+  /** Hide what the user types (passwords, tokens). */
+  secret: z.boolean(),
+  /** The command may not need it (sudo with no password asked); Allow works empty. */
+  optional: z.boolean(),
+});
+export type ApprovalInput = z.infer<typeof ApprovalInputSchema>;
+
 /** A command an AI wants to run, waiting for the user. */
 export const AgentApprovalSchema = z.object({
   id: z.string(),
@@ -24,6 +40,8 @@ export const AgentApprovalSchema = z.object({
   reason: z.string().nullable(),
   /** Who asks, e.g. "Claude Code" or "Codex". */
   client: z.string(),
+  /** Set when the command reads an answer from the user on stdin. */
+  input: ApprovalInputSchema.nullable(),
   requestedAt: z.number().int(),
 });
 export type AgentApproval = z.infer<typeof AgentApprovalSchema>;
@@ -107,9 +125,22 @@ export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
 /** Prompts are plain text; this keeps a pasted log from flooding the agent. */
 const MAX_PROMPT_CHARS = 20_000;
 
+/** Longest note the user can send back with a decision. */
+export const MAX_APPROVAL_NOTE_CHARS = 2_000;
+/** Longest stdin answer (password, token) the user can give a command. */
+export const MAX_APPROVAL_ANSWER_CHARS = 4_000;
+
 /** Client -> server. */
 export const AgentClientMessageSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('decide'), approvalId: z.string(), decision: ApprovalDecisionSchema }),
+  z.object({
+    type: z.literal('decide'),
+    approvalId: z.string(),
+    decision: ApprovalDecisionSchema,
+    /** Instructions or a reason for the AI, returned with the result. */
+    note: z.string().max(MAX_APPROVAL_NOTE_CHARS).optional(),
+    /** What the command reads on stdin (see {@link ApprovalInputSchema}). Never logged. */
+    answer: z.string().max(MAX_APPROVAL_ANSWER_CHARS).optional(),
+  }),
   z.object({ type: z.literal('untrust'), hostId: z.string() }),
   z.object({ type: z.literal('start'), agentId: z.string() }),
   z.object({ type: z.literal('signin'), methodId: z.string() }),

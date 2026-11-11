@@ -62,7 +62,10 @@ export class AgentHub {
     const { gate, bridge } = this.options;
     switch (message.type) {
       case 'decide':
-        return gate.decide(message.approvalId, message.decision);
+        return gate.decide(message.approvalId, message.decision, {
+          note: message.note,
+          answer: message.answer,
+        });
       case 'untrust':
         return gate.untrust(message.hostId);
       case 'start':

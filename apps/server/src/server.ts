@@ -241,6 +241,8 @@ export async function startServer({
       if (!connection) return Promise.reject(new Error('not connected'));
       return connection.exec(command, stdin, timeoutMs);
     },
+    resources: () => hub.currentResources.resources(),
+    resourceStates: () => hub.currentResources.currentStates(Date.now()),
     demoMode: () => realFleet() === null,
   };
   const gate = new ApprovalGate();

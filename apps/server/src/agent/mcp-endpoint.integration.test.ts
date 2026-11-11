@@ -46,6 +46,8 @@ beforeEach(async () => {
       executed.push(command);
       return { stdout: 'Filesystem  Use%\n/dev/root  41%\n', stderr: '', exitCode: 0 };
     },
+    resources: () => [],
+    resourceStates: () => [],
     demoMode: () => false,
   };
   const tools = new FleetTools({ fleet, gate, audit });
@@ -96,7 +98,12 @@ describe('MCP endpoint', () => {
   it('lists the fleet tools and the servers', async () => {
     const client = await connectClient();
     const { tools } = await client.listTools();
-    expect(tools.map((tool) => tool.name).sort()).toEqual(['list_servers', 'run_command']);
+    expect(tools.map((tool) => tool.name).sort()).toEqual([
+      'list_resources',
+      'list_servers',
+      'run_command',
+      'wait_for_command',
+    ]);
 
     const result = await client.callTool({ name: 'list_servers', arguments: {} });
     const { servers } = JSON.parse(textOf(result));
