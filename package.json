@@ -42,7 +42,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "gifenc": "^1.0.3",
-    "gitsmith": "^0.2.1",
+    "gitsmith": "^1.0.1",
     "globals": "^17.14.0",
     "pngjs": "^7.0.0",
     "prettier": "^3.9.10",
