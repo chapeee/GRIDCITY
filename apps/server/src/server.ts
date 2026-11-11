@@ -5,6 +5,7 @@ import {
   createDemoHistory,
   DEFAULT_RESOURCE_THRESHOLDS,
   DEFAULT_STATUS_THRESHOLDS,
+  type DoctorReport,
   type Host,
 } from '@app/shared';
 import { existsSync, statSync, unwatchFile, watchFile } from 'node:fs';
@@ -32,6 +33,12 @@ import { loadVaultKey, SecretVault } from './storage/secret-vault';
 /** Vault id of the alert webhook URL (it carries a token, so it is a secret). */
 const WEBHOOK_SECRET_ID = 'alerts.webhook';
 import { registerRunbookRoutes } from './http/runbook-routes';
+import { registerDoctorRoutes } from './http/doctor-routes';
+import { diagnoseResource } from './doctor/doctor';
+import { diagnoseHost } from './doctor/ssh';
+import { registerResourceRoutes, testResource } from './http/resource-routes';
+import { runningInContainer } from './doctor/ladder';
+import { listLocalKeys } from './ssh/local-keys';
 import { loadResourcesFile, type ResourcesConfig } from './config/resources-file';
 import { createConnector, type ConnectorContext } from './connectors';
 import { DemoFleetProvider } from './fleet/demo-fleet-provider';
@@ -42,7 +49,6 @@ import { StateHub } from './fleet/state-hub';
 import { registerApiRoutes } from './http/api-routes';
 import { registerConnectRoutes } from './http/connect-routes';
 import { registerManageRoutes } from './http/manage-routes';
-import { registerResourceRoutes } from './http/resource-routes';
 import { createApp } from './http/create-app';
 import { registerStateSocket } from './http/state-socket';
 import { registerTerminalSocket } from './http/terminal-socket';
@@ -314,6 +320,41 @@ export async function startServer({
   // AI agents: MCP clients (Claude Code...) and ACP agents (Codex, Gemini...)
   // share these tools, so every command they run waits for the user's approval.
   const realFleet = () => (hub.currentProvider instanceof RealFleet ? hub.currentProvider : null);
+  // The Doctor for one server or resource (AI tools; the HTTP routes have their own wiring).
+  const doctorFor = async (id: string): Promise<DoctorReport | null> => {
+    const host = hub.currentProvider.hosts.find((h) => h.id === id);
+    if (host) {
+      return diagnoseHost(host, {
+        test: () =>
+          testConnection(host, {
+            loadKnownHosts: () => readKnownHostsFiles(paths.knownHostsFiles),
+            buildAuth: (target) =>
+              buildAuthOptions(target.auth, {
+                env: process.env,
+                platform: process.platform,
+                homeDir,
+                sshDir: paths.sshDir,
+              }),
+          }),
+      });
+    }
+    const resource = hub.currentResources.resources().find((r) => r.id === id || r.sourceId === id);
+    if (!resource) return null;
+    const loaded = await loadResourcesFile(paths.resourcesFile);
+    const config = loaded.ok
+      ? loaded.config.resources.find((r) => r.id === resource.sourceId)
+      : undefined;
+    if (!config) return null;
+    return diagnoseResource(config, {
+      test: async (candidate) => {
+        const result = await testResource(candidate, {}, connectorContext);
+        return {
+          ok: result.ok,
+          error: result.error ?? result.found.find((f) => !f.ok)?.error ?? null,
+        };
+      },
+    });
+  };
   const fleetAccess: FleetAccess = {
     hosts: () => hub.currentProvider.hosts,
     states: () => hub.currentProvider.currentStates(Date.now()),
@@ -326,6 +367,10 @@ export async function startServer({
     resources: () => hub.currentResources.resources(),
     resourceStates: () => hub.currentResources.currentStates(Date.now()),
     demoMode: () => realFleet() === null,
+    links: () => hub.currentLinks,
+    districts: () => hub.currentDistricts,
+    runbooks: () => hub.currentRunbooks,
+    diagnose: (id) => doctorFor(id),
   };
   const gate = new ApprovalGate();
   const fleetTools = new FleetTools({ fleet: fleetAccess, gate, audit });
@@ -438,6 +483,78 @@ export async function startServer({
         runner: {
           isConnected: (hostId) => fleetAccess.isConnected(hostId),
           exec: (hostId, command, timeoutMs) => fleetAccess.exec(hostId, command, timeoutMs),
+        },
+      });
+      const hostTest = (host: Host) =>
+        testConnection(host, {
+          loadKnownHosts: () => readKnownHostsFiles(paths.knownHostsFiles),
+          buildAuth: (target) =>
+            buildAuthOptions(target.auth, {
+              env: process.env,
+              platform: process.platform,
+              homeDir,
+              sshDir: paths.sshDir,
+            }),
+        });
+      registerDoctorRoutes(instance, {
+        audit,
+        demoMode: env.DATA_MODE === 'demo',
+        resourcesFile: paths.resourcesFile,
+        context: connectorContext,
+        hosts: () => hub.currentProvider.hosts,
+        testHost: hostTest,
+        entryIdOf: (id) =>
+          hub.currentResources.resources().find((r) => r.id === id || r.sourceId === id)
+            ?.sourceId ?? null,
+        reload: reloadResources,
+        troubles: () => {
+          const now = Date.now();
+          const hosts = hub.currentProvider.hosts;
+          const resources = hub.currentResources.resources();
+          return [
+            ...hub.currentProvider.currentStates(now).map((s) => ({
+              id: s.hostId,
+              name: hosts.find((h) => h.id === s.hostId)?.name ?? s.hostId,
+              kind: 'server',
+              status: s.stale ? 'stale' : s.status,
+              hint: s.hint ?? null,
+              reason: s.statusReason,
+            })),
+            ...hub.currentResources.currentStates(now).map((s) => ({
+              id: s.resourceId,
+              name: resources.find((r) => r.id === s.resourceId)?.name ?? s.resourceId,
+              kind: resources.find((r) => r.id === s.resourceId)?.engine ?? 'resource',
+              status: s.stale ? 'stale' : s.status,
+              hint: s.hint ?? null,
+              reason: s.statusReason,
+            })),
+          ].filter((t) => t.status !== 'online');
+        },
+        environment: async () => {
+          const socket = defaultAgentSocket(process.env, process.platform);
+          const agentSocket = socket && existsSync(socket) ? socket : null;
+          const keys = agentSocket
+            ? await listLocalKeys({ sshDir: paths.sshDir, agentSocket })
+            : [];
+          const hosts = hub.currentProvider.hosts;
+          return {
+            platform: process.platform,
+            nodeVersion: process.version,
+            dataDir: paths.dataDir,
+            inContainer: runningInContainer(),
+            agentSocket,
+            agentKeyCount: agentSocket ? keys.filter((k) => k.source === 'agent').length : null,
+            knownHostsFile: paths.knownHostsFiles[0] ?? '',
+            hostCount: env.DATA_MODE === 'real' ? hosts.length : 0,
+            configErrors: [],
+            localhostTargets: [
+              ...hosts.filter((h) => /^(localhost|127\.|::1)/.test(h.address)).map((h) => h.name),
+              ...hub.currentResources
+                .resources()
+                .filter((r) => /(^|\/\/|@)(localhost|127\.0\.0\.1)/.test(r.target))
+                .map((r) => r.name),
+            ],
+          };
         },
       });
       registerResourceRoutes(instance, {

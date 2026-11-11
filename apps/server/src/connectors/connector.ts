@@ -290,3 +290,22 @@ export function awsCredentials(
     : undefined;
   return accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : undefined;
 }
+
+/**
+ * Node TLS options for a database connection: verification on unless the
+ * user chose otherwise, with their pasted CA certificate, and the hostname
+ * as SNI (managed services route on it).
+ */
+export function tlsOptions(config: {
+  host?: string;
+  tls?: boolean;
+  tlsVerify?: boolean;
+  tlsCa?: string;
+}): { rejectUnauthorized: boolean; ca?: string; servername?: string } | undefined {
+  if (!config.tls) return undefined;
+  return {
+    rejectUnauthorized: config.tlsVerify !== false,
+    ...(config.tlsCa ? { ca: config.tlsCa } : {}),
+    ...(config.host && !/^[\d.:]+$/.test(config.host) ? { servername: config.host } : {}),
+  };
+}

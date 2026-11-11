@@ -167,6 +167,65 @@ export function buildMcpServer(options: McpEndpointOptions, client: string): Mcp
     }),
   );
 
+  const json = (value: unknown) => ({
+    content: [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }],
+  });
+
+  server.registerTool(
+    'incident_report',
+    {
+      title: 'What is wrong right now, and why',
+      description:
+        'Everything not healthy (offline, degraded, stale), grouped by likely ROOT CAUSE using the topology: ' +
+        'a failing building whose dependencies are healthy explains the failures downstream of it. ' +
+        'Also lists what is still up but at risk. Call this first when the user asks why something is down.',
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => json(options.tools.incidentReport()),
+  );
+
+  server.registerTool(
+    'diagnose',
+    {
+      title: 'Run the Doctor on a server or resource',
+      description:
+        'Finds why a server, database, bucket, probe or load balancer cannot connect: checks DNS, TCP and TLS, ' +
+        'matches the error against known causes, and PROVES candidate fixes with real read-only connection attempts. ' +
+        'Fixes marked verified "works" connected with that change; "lower-security" ones need the user\'s explicit OK. ' +
+        'Tell the user the diagnosis and that they can apply a proven fix with one click in the app (Doctor).',
+      inputSchema: z.object({ target: z.string().describe('Server or resource id or name.') }),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async (input) => json(await options.tools.diagnose(input.target)),
+  );
+
+  server.registerTool(
+    'get_topology',
+    {
+      title: 'Who talks to whom',
+      description:
+        'Without a target: every district and link (declared dependencies, connections observed on the servers, load balancer targets). ' +
+        'With a target: what it uses, what uses it, and its blast radius (everything that depends on it, with distance).',
+      inputSchema: z.object({ target: z.string().optional() }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (input) => json(options.tools.topology(input.target)),
+  );
+
+  server.registerTool(
+    'list_runbooks',
+    {
+      title: 'Saved diagnostic and maintenance commands',
+      description:
+        'Runbooks the user saved (and built-in read-only diagnostics) with the exact command and which servers they apply to. ' +
+        'Run one with run_command on a matching server; the user approves it as usual.',
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => json({ runbooks: options.tools.runbooks() }),
+  );
+
   server.registerTool(
     'run_command',
     {

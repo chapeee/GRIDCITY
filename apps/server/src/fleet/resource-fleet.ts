@@ -23,6 +23,7 @@ import {
   type ResourcePeer,
 } from '../connectors/connector';
 import type { AuditLog } from '../storage/audit-log';
+import { quickHint } from '../doctor/doctor';
 
 export type ResourceEvent = { type: 'changed' } | { type: 'resourcesChanged' };
 export type ResourceListener = (event: ResourceEvent) => void;
@@ -178,7 +179,11 @@ export class ResourceFleet implements ResourceProvider {
         )?.config;
         return createUnknownResourceState(resource.id, config ? pollIntervalOf(config) : 10_000);
       }
-      return runtimeToState(runtime, now);
+      const state = runtimeToState(runtime, now);
+      if (state.status !== 'offline' || !state.error) return state;
+      // The Doctor's first guess from the error alone; the full Doctor proves fixes on demand.
+      const config = this.connectors.find((entry) => entry.config.id === resource.sourceId)?.config;
+      return config ? { ...state, hint: quickHint(config, state.error) } : state;
     });
   }
 

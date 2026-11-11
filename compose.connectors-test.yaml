@@ -38,6 +38,21 @@ services:
       interval: 3s
       retries: 60
 
+  # Like a managed MySQL: TLS required, certificate signed by its own auto-generated CA.
+  # The Doctor tests reproduce "insecure transport are prohibited" and its chain of fixes here.
+  mysql-tls:
+    image: mysql:8.4
+    command: ['--require_secure_transport=ON']
+    environment:
+      MYSQL_ROOT_PASSWORD: test-root
+    volumes:
+      - ./scripts/connectors-test/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports: ['127.0.0.1:13307:3306']
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-uroot', '-ptest-root']
+      interval: 3s
+      retries: 60
+
   mongo:
     image: mongo:8.0
     environment:

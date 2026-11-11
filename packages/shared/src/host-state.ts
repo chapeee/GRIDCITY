@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DoctorHintSchema } from './diagnosis';
 import { HostServicesSchema } from './services';
 
 /**
@@ -75,6 +76,8 @@ export const HostStateSchema = z.object({
    * the slower discovery poll. Absent or null until the first discovery.
    */
   services: HostServicesSchema.nullish(),
+  /** The Doctor's top guess for an offline host, from its connection error. */
+  hint: DoctorHintSchema.nullish(),
 });
 export type HostState = z.infer<typeof HostStateSchema>;
 

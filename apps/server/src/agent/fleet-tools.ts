@@ -1,3 +1,11 @@
+import {
+  blastRadius,
+  rootCauses,
+  type District,
+  type DoctorReport,
+  type Link,
+  type Runbook,
+} from '@app/shared';
 import type {
   AgentActivity,
   ApprovalInput,
@@ -24,6 +32,12 @@ export interface FleetAccess {
   resourceStates(): ResourceState[];
   /** Demo data has no real servers to run commands on. */
   demoMode(): boolean;
+  /** Topology, districts and runbooks (optional: older setups and tests omit them). */
+  links?(): readonly Link[];
+  districts?(): readonly District[];
+  runbooks?(): readonly Runbook[];
+  /** Runs the Doctor on a server or resource id (real mode). */
+  diagnose?(id: string): Promise<DoctorReport | null>;
 }
 
 export interface FleetToolsOptions {
@@ -209,6 +223,101 @@ export class FleetTools {
     return fleet
       .resources()
       .map((resource) => summarizeResource(resource, states.get(resource.id)));
+  }
+
+  /**
+   * Everything that is not healthy right now, grouped by likely root cause:
+   * a failing building whose own dependencies are healthy explains the
+   * failures downstream of it. One call answers "why is everything red?".
+   */
+  incidentReport() {
+    const servers = this.listServers();
+    const resources = this.listResources();
+    const links = this.options.fleet.links?.() ?? [];
+    const all = [
+      ...servers.map((s) => ({
+        id: s.id,
+        name: s.name,
+        kind: 'server',
+        status: s.status,
+        reason: s.statusReason,
+        district: s.district,
+      })),
+      ...resources.map((r) => ({
+        id: r.id,
+        name: r.name,
+        kind: r.engine,
+        status: r.stale ? 'stale' : r.status,
+        reason: r.statusReason,
+        district: r.district,
+      })),
+    ];
+    const troubled = all.filter((entry) => entry.status !== 'online');
+    const failing = new Set(
+      troubled.filter((t) => t.status === 'offline' || t.status === 'degraded').map((t) => t.id),
+    );
+    const nameOf = (id: string) => all.find((entry) => entry.id === id)?.name ?? id;
+    return {
+      healthy: all.length - troubled.length,
+      total: all.length,
+      rootCauses: rootCauses(links, failing).map((root) => ({
+        id: root.id,
+        name: nameOf(root.id),
+        status: all.find((entry) => entry.id === root.id)?.status,
+        reason: all.find((entry) => entry.id === root.id)?.reason ?? null,
+        explains: root.explains.map(nameOf),
+        atRisk: blastRadius(links, root.id)
+          .filter((entry) => !failing.has(entry.id))
+          .map((entry) => nameOf(entry.id)),
+      })),
+      troubled,
+    };
+  }
+
+  /** Who a building uses, who uses it, and what goes down with it. */
+  topology(target?: string) {
+    const links = this.options.fleet.links?.() ?? [];
+    const districts = this.options.fleet.districts?.() ?? [];
+    if (!target) return { districts, links };
+    const key = target.trim().toLowerCase();
+    const id =
+      [...this.listServers(), ...this.listResources()].find(
+        (entry) => entry.id.toLowerCase() === key || entry.name.toLowerCase() === key,
+      )?.id ?? target;
+    return {
+      id,
+      uses: links
+        .filter((l) => l.from === id)
+        .map((l) => ({ id: l.to, kind: l.kind, label: l.label })),
+      usedBy: links
+        .filter((l) => l.to === id)
+        .map((l) => ({ id: l.from, kind: l.kind, label: l.label })),
+      blastRadius: blastRadius(links, id),
+    };
+  }
+
+  runbooks() {
+    return (this.options.fleet.runbooks?.() ?? []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      command: r.command,
+      readOnly: r.readOnly,
+      match: r.match,
+    }));
+  }
+
+  async diagnose(target: string): Promise<DoctorReport | { error: string }> {
+    const { fleet } = this.options;
+    if (fleet.demoMode())
+      return { error: 'The app is showing demo data; there is nothing real to diagnose.' };
+    const key = target.trim().toLowerCase();
+    const entry = [...this.listServers(), ...this.listResources()].find(
+      (item) => item.id.toLowerCase() === key || item.name.toLowerCase() === key,
+    );
+    if (!entry) return { error: `There is no server or resource "".` };
+    const report = await fleet.diagnose?.(entry.id);
+    return report ?? { error: 'The Doctor is not available here.' };
   }
 
   async runCommand(input: RunCommandInput): Promise<RunCommandResult> {

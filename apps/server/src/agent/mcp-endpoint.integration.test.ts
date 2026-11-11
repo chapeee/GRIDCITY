@@ -99,7 +99,11 @@ describe('MCP endpoint', () => {
     const client = await connectClient();
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
+      'diagnose',
+      'get_topology',
+      'incident_report',
       'list_resources',
+      'list_runbooks',
       'list_servers',
       'run_command',
       'wait_for_command',

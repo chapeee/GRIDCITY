@@ -9,6 +9,7 @@ import {
 import { deriveRates, type DerivedRates, type TimedSample } from '../metrics/compute-sample';
 import type { HostInventory } from '../metrics/parse-inventory';
 import type { PhaseChange } from '../ssh/host-connection';
+import { sshHint } from '../doctor/ssh';
 
 /**
  * Everything the server knows about one host between polls. Updated by
@@ -121,6 +122,7 @@ export function buildHostState(
     uptimeSeconds: metrics?.uptimeSeconds ?? null,
     os: raw?.os ?? null,
     error: offline ? runtime.connectionError : runtime.pollError,
+    hint: offline ? sshHint(runtime.connectionError) : null,
     // What runs there is unknown while offline, like every other metric.
     services: offline ? null : (runtime.inventory?.services ?? null),
   };

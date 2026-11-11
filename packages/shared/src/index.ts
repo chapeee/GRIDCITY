@@ -18,3 +18,4 @@ export * from './link';
 export * from './services';
 export * from './runbook';
 export * from './demo/demo-topology';
+export * from './diagnosis';

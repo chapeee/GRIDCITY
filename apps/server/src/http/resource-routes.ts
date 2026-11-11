@@ -1,4 +1,5 @@
-import type { ResourceMetric } from '@app/shared';
+import type { DoctorReport, ResourceMetric } from '@app/shared';
+import { diagnoseResource } from '../doctor/doctor';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { ResourceConfig } from '../config/resources-file';
@@ -63,6 +64,8 @@ function refsOf(config: ResourceConfig): Record<string, string> {
 
 export interface ResourceTestResult {
   ok: boolean;
+  /** Why it failed and which proven change fixes it (only when not ok). */
+  doctor?: DoctorReport;
   /** One line per resource the entry stands for (a database, or each instance / bucket found). */
   found: {
     name: string;
@@ -98,7 +101,21 @@ export function registerResourceRoutes(
         return reply.code(422).send({ problems: error.problems });
       throw error;
     }
-    return testResource(config, body.data, deps.context);
+    const result = await testResource(config, body.data, deps.context);
+    if (result.ok) return result;
+    // Not connected: ask the Doctor why, and prove which change fixes it.
+    const firstError = result.error ?? result.found.find((entry) => !entry.ok)?.error ?? null;
+    const doctor = await diagnoseResource(config, {
+      error: firstError,
+      test: async (candidate) => {
+        const attempt = await testResource(candidate, body.data, deps.context);
+        return {
+          ok: attempt.ok,
+          error: attempt.error ?? attempt.found.find((entry) => !entry.ok)?.error ?? null,
+        };
+      },
+    });
+    return { ...result, doctor };
   });
 
   /** `{ resource, secrets }`, or a bare draft (older clients, scripts). */

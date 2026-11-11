@@ -46,6 +46,9 @@ export function createMongoConnector(
           }
         : {}),
       ...(config.authSource ? { authSource: config.authSource } : {}),
+      ...(config.tls !== undefined ? { tls: config.tls } : {}),
+      ...(config.tlsVerify === false ? { tlsAllowInvalidCertificates: true } : {}),
+      ...(config.tlsCa ? { ca: config.tlsCa } : {}),
       appName: context.appName,
       serverSelectionTimeoutMS: 5000,
       connectTimeoutMS: 5000,

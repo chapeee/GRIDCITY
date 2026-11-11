@@ -62,6 +62,29 @@ const hostPort = (defaultPort: number) => ({
   port: z.number().int().min(1).max(65535).default(defaultPort),
 });
 
+/**
+ * TLS for database connections. `tlsCa` is the server's CA certificate (PEM,
+ * public: managed services like DigitalOcean or Aiven sign with their own CA),
+ * pasted in the app or written here. `tlsVerify: false` skips the certificate
+ * check; the Doctor offers it only as a lower-security fix.
+ */
+const tlsFields = {
+  tls: z.boolean().default(false),
+  tlsVerify: z.boolean().default(true),
+  tlsCa: z
+    .string()
+    .max(64_000)
+    .refine(
+      (pem) => /-----BEGIN CERTIFICATE-----/.test(pem),
+      'must be a PEM certificate (BEGIN CERTIFICATE)',
+    )
+    .refine(
+      (pem) => !/PRIVATE KEY/.test(pem),
+      'this is a private key: paste the CA certificate instead',
+    )
+    .optional(),
+};
+
 /** Queries running longer than this count as slow. */
 const slowQueryMs = z.number().int().min(10).default(1000);
 
@@ -72,7 +95,7 @@ const PostgresSchema = z.strictObject({
   ...secretFields,
   user: z.string().min(1),
   database: z.string().min(1).default('postgres'),
-  tls: z.boolean().default(false),
+  ...tlsFields,
   slowQueryMs,
 });
 
@@ -83,7 +106,7 @@ const MysqlSchema = z.strictObject({
   ...secretFields,
   user: z.string().min(1),
   database: z.string().min(1).optional(),
-  tls: z.boolean().default(false),
+  ...tlsFields,
   slowQueryMs,
 });
 
@@ -96,6 +119,10 @@ const MongoSchema = z.strictObject({
   user: z.string().min(1).optional(),
   authSource: z.string().min(1).optional(),
   slowQueryMs,
+  /** Force TLS on or off; unset follows the URL (mongodb+srv:// means on). */
+  tls: z.boolean().optional(),
+  tlsVerify: z.boolean().default(true),
+  tlsCa: tlsFields.tlsCa,
 });
 
 const RedisSchema = z.strictObject({
@@ -104,7 +131,7 @@ const RedisSchema = z.strictObject({
   ...hostPort(6379),
   ...secretFields,
   user: z.string().min(1).optional(),
-  tls: z.boolean().default(false),
+  ...tlsFields,
 });
 
 const MssqlSchema = z.strictObject({

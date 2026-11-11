@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DoctorHintSchema } from './diagnosis';
 import { HostStatusSchema } from './host-state';
 
 /**
@@ -158,6 +159,8 @@ export const ResourceStateSchema = z.object({
   gauges: ResourceGaugesSchema,
   metrics: z.array(ResourceMetricSchema),
   error: z.string().nullable(),
+  /** The Doctor's top guess for an offline resource (no network tests; open the Doctor for proof). */
+  hint: DoctorHintSchema.nullish(),
 });
 export type ResourceState = z.infer<typeof ResourceStateSchema>;
 

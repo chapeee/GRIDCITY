@@ -21,7 +21,7 @@ const run = (command, commandArgs, env = {}) => {
 
 let status = run('docker', [...compose, 'up', '-d', '--wait']);
 if (status === 0) {
-  status = run('npx', ['vitest', 'run', 'apps/server/src/connectors'], {
+  status = run('npx', ['vitest', 'run', 'apps/server/src/connectors', 'apps/server/src/doctor'], {
     CONNECTOR_TESTS: '1',
     ...(args.includes('--mssql') ? { CONNECTOR_TESTS_MSSQL: '1' } : {}),
   });

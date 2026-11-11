@@ -138,6 +138,32 @@ export async function updateSecretRefsInFile(
   return changed;
 }
 
+/**
+ * Sets (or, for `undefined`, removes) a few settings of one entry, keeping
+ * comments. Only `allowed` keys are touched: the Doctor applies proven fixes
+ * through this, never anything else.
+ */
+export async function patchResourceInFile(
+  file: string,
+  id: string,
+  patch: Record<string, unknown>,
+  allowed: ReadonlySet<string>,
+): Promise<void> {
+  const refused = Object.keys(patch).filter((key) => !allowed.has(key));
+  if (refused.length > 0) {
+    throw new ResourceValidationError([
+      `these settings cannot be changed this way: ${refused.join(', ')}`,
+    ]);
+  }
+  await writeEdited(file, (document) => {
+    const item = findEntry(document, id);
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined || value === null) item.delete(key);
+      else item.set(key, value);
+    }
+  });
+}
+
 export async function removeResourceFromFile(file: string, id: string): Promise<void> {
   await writeEdited(file, (document) => {
     const list = document.get('resources');

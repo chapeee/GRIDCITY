@@ -62,3 +62,58 @@ export function linksOf(links: readonly Link[], id: string): { uses: Link[]; use
     usedBy: links.filter((link) => link.to === id),
   };
 }
+
+/**
+ * Everything that depends on `id`, directly or through others: the blast
+ * radius if it goes down. Links point from user to used, so this walks them
+ * backwards. Each entry carries its distance (1 = uses it directly).
+ */
+export function blastRadius(links: readonly Link[], id: string): { id: string; depth: number }[] {
+  const usersOf = new Map<string, string[]>();
+  for (const link of links) {
+    const list = usersOf.get(link.to) ?? [];
+    list.push(link.from);
+    usersOf.set(link.to, list);
+  }
+  const seen = new Map<string, number>([[id, 0]]);
+  const queue = [id];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const user of usersOf.get(current) ?? []) {
+      if (seen.has(user)) continue;
+      seen.set(user, seen.get(current)! + 1);
+      queue.push(user);
+    }
+  }
+  seen.delete(id);
+  return [...seen.entries()]
+    .map(([dependent, depth]) => ({ id: dependent, depth }))
+    .sort((a, b) => a.depth - b.depth || a.id.localeCompare(b.id));
+}
+
+/**
+ * When several things fail at once, which failures explain the others?
+ * A failing building whose own dependencies are all healthy is a likely
+ * root cause; a failing building that uses a failing one is probably a
+ * consequence. Returns each root with the failures it explains.
+ */
+export function rootCauses(
+  links: readonly Link[],
+  failing: ReadonlySet<string>,
+): { id: string; explains: string[] }[] {
+  const uses = new Map<string, string[]>();
+  for (const link of links) {
+    const list = uses.get(link.from) ?? [];
+    list.push(link.to);
+    uses.set(link.from, list);
+  }
+  const roots = [...failing].filter((id) => !(uses.get(id) ?? []).some((dep) => failing.has(dep)));
+  return roots
+    .map((root) => ({
+      id: root,
+      explains: blastRadius(links, root)
+        .map((entry) => entry.id)
+        .filter((dependent) => failing.has(dependent)),
+    }))
+    .sort((a, b) => b.explains.length - a.explains.length || a.id.localeCompare(b.id));
+}

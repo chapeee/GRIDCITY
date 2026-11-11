@@ -12,6 +12,7 @@ import {
   redactSecrets,
   singleResource,
   textMetric,
+  tlsOptions,
   type Connector,
   type ConnectorContext,
   type PollOutcome,
@@ -52,7 +53,7 @@ export function createMysqlConnector(
       user: config.user,
       password,
       database: config.database,
-      ssl: config.tls ? { rejectUnauthorized: true } : undefined,
+      ssl: tlsOptions(config),
       connectTimeout: 5000,
       supportBigNumbers: true,
     });
