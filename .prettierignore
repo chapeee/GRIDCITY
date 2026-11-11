@@ -7,3 +7,5 @@ LICENSE
 docs/BRIEF.md
 .claude
 release/
+website/build/
+website/.docusaurus/

@@ -4,8 +4,28 @@
     {
       "name": "web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "-w", "@app/web"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "-w",
+        "@app/web"
+      ],
       "port": 4601
+    },
+    {
+      "name": "docs",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "website",
+        "run",
+        "serve",
+        "--",
+        "--port",
+        "4650",
+        "--no-open"
+      ],
+      "port": 4650
     }
   ]
 }

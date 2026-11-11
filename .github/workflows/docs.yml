@@ -1,0 +1,59 @@
+name: Docs
+
+# Builds website/ (Docusaurus) and deploys it to GitHub Pages:
+#   https://chapeee.github.io/GRIDCITY/
+# Enable it once: Settings → Pages → Source: GitHub Actions.
+# For a custom domain, set DOCS_URL (https://docs.example.com) and DOCS_BASE_URL (/) below
+# and add website/static/CNAME.
+
+on:
+  push:
+    branches: [main]
+    paths: ['website/**', '.github/workflows/docs.yml']
+  pull_request:
+    paths: ['website/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # "Last updated on" dates come from git history
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+        env:
+          DOCS_URL: https://chapeee.github.io
+          DOCS_BASE_URL: /GRIDCITY/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/build
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

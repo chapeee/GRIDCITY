@@ -7,6 +7,8 @@ your AI agent ask "what is the root cause?" in one call. Local-first: nothing le
 
 ![Flying through the city, focusing a degraded host, and jacking in](docs/media/demo.gif)
 
+**[Documentation](https://chapeee.github.io/GRIDCITY/)** · [Quick start](https://chapeee.github.io/GRIDCITY/docs/getting-started/quick-start/) · [The Doctor](https://chapeee.github.io/GRIDCITY/docs/guides/doctor/) · [AI agents](https://chapeee.github.io/GRIDCITY/docs/guides/ai-agents/) · [Changelog](CHANGELOG.md)
+
 ```bash
 npx gridcity demo            # a simulated city, no setup at all
 npx gridcity                 # your own servers (set up in the app)
