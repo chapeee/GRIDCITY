@@ -53,3 +53,25 @@ export function focusPose(
   const target = lookAt.clone().add(right);
   return { target, position: target.clone().add(offset) };
 }
+
+/** Frames one district from above its front edge, close enough to read the names. */
+export function districtPose(district: {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}): CameraPose {
+  const width = district.maxX - district.minX;
+  const depth = district.maxZ - district.minZ;
+  const size = Math.max(width, depth, 20);
+  const distance = size * 1.25 + 22;
+  const target = new Vector3(
+    (district.minX + district.maxX) / 2,
+    0,
+    (district.minZ + district.maxZ) / 2,
+  );
+  return {
+    target,
+    position: target.clone().add(new Vector3(0, distance * 0.62, distance * 0.72)),
+  };
+}

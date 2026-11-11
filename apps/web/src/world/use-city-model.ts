@@ -2,7 +2,9 @@ import {
   DEFAULT_RESOURCE_THRESHOLDS,
   RESOURCE_SHAPES,
   thresholdsForHost,
+  type District,
   type Host,
+  type Link,
   type Resource,
 } from '@app/shared';
 import { useMemo } from 'react';
@@ -23,6 +25,8 @@ import { computeResourceVisual } from './resource-visuals';
 export interface CityModel {
   hosts: Host[];
   resources: Resource[];
+  districts: District[];
+  links: Link[];
   layout: CityLayout;
   visuals: ReadonlyMap<string, HostVisual>;
   /** Host and resource ids in reading order (district, then row, then column), for Tab navigation. */
@@ -39,6 +43,8 @@ export function useCityModel(): CityModel {
   const states = useFleetStore((store) => store.states);
   const resources = useFleetStore((store) => store.resources);
   const resourceStates = useFleetStore((store) => store.resourceStates);
+  const districts = useFleetStore((store) => store.districts);
+  const links = useFleetStore((store) => store.links);
   const thresholds = useFleetStore((store) => store.thresholds);
   const layoutSlots = useFleetStore((store) => store.layoutSlots);
   const now = useNow(1000);
@@ -110,5 +116,5 @@ export function useCityModel(): CityModel {
     [layout],
   );
 
-  return { hosts, resources, layout, visuals, navigationOrder };
+  return { hosts, resources, districts, links, layout, visuals, navigationOrder };
 }

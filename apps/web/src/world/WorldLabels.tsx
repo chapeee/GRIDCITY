@@ -13,6 +13,8 @@ interface WorldLabelsProps {
   focusedHostId: string | null;
   /** Hosts where an AI agent is running a command right now: "AI: <command>". */
   agentBusy?: ReadonlyMap<string, string>;
+  /** Clicking a district name frames that district. */
+  onSelectDistrict?(name: string): void;
 }
 
 /** Label colors per tone. Bundled font: no network request for text. */
@@ -40,6 +42,7 @@ export function WorldLabels({
   visuals,
   focusedHostId,
   agentBusy,
+  onSelectDistrict,
 }: WorldLabelsProps) {
   return (
     <group>
@@ -99,7 +102,12 @@ export function WorldLabels({
             color={neutrals.muted}
             anchorX="center"
             anchorY="bottom"
-            raycast={() => null}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelectDistrict?.(district.name);
+            }}
+            onPointerOver={() => (document.body.style.cursor = 'pointer')}
+            onPointerOut={() => (document.body.style.cursor = '')}
           >
             {district.name.toUpperCase()}
           </Text>

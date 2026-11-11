@@ -5,7 +5,7 @@ import { useEffect, useRef, type ComponentRef } from 'react';
 import { Vector3 } from 'three';
 import { camera as cameraTokens, cityGeometry, durations, easings } from '../design/tokens';
 import { useUiStore } from '../ui/ui-store';
-import { focusPose, overviewPose, type CameraPose } from './camera-poses';
+import { districtPose, focusPose, overviewPose, type CameraPose } from './camera-poses';
 import type { CityLayout } from './city-layout';
 import { transitionEffect } from './transition-effect';
 
@@ -42,6 +42,7 @@ export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
   const terminalHostId = useUiStore((store) => store.terminal?.hostId ?? null);
   const ambientMode = useUiStore((store) => store.ambientMode);
   const introPlaying = useUiStore((store) => store.introPlaying);
+  const focusedDistrict = useUiStore((store) => store.focusedDistrict);
   const introTweenRef = useRef<gsap.core.Tween | null>(null);
 
   // Frame the city once, as soon as there is one to frame.
@@ -93,12 +94,17 @@ export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
     if (!controls || !hasFramedCity.current) return;
 
     const tower = focusedHostId ? layout.towers.find((t) => t.hostId === focusedHostId) : undefined;
+    const district = focusedDistrict
+      ? layout.districts.find((d) => d.name === focusedDistrict)
+      : undefined;
     const pose: CameraPose = tower
       ? focusPose(tower, camera.position, controls.target)
-      : overviewPose(layout);
+      : district
+        ? districtPose(district)
+        : overviewPose(layout);
     const flightMs = ambientMode
       ? durations.ambientFly
-      : tower
+      : tower || district
         ? durations.cameraFlyTo
         : durations.cameraReturn;
     const duration = prefersReducedMotion() ? 0 : flightMs / 1000;
@@ -131,7 +137,7 @@ export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
     };
     // The layout changes only when hosts change; re-run then too.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [camera, focusedHostId, layout]);
+  }, [camera, focusedHostId, focusedDistrict, layout]);
 
   // The jack-in dive and its reverse.
   useEffect(() => {

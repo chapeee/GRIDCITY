@@ -69,7 +69,15 @@ function ConnectResourceForm() {
     setResult(null);
     setError(null);
     if (!district)
-      setDistrict(next.kind === 's3' ? 'Object storage' : next.kind === 'rds' ? '' : 'Databases');
+      setDistrict(
+        next.kind === 's3'
+          ? 'Object storage'
+          : next.kind === 'rds' || next.kind === 'loadbalancer'
+            ? ''
+            : next.kind === 'http' || next.kind === 'tcp'
+              ? 'Edge'
+              : 'Databases',
+      );
   };
 
   const draft = () =>

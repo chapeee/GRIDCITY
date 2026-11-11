@@ -24,6 +24,18 @@ export function buildShapeGeometry(shape: BuildingShape): BufferGeometry {
       box.translate(0, height / 2, 0);
       return box;
     }
+    case 'beacon': {
+      const { width, height } = resourceGeometry.beacon;
+      const spire = new BoxGeometry(width, height, width);
+      spire.translate(0, height / 2, 0);
+      return spire;
+    }
+    case 'gate': {
+      const { width, height, depth } = resourceGeometry.gate;
+      const slab = new BoxGeometry(width, height, depth);
+      slab.translate(0, height / 2, 0);
+      return slab;
+    }
     case 'prism': {
       const { radius, height } = resourceGeometry.prism;
       const prism = new CylinderGeometry(radius, radius, height, 6, 1);
@@ -52,6 +64,10 @@ export function buildingHeight(shape: BuildingShape): number {
       return cityGeometry.towerHeight;
     case 'warehouse':
       return resourceGeometry.warehouse.height;
+    case 'beacon':
+      return resourceGeometry.beacon.height;
+    case 'gate':
+      return resourceGeometry.gate.height;
     case 'prism':
       return resourceGeometry.prism.height;
     case 'drum':
@@ -74,6 +90,14 @@ export function shapeShaderParams(shape: BuildingShape) {
         size: [cityGeometry.towerWidth, cityGeometry.towerHeight, cityGeometry.towerWidth] as const,
         bandCount: encoding.memoryBandCount,
       };
+    case 'beacon': {
+      const { width, height } = resourceGeometry.beacon;
+      return { mode: 0, size: [width, height, width] as const, bandCount: 1 };
+    }
+    case 'gate': {
+      const { width, height, depth, bands } = resourceGeometry.gate;
+      return { mode: 0, size: [width, height, depth] as const, bandCount: bands };
+    }
     case 'warehouse': {
       const { width, height, depth, roofColumns, roofRows } = resourceGeometry.warehouse;
       return {

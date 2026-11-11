@@ -166,6 +166,71 @@ every kind.
 
 Test the connectors against real instances in Docker: `npm run test:connectors`.
 
+## Districts, probes, load balancers and what runs on your servers
+
+A **district** holds anything, the way a VPC or a provider account does: EC2 servers next to
+their RDS instances, the S3 bucket and the load balancer in front. Hosts and resources name their
+district with the plain `district:` label; `districts.yaml` (next to `hosts.yaml`, optional)
+adds the provider, region and a line of description. Click a district name on the floor, or pick
+it in Ctrl+K, for its panel: how many buildings are online, degraded, offline or stale, what lives
+inside, and which links cross its border. **R** opens the runbooks for every server in it.
+
+```yaml
+districts:
+  - name: AWS Mumbai
+    provider: aws # aws | gcp | azure | digitalocean | hetzner | oracle | cloudflare | home | onprem…
+    region: ap-south-1
+    description: Production VPC: EC2 behind the ALB, RDS and the media bucket.
+```
+
+**Probes and load balancers** join the city through `resources.yaml` or Ctrl+K → **Connect a
+database, bucket, probe or balancer…**:
+
+| Kind           | What it watches                                                                                           | Building                      |
+| -------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| `http`         | An endpoint checked from this machine: status, round trip, redirects, TLS certificate expiry and issuer   | beacon (thin spire)           |
+| `tcp`          | A port: open or not, connect time, optional TLS certificate and banner                                    | beacon                        |
+| `loadbalancer` | AWS ALB/NLB: state, healthy targets, requests/s, target response time, 5xx (CloudWatch), target addresses | gate (low wide slab, 6 bands) |
+
+A slow endpoint pulses fast (round trip over 1.5 s turns it amber), a certificate expiring within
+14 days turns the beacon amber, an unexpected status or a refused connection turns it dark. A gate
+lights one band per healthy share of its targets; one unhealthy target makes it amber.
+
+**Service discovery.** Every 30 s (configurable, `discoveryIntervalMs`) each connected server
+answers one more read-only script: listening ports with the process when visible (`ss`), Docker
+containers and their state (`docker ps`, when this user may), failed systemd units, whether a
+reboot is required, pending updates on Ubuntu, and the TCP connections it has open. The host
+panel shows all of it under **Services**; a restarting container, a failed unit or pending
+security updates are called out.
+
+**Topology.** The floor shows who talks to whom as flowing light between buildings, from the user
+to the used. Three honest sources, nothing guessed: `dependsOn: [ids]` on a host or resource
+(declared), connections really seen on a server that match another building's address and port
+(observed; they fade when no longer seen), and the targets a load balancer reports (balances).
+Both panels list links under **Talks to**; the district panel lists the ones crossing its border.
+
+**Runbooks** (R, or Ctrl+K → "Run a runbook"). Commands you type a hundred times, saved once in
+`runbooks.yaml` and run on one server or many: pick servers by district or tag, see exactly what
+will run, confirm, and read one row per server with the exit code and output. A handful of
+read-only diagnostics ship built in (top processes, what fills the disk, listening ports, failed
+services, containers, recent errors, pending updates, who is connected, TLS certificates on the
+server); an entry with the same id replaces one. "A command, this once" runs anything you type.
+Every run lands in the audit log (command, servers, exit codes).
+
+```yaml
+runbooks:
+  - id: restart-nginx
+    name: Restart nginx
+    command: sudo -n systemctl reload nginx || sudo -n systemctl restart nginx
+    match: { tags: [web] } # optional; every server when omitted
+```
+
+**Alerts.** Settings → **Desktop notifications** tells this browser when a server or resource goes
+offline, degraded, or recovers (real data only). For Slack, Discord, ntfy or anything that takes
+JSON, set `ALERT_WEBHOOK_URL` in `.env`: the server posts each transition, with a quiet minute per
+target so a flapping host does not flood the channel. AI agents see the same picture:
+`list_servers` now includes the discovered services, and `list_resources` the probes and balancers.
+
 ## Let an AI work on your servers
 
 Use the AI you already have. Nothing is wired to one vendor's API, and **every command an AI

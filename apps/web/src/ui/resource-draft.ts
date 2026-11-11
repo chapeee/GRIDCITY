@@ -196,6 +196,66 @@ export const RESOURCE_KINDS: KindSpec[] = [
     password: false,
     grant: 'List-only keys: s3:ListAllMyBuckets, s3:ListBucket',
   },
+
+  {
+    kind: 'http',
+    label: 'HTTP endpoint',
+    blurb: 'status, latency, certificate expiry, checked from this machine',
+    fields: [
+      {
+        key: 'url',
+        label: 'URL',
+        type: 'text',
+        placeholder: 'https://shop.example.com/healthz',
+        required: true,
+      },
+      { key: 'expectStatus', label: 'Expect status', type: 'number', placeholder: 'any 2xx/3xx' },
+      { key: 'expectBody', label: 'Body contains', type: 'text', placeholder: 'optional' },
+      { key: 'followRedirects', label: 'Follow redirects', type: 'checkbox', initial: true },
+      { key: 'insecure', label: 'Accept untrusted certificates', type: 'checkbox', initial: false },
+    ],
+    password: false,
+  },
+  {
+    kind: 'tcp',
+    label: 'TCP port',
+    blurb: 'is the port open, how fast, optional TLS certificate and banner',
+    fields: [
+      { ...host, placeholder: 'mail.example.com' },
+      port(443),
+      { key: 'tls', label: 'TLS handshake', type: 'checkbox', initial: false },
+      {
+        key: 'expectBanner',
+        label: 'Banner contains',
+        type: 'text',
+        placeholder: 'optional, e.g. SSH-2.0',
+      },
+    ],
+    password: false,
+  },
+  {
+    kind: 'loadbalancer',
+    label: 'AWS load balancer',
+    blurb: 'ALB / NLB state, target health and CloudWatch traffic',
+    fields: [
+      { key: 'region', label: 'Region', type: 'text', placeholder: 'ap-south-1', required: true },
+      { key: 'profile', label: 'AWS profile', type: 'text', placeholder: 'optional' },
+      {
+        key: 'names',
+        label: 'Only these names',
+        type: 'list',
+        placeholder: 'optional, comma separated',
+      },
+      {
+        key: 'dependsOn',
+        label: 'Servers behind it',
+        type: 'list',
+        placeholder: 'host ids, when target IPs cannot be matched',
+      },
+    ],
+    password: false,
+    grant: 'IAM: elasticloadbalancing:Describe*, cloudwatch:GetMetricData',
+  },
 ];
 
 /** S3-compatible providers with their usual endpoint. */

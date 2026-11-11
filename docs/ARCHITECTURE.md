@@ -145,6 +145,51 @@ only place that knows every kind. Adding a kind = one connector file, one schema
   rules (a lagging replica, an offline cache, a stale RDS instance, a growing bucket…), served by
   `DemoResourceProvider` or the in-browser demo source.
 
+### Probes and load balancers (`connectors/http.ts`, `tcp.ts`, `loadbalancer.ts`)
+
+| Kind         | Library                                                          | Read per poll                                                                                                                                                                                                  | Default interval |
+| ------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| http         | `node:http` / `node:https`                                       | One request (GET or HEAD, redirects followed by hand, each hop under the timeout): status, time to first byte, total, body size; plus a TLS handshake for the certificate                                      | 30 s             |
+| tcp          | `node:net` / `node:tls`                                          | Connect time, the first banner line if the service speaks first, optional TLS certificate                                                                                                                      | 30 s             |
+| loadbalancer | `@aws-sdk/client-elastic-load-balancing-v2`, `client-cloudwatch` | `DescribeLoadBalancers`, `DescribeTargetGroups` + `DescribeTargetHealth`, one `GetMetricData` (RequestCount, TargetResponseTime, ELB/Target 5xx, Target 4xx, ActiveConnectionCount; NLB: flows, resets, bytes) | 60 s             |
+
+`tls-info.ts` reads a certificate with `rejectUnauthorized: false` and reports whether the chain is
+trusted and why not, so an expiring self-signed certificate is still visible. Balancer targets are
+exposed as `peers()` (address, port, health state) for the topology.
+
+### Service discovery (`metrics/inventory-script.ts`, `parse-inventory.ts`)
+
+A second POSIX script runs on each connected host every `thresholds.discoveryIntervalMs`
+(default 30 s): `ss -lntup` (fallback `netstat`), `ss -tn state established`, `ip -o addr`,
+`docker ps -a --format …`, `systemctl --failed`, `/var/run/reboot-required`,
+`/var/lib/update-notifier/updates-available`. A tool that is missing prints `@@unavailable` and
+the parser reports `null` ("could not tell"), never an empty list. The parsed `HostInventory`
+(services, own addresses, established connections) lives in `HostRuntime.inventory`; `services`
+travels in `HostState` (null while offline), the rest feeds the topology. Fixtures:
+`metrics/fixtures/inventory-*.txt`.
+
+### Districts, topology and runbooks (`fleet/topology.ts`, `config/districts-file.ts`, `config/runbooks-file.ts`)
+
+- **Districts:** `districts.yaml` declares provider, region and description; `resolveDistricts`
+  (shared) adds an inferred district for every label used by a host or resource. The hub sends
+  the list in every snapshot (`districts`).
+- **Links:** `computeLinks` (pure, tested) joins `dependsOn` (declared; `balances` when declared
+  by a load balancer, `probes` by a probe), established connections matched to another building's
+  address + port (observed; a host's own listening ports mark inbound connections, which the other
+  side reports), and balancer peers (by IP, or by instance id against a host id or tag). Hostnames
+  are resolved with `dns.lookup` every 10 minutes for matching. The hub keeps observed links for
+  4 discovery rounds so a missed `ss` does not blink them, and broadcasts a `links` message only
+  when the set changes (not when `lastSeenAt` ticks).
+- **Runbooks:** `runbooks.yaml` merged with `BUILTIN_RUNBOOKS` (shared; same id replaces a
+  built-in). `POST /api/runbooks/run` validates that a runbook applies to every chosen host
+  (`match`), then `runOnHosts` runs it over the existing connections, 4 hosts at a time, 64 kB of
+  output kept per host. Audit: `runbook_run` / `fleet_command_run` with the command, hosts and
+  exit codes (never output).
+- **Alerts:** `alerts/webhook.ts` posts `{ text, content, project, target, status, reason… }` to
+  `ALERT_WEBHOOK_URL` on every transition into or out of trouble, one message per target per
+  minute (offline always), fire and forget; the hub's `onTransition` is the only caller.
+  Audit: `alert_sent`.
+
 ### State
 
 `HostRuntime` (pure functions) turns connection phases and polls into a `HostState` using the
@@ -264,6 +309,8 @@ shell instead of faking one.
 | `GET/PUT /api/settings`             | Retention and file-wide thresholds (PUT writes hosts.yaml; 409 with demo data)                           |
 | `PATCH /api/hosts/:id`              | Edit name, district, tags, own thresholds (hosts.yaml in place; 422 with the problems)                   |
 | `DELETE /api/hosts/:id`             | Remove a host from hosts.yaml (its history ages out)                                                     |
+| `GET /api/runbooks`                 | Built-in and your own runbooks                                                                           |
+| `POST /api/runbooks/run`            | Run a runbook (or a typed command) on chosen servers; one result per server (409 with demo data)         |
 | `GET /api/agent/mcp-setup`          | Ready-to-paste Claude Code command and JSON config (contains the token)                                  |
 
 "Connect a server" (`apps/server/src/ssh/host-key-setup.ts`, `local-keys.ts`, `generate-key.ts`)
@@ -302,6 +349,7 @@ See [THREAT_MODEL.md](THREAT_MODEL.md).
 | `LOG_LEVEL`                                                     | `info`      | Pino log level.                                              |
 | `HOST`                                                          | `127.0.0.1` | Bind address. Non-loopback is refused.                       |
 | `BIND_INSIDE_CONTAINER`                                         | `false`     | Set by our Docker image only; allows `0.0.0.0` in-container. |
+| `ALERT_WEBHOOK_URL`                                             | (none)      | Webhook that receives status transitions (real mode).        |
 | `CONFIG_DIR`, `DATA_DIR`, `KNOWN_HOSTS_FILE`, `SSH_CONFIG_FILE` | OS defaults | See "Config and files".                                      |
 
 Real environment variables win over `.env`, which wins over `.env.example`.

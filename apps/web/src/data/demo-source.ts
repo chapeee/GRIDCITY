@@ -1,6 +1,9 @@
 import {
   assignSlots,
+  BUILTIN_RUNBOOKS,
   createDemoFleet,
+  createDemoLinks,
+  DEMO_DISTRICTS,
   createDemoResources,
   createUnknownHostState,
   DEFAULT_STATUS_THRESHOLDS,
@@ -43,6 +46,9 @@ export function createDemoDataSource(options: DemoOptions, projectName: string):
         layoutSlots: assignSlots([...fleet.hosts, ...resources.resources], {}),
         resources: resources.resources,
         resourceStates: resources.tick(Date.now()),
+        districts: DEMO_DISTRICTS,
+        links: createDemoLinks(Date.now()),
+        runbooks: BUILTIN_RUNBOOKS,
       });
 
       const poll = () => {

@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { fetchSettings, saveSettings, type SettingsView } from '../data/history-api';
 import { useUiStore } from './ui-store';
+import { requestNotificationPermission } from './use-alerts';
 
 type ThresholdKey = keyof StatusThresholds;
 
@@ -77,6 +78,18 @@ export function SettingsPanel() {
   const [values, setValues] = useState<Partial<Record<ThresholdKey, number>>>({});
   const [status, setStatus] = useState<{ kind: 'error' | 'saved'; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const notificationsEnabled = useUiStore((store) => store.notificationsEnabled);
+  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(() =>
+    typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
+  );
+  const toggleNotifications = async (enabled: boolean) => {
+    if (enabled) {
+      const granted = await requestNotificationPermission();
+      setPermission(granted);
+      if (granted !== 'granted') return;
+    }
+    useUiStore.getState().setNotificationsEnabled(enabled);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -162,6 +175,30 @@ export function SettingsPanel() {
                   metrics and incidents; older data is deleted (1–90)
                 </span>
               </label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Alerts</legend>
+              <label className="settings-field">
+                <span>Desktop notifications</span>
+                <input
+                  type="checkbox"
+                  checked={notificationsEnabled}
+                  disabled={permission === 'unsupported' || permission === 'denied'}
+                  onChange={(event) => void toggleNotifications(event.target.checked)}
+                />
+                <span className="settings-unit" />
+                <span className="settings-help">
+                  {permission === 'unsupported'
+                    ? 'this browser has no notifications'
+                    : permission === 'denied'
+                      ? 'blocked by the browser; allow notifications for this site first'
+                      : 'when a server or resource goes offline, degraded, or recovers (this browser only)'}
+                </span>
+              </label>
+              <p className="settings-help">
+                Webhooks (Slack, Discord, ntfy): set ALERT_WEBHOOK_URL in .env and restart.
+              </p>
             </fieldset>
 
             <fieldset disabled={!view?.editable || saving}>

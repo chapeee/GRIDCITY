@@ -34,6 +34,10 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
         if (event.key === 'Escape') ui.setEditHostId(null);
         return;
       }
+      if (ui.runbookPanel) {
+        if (event.key === 'Escape' && !isTypingTarget(event.target)) ui.closeRunbooks();
+        return;
+      }
       if (ui.connectResourceOpen || ui.editResourceId) {
         if (event.key === 'Escape') {
           ui.setConnectResourceOpen(false);
@@ -60,6 +64,7 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
           else if (ui.agentPanelOpen) ui.setAgentPanelOpen(false);
           else if (ui.ambientMode) ui.setAmbientMode(false);
           else if (ui.focusedHostId) ui.focusHost(null);
+          else if (ui.focusedDistrict) ui.focusDistrict(null);
           break;
         case 'a':
         case 'A':
@@ -99,6 +104,22 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
               .getState()
               .resources.find((r) => r.id === ui.focusedHostId);
             if (resource) ui.setEditResourceId(resource.sourceId);
+          }
+          break;
+        }
+        case 'r':
+        case 'R': {
+          // Runbooks on the focused server, the focused district's servers, or any.
+          if (event.ctrlKey || event.metaKey || event.altKey) return;
+          const { hosts } = useFleetStore.getState();
+          if (ui.focusedHostId && hosts.some((h) => h.id === ui.focusedHostId)) {
+            ui.openRunbooks([ui.focusedHostId]);
+          } else if (ui.focusedDistrict) {
+            ui.openRunbooks(
+              hosts.filter((h) => h.district === ui.focusedDistrict).map((h) => h.id),
+            );
+          } else {
+            ui.openRunbooks();
           }
           break;
         }

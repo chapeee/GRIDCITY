@@ -9,6 +9,9 @@ import { AuditLogPanel } from './ui/AuditLogPanel';
 import { CommandPalette } from './ui/CommandPalette';
 import { canOpenTerminal, FocusHud } from './ui/FocusHud';
 import { ResourceHud } from './ui/ResourceHud';
+import { DistrictHud } from './ui/DistrictHud';
+import { RunbookPanel } from './ui/RunbookPanel';
+import { useAlerts } from './ui/use-alerts';
 import { EditHostDialog } from './ui/EditHostDialog';
 import { ConnectResourceDialog } from './ui/ConnectResourceDialog';
 import { EditResourceDialog } from './ui/EditResourceDialog';
@@ -59,6 +62,7 @@ export function App() {
 
   useGlobalShortcuts({ navigationOrder: model.navigationOrder, onJackIn: jackIn });
   useAmbientDirector(model.navigationOrder);
+  useAlerts();
 
   // AI approvals must reach the user even with the agent panel closed.
   const source = useServerLink((store) => store.source);
@@ -72,6 +76,7 @@ export function App() {
       <EmptyFleet />
       <FocusHud onJackIn={jackIn} />
       <ResourceHud />
+      <DistrictHud />
       <ShortcutHints />
       <PerfOverlay />
       <LiteModeSuggestion />
@@ -80,6 +85,7 @@ export function App() {
       <AuditLogPanel />
       <HistoryPanel />
       <SettingsPanel />
+      <RunbookPanel />
       <EditHostDialog />
       <ConnectResourceDialog />
       <EditResourceDialog />

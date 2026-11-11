@@ -3,6 +3,7 @@ import { readStoredJson, writeStoredJson } from './browser-storage';
 
 const LITE_MODE_KEY = 'preferences:lite-mode';
 const INTRO_SEEN_KEY = 'preferences:intro-seen';
+const NOTIFICATIONS_KEY = 'preferences:desktop-notifications';
 
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -49,6 +50,12 @@ interface UiStore {
   connectResourceOpen: boolean;
   /** The resources.yaml entry being edited (a resource's sourceId), or null. */
   editResourceId: string | null;
+  /** A district framed by the camera, with its own HUD (null: none). */
+  focusedDistrict: string | null;
+  /** The runbook panel: closed (null) or open, preselecting these hosts. */
+  runbookPanel: { hostIds: string[]; runbookId: string | null } | null;
+  /** Desktop notifications when something goes offline, degraded or recovers. */
+  notificationsEnabled: boolean;
 
   focusHost(hostId: string | null): void;
   setPaletteOpen(open: boolean): void;
@@ -79,6 +86,10 @@ interface UiStore {
   setEditHostId(hostId: string | null): void;
   setConnectResourceOpen(open: boolean): void;
   setEditResourceId(sourceId: string | null): void;
+  focusDistrict(name: string | null): void;
+  openRunbooks(hostIds?: string[], runbookId?: string | null): void;
+  closeRunbooks(): void;
+  setNotificationsEnabled(enabled: boolean): void;
 }
 
 /**
@@ -115,9 +126,12 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   editHostId: null,
   connectResourceOpen: false,
   editResourceId: null,
+  focusedDistrict: null,
+  runbookPanel: null,
+  notificationsEnabled: readStoredJson(NOTIFICATIONS_KEY, false),
 
   // Any manual navigation takes the camera back from ambient mode.
-  focusHost: (hostId) => set({ focusedHostId: hostId, ambientMode: false }),
+  focusHost: (hostId) => set({ focusedHostId: hostId, ambientMode: false, focusedDistrict: null }),
   setPaletteOpen: (open) => set({ paletteOpen: open }),
   setLiteMode: (enabled) => {
     writeStoredJson(LITE_MODE_KEY, enabled);
@@ -165,4 +179,13 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   setEditHostId: (hostId) => set({ editHostId: hostId, paletteOpen: false }),
   setConnectResourceOpen: (open) => set({ connectResourceOpen: open, paletteOpen: false }),
   setEditResourceId: (sourceId) => set({ editResourceId: sourceId, paletteOpen: false }),
+  focusDistrict: (name) =>
+    set({ focusedDistrict: name, focusedHostId: null, ambientMode: false, paletteOpen: false }),
+  openRunbooks: (hostIds = [], runbookId = null) =>
+    set({ runbookPanel: { hostIds, runbookId }, paletteOpen: false }),
+  closeRunbooks: () => set({ runbookPanel: null }),
+  setNotificationsEnabled: (enabled) => {
+    writeStoredJson(NOTIFICATIONS_KEY, enabled);
+    set({ notificationsEnabled: enabled });
+  },
 }));

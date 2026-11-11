@@ -13,6 +13,7 @@ import { PostEffects } from './PostEffects';
 import type { BuildingShape } from './city-layout';
 import { ResourceCages } from './ResourceCages';
 import { TowerField } from './TowerField';
+import { TopologyLinks } from './TopologyLinks';
 
 /** One instanced mesh per shape; a shape with no buildings draws nothing. */
 const BUILDING_SHAPES: readonly BuildingShape[] = [
@@ -21,6 +22,8 @@ const BUILDING_SHAPES: readonly BuildingShape[] = [
   'prism',
   'caged-drum',
   'warehouse',
+  'beacon',
+  'gate',
 ];
 import type { CityModel } from './use-city-model';
 import { useWorldTuning } from './use-world-tuning';
@@ -40,11 +43,12 @@ export function WorldScene({ model }: WorldSceneProps) {
   const liteMode = useUiStore((store) => store.liteMode);
   const focusedHostId = useUiStore((store) => store.focusedHostId);
   const focusHost = useUiStore((store) => store.focusHost);
+  const focusDistrict = useUiStore((store) => store.focusDistrict);
   // The terminal covers the whole screen: stop rendering the city meanwhile.
   const terminalOpen = useUiStore((store) => store.terminal?.phase === 'open');
   const tuning = useWorldTuning();
   const [freezeTracker] = useState(() => new FreezeTracker());
-  const { layout, visuals } = model;
+  const { layout, visuals, links } = model;
   const activity = useAgentStore((store) => store.state?.activity);
   const agentBusy = useMemo(
     () => new Map((activity ?? []).map((run) => [run.hostId, run.command] as const)),
@@ -77,6 +81,12 @@ export function WorldScene({ model }: WorldSceneProps) {
         />
       ))}
       <ResourceCages towers={layout.towers} />
+      <TopologyLinks
+        links={links}
+        towers={layout.towers}
+        focusedId={focusedHostId}
+        animate={!liteMode}
+      />
       <DiskRings towers={layout.towers} visuals={visuals} glowScale={tuning.glowScale} />
       <FocusMarker tower={layout.towers.find((tower) => tower.hostId === focusedHostId)} />
       {!liteMode && (
@@ -93,6 +103,7 @@ export function WorldScene({ model }: WorldSceneProps) {
         districts={layout.districts}
         visuals={visuals}
         focusedHostId={focusedHostId}
+        onSelectDistrict={focusDistrict}
       />
 
       <CameraRig layout={layout} focusedHostId={focusedHostId} />

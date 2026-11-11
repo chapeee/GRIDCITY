@@ -93,6 +93,8 @@ export const encoding = {
   bucketBytes: { floor: 1024, ceiling: 10 * 1024 ** 4 },
   /** Bucket growth (bytes/hour, positive only) on a log scale to particle rate. */
   growthBytesPerHour: { floor: 1024 ** 2, ceiling: 100 * 1024 ** 3 },
+  /** Probe latency (ms) on a log scale to the pulse range: a slow endpoint pulses fast. */
+  latencyMs: { floor: 20, ceiling: 3000 },
 } as const;
 
 /**
@@ -112,6 +114,10 @@ export const resourceGeometry = {
     cageHeight: 6.4,
   },
   warehouse: { width: 4.4, depth: 3.2, height: 1.6, roofColumns: 5, roofRows: 2 },
+  /** Probes (HTTP, TCP): a thin spire, taller than a tower, watching from the edge. */
+  beacon: { width: 0.8, height: 10.5 },
+  /** Load balancers: a wide low gate the traffic passes through. */
+  gate: { width: 5.4, height: 3.2, depth: 1.2, bands: 6 },
 } as const;
 
 /** Durations in milliseconds. */

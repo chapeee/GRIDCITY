@@ -5,7 +5,7 @@ import {
   type ResourceShape,
   type ResourceState,
 } from '@app/shared';
-import { encoding, glow, statusGlowColor } from '../design/tokens';
+import { encoding, glow, resourceGeometry, statusGlowColor } from '../design/tokens';
 import { formatLastSeen } from '../ui/format';
 import type { HostVisual } from './host-visuals';
 
@@ -96,6 +96,7 @@ export function computeResourceVisual(
 function pulseFor(shape: ResourceShape, state: ResourceState): number {
   const { atIdle, atFull } = encoding.pulseHz;
   if (shape === 'warehouse') return 0;
+  if (shape === 'beacon') return latencyToPulseHz(state.gauges.latencyMs);
   if (shape === 'caged-drum') {
     const cpu = state.gauges.cpuPercent;
     return cpu === null ? 0 : atIdle + (atFull - atIdle) * Math.min(1, Math.max(0, cpu / 100));
@@ -113,8 +114,29 @@ export function opsToPulseHz(opsPerSec: number | null): number {
   return atIdle + (atFull - atIdle) * ratio;
 }
 
+/** Latency -> pulse frequency on a log scale: a slow endpoint pulses fast. Unknown -> steady. */
+export function latencyToPulseHz(latencyMs: number | null): number {
+  if (latencyMs === null) return 0;
+  const { atIdle, atFull } = encoding.pulseHz;
+  const { floor, ceiling } = encoding.latencyMs;
+  if (latencyMs <= floor) return atIdle;
+  const ratio = Math.min(1, Math.log10(latencyMs / floor) / Math.log10(ceiling / floor));
+  return atIdle + (atFull - atIdle) * ratio;
+}
+
+/** Healthy targets -> lit gate bands (all lit = every target healthy). Unknown -> none. */
+export function targetsToBands(
+  targets: { healthy: number; total: number } | null,
+  bands: number,
+): number | null {
+  if (!targets || targets.total <= 0) return null;
+  return Math.round((targets.healthy / targets.total) * bands);
+}
+
 function bandsFor(shape: ResourceShape, state: ResourceState): number | null {
   if (shape === 'warehouse') return bytesToRoofCells(state.gauges.storage?.usedBytes ?? null);
+  if (shape === 'beacon') return null;
+  if (shape === 'gate') return targetsToBands(state.gauges.targets, resourceGeometry.gate.bands);
   const connections = state.gauges.connections;
   if (!connections?.max || shape === 'caged-drum') return null;
   const count = shape === 'prism' ? encoding.connectionBands.prism : encoding.connectionBands.drum;

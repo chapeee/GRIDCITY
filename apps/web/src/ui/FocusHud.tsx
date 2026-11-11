@@ -1,4 +1,12 @@
-import { isStale, thresholdsForHost, usagePercent, type HostState } from '@app/shared';
+import {
+  isStale,
+  linksOf,
+  portName,
+  serviceWarnings,
+  thresholdsForHost,
+  usagePercent,
+  type HostState,
+} from '@app/shared';
 import { AnimatePresence, motion } from 'motion/react';
 import { useMemo } from 'react';
 import { useFleetStore } from '../data/fleet-store';
@@ -35,6 +43,13 @@ export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
   );
   const fileThresholds = useFleetStore((store) => store.thresholds);
   const dataMode = useFleetStore((store) => store.dataMode);
+  const links = useFleetStore((store) => store.links);
+  const runbookCount = useFleetStore((store) => store.runbooks.length);
+  const names = useFleetStore((store) => store.hosts);
+  const resourceList = useFleetStore((store) => store.resources);
+  const nameOf = (id: string) =>
+    names.find((h) => h.id === id)?.name ?? resourceList.find((r) => r.id === id)?.name ?? id;
+  const { uses, usedBy } = linksOf(links, focusedHostId ?? '');
   // This host's own warning thresholds (Edit) on top of the file-wide ones.
   const thresholds = thresholdsForHost(fileThresholds, host);
   const refusal = useFleetStore((store) =>
@@ -75,7 +90,16 @@ export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
               <h2>
                 <StatusDot status={status} stale={stale} /> {host.name}
               </h2>
-              <p className="hud-subtitle">{host.district}</p>
+              <p className="hud-subtitle">
+                <button
+                  type="button"
+                  className="hud-link"
+                  title="Frame this district"
+                  onClick={() => useUiStore.getState().focusDistrict(host.district)}
+                >
+                  {host.district}
+                </button>
+              </p>
               <p className="hud-subtitle">
                 {host.user}@{host.address}:{host.port}
               </p>
@@ -183,6 +207,35 @@ export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
             {state?.disks.length === 0 && <p className="hud-muted">Disks: {UNKNOWN}</p>}
           </section>
 
+          <ServicesSection state={state} />
+          {(uses.length > 0 || usedBy.length > 0) && (
+            <section className="hud-list" aria-label="Topology">
+              <h3>Talks to</h3>
+              <ul>
+                {uses.map((link) => (
+                  <li key={link.id}>
+                    <LinkButton id={link.to} label={nameOf(link.to)} />
+                    <small>
+                      {' '}
+                      {link.kind}
+                      {link.label ? ` ${link.label}` : ''}
+                    </small>
+                  </li>
+                ))}
+                {usedBy.map((link) => (
+                  <li key={link.id}>
+                    <small>used by </small>
+                    <LinkButton id={link.from} label={nameOf(link.from)} />
+                    <small>
+                      {' '}
+                      {link.kind}
+                      {link.label ? ` ${link.label}` : ''}
+                    </small>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <p className="hud-os">{state?.os ?? `OS ${UNKNOWN}`}</p>
           {host.thresholds && (
             <p className="hud-muted">Own warnings: {describeOverrides(host.thresholds)}</p>
@@ -201,6 +254,15 @@ export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
             <button type="button" onClick={() => useUiStore.getState().openHistory(host.id)}>
               History <kbd>H</kbd>
             </button>
+            {runbookCount > 0 && (
+              <button
+                type="button"
+                title="Run a saved command here"
+                onClick={() => useUiStore.getState().openRunbooks([host.id])}
+              >
+                Run… <kbd>R</kbd>
+              </button>
+            )}
             {dataMode === 'real' && (
               <button type="button" onClick={() => useUiStore.getState().setEditHostId(host.id)}>
                 Edit <kbd>E</kbd>
@@ -278,4 +340,79 @@ function networkText(state: HostState | undefined): string {
   const rx = state.network.reduce((sum, rate) => sum + rate.rxBytesPerSec, 0);
   const tx = state.network.reduce((sum, rate) => sum + rate.txBytesPerSec, 0);
   return `↓ ${formatRate(rx)}  ↑ ${formatRate(tx)}`;
+}
+
+function LinkButton({ id, label }: { id: string; label: string }) {
+  return (
+    <button type="button" className="hud-link" onClick={() => useUiStore.getState().focusHost(id)}>
+      {label}
+    </button>
+  );
+}
+
+/** What runs on the host, from the discovery poll: ports, containers, failed units, updates. */
+function ServicesSection({ state }: { state: HostState | undefined }) {
+  const services = state?.services ?? null;
+  if (!services) {
+    return (
+      <p className="hud-muted">
+        Services: {state?.status === 'offline' ? UNKNOWN : 'waiting for discovery'}
+      </p>
+    );
+  }
+  const warnings = serviceWarnings(services);
+  const unhealthy = (container: { state: string; status: string }) =>
+    container.state !== 'running' || /unhealthy/i.test(container.status);
+  return (
+    <section className="hud-list hud-services" aria-label="Services">
+      <h3>Services</h3>
+      {warnings.length > 0 && (
+        <ul className="hud-service-warnings">
+          {warnings.map((warning) => (
+            <li key={warning} className="is-warning">
+              {warning}
+            </li>
+          ))}
+        </ul>
+      )}
+      {services.listening.length > 0 ? (
+        <p className="hud-ports">
+          {services.listening.map((port) => (
+            <span
+              key={`${port.protocol}:${port.port}`}
+              className="hud-port"
+              title={`${port.address}:${port.port}/${port.protocol}`}
+            >
+              {port.port}
+              {portName(port.port, port.process) && (
+                <small> {portName(port.port, port.process)}</small>
+              )}
+            </span>
+          ))}
+        </p>
+      ) : (
+        <p className="hud-muted">No listening ports found.</p>
+      )}
+      {services.containers && services.containers.length > 0 && (
+        <ul className="hud-containers">
+          {services.containers.map((container) => (
+            <li key={container.name} className={unhealthy(container) ? 'is-warning' : undefined}>
+              <span className="hud-container-name">{container.name}</span>
+              <small>{container.status}</small>
+            </li>
+          ))}
+        </ul>
+      )}
+      {services.containers && services.containers.length === 0 && (
+        <p className="hud-muted">Docker: no containers.</p>
+      )}
+      {services.pendingUpdates !== null && warnings.every((w) => !w.includes('updates')) && (
+        <p className="hud-muted">
+          {services.pendingUpdates === 0
+            ? 'Packages up to date.'
+            : `${services.pendingUpdates} updates pending.`}
+        </p>
+      )}
+    </section>
+  );
 }

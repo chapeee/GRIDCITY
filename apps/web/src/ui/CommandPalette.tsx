@@ -1,4 +1,4 @@
-import { DEFAULT_RESOURCE_THRESHOLDS, isStale } from '@app/shared';
+import { DEFAULT_RESOURCE_THRESHOLDS, isStale, runbookMatches } from '@app/shared';
 import { Command } from 'cmdk';
 import { useFleetStore } from '../data/fleet-store';
 import { StatusDot } from './StatusDot';
@@ -38,6 +38,9 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
   const resourceStates = useFleetStore((store) => store.resourceStates);
   const focusedResource = resources.find((resource) => resource.id === focusedHostId);
   const thresholds = useFleetStore((store) => store.thresholds);
+  const districts = useFleetStore((store) => store.districts);
+  const runbooks = useFleetStore((store) => store.runbooks);
+  const focusedHost = hosts.find((h) => h.id === focusedHostId);
   const now = useNow(1000);
 
   const run = (action: () => void) => {
@@ -108,6 +111,71 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
           </Command.Group>
         )}
 
+        {districts.length > 0 && (
+          <Command.Group heading="Districts">
+            {districts.map((district) => {
+              const members = [
+                ...hosts.filter((h) => h.district === district.name).map((h) => states[h.id]),
+                ...resources
+                  .filter((r) => r.district === district.name)
+                  .map((r) => resourceStates[r.id]),
+              ];
+              const trouble = members.filter(
+                (s) => s?.status === 'offline' || s?.status === 'degraded',
+              ).length;
+              return (
+                <Command.Item
+                  key={district.id}
+                  value={`district ${district.name} ${district.provider ?? ''} ${district.region ?? ''}`}
+                  onSelect={() => run(() => useUiStore.getState().focusDistrict(district.name))}
+                >
+                  <span className="palette-item-title">{district.name}</span>
+                  <span className="palette-item-meta">
+                    {members.length} building{members.length === 1 ? '' : 's'}
+                    {trouble > 0 ? ` · ${trouble} in trouble` : ''}
+                  </span>
+                </Command.Item>
+              );
+            })}
+          </Command.Group>
+        )}
+
+        {runbooks.length > 0 && (
+          <Command.Group heading={focusedHost ? `Run on ${focusedHost.name}` : 'Runbooks'}>
+            {runbooks
+              .filter((runbook) => !focusedHost || runbookMatches(runbook, focusedHost))
+              .slice(0, 12)
+              .map((runbook) => (
+                <Command.Item
+                  key={runbook.id}
+                  value={`run runbook ${runbook.name} ${runbook.description ?? ''}`}
+                  onSelect={() =>
+                    run(() =>
+                      useUiStore
+                        .getState()
+                        .openRunbooks(focusedHost ? [focusedHost.id] : [], runbook.id),
+                    )
+                  }
+                >
+                  <span className="palette-item-title">{runbook.name}</span>
+                  <span className="palette-item-meta">
+                    {runbook.readOnly ? 'read-only' : 'changes things'}
+                  </span>
+                </Command.Item>
+              ))}
+            <Command.Item
+              value="run a command on many servers fleet exec shell"
+              onSelect={() =>
+                run(() => useUiStore.getState().openRunbooks(focusedHost ? [focusedHost.id] : []))
+              }
+            >
+              <span className="palette-item-title">Run a command on servers…</span>
+              <span className="palette-item-meta">pick servers by district or tag</span>
+              <kbd>R</kbd>
+            </Command.Item>
+          </Command.Group>
+        )}
+
         <Command.Group heading="Actions">
           {focusedHostId && (
             <Command.Item
@@ -159,12 +227,14 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
           )}
           {useServerLink.getState().source === 'server' && dataMode === 'real' && (
             <Command.Item
-              value="connect a database or bucket add postgres mysql mongodb redis sql server sqlite rds s3 spaces minio r2"
+              value="connect a database or bucket add postgres mysql mongodb redis sql server sqlite rds s3 spaces minio r2 http probe tcp port load balancer alb"
               onSelect={() => run(() => useUiStore.getState().setConnectResourceOpen(true))}
             >
-              <span className="palette-item-title">Connect a database or bucket…</span>
+              <span className="palette-item-title">
+                Connect a database, bucket, probe or balancer…
+              </span>
               <span className="palette-item-meta">
-                Postgres, MySQL, Mongo, Redis, SQL Server, SQLite, RDS, S3
+                Postgres, MySQL, Mongo, Redis, SQL Server, SQLite, RDS, S3, HTTP, TCP, ALB
               </span>
             </Command.Item>
           )}

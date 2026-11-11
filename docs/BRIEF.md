@@ -44,6 +44,16 @@ because the name lives only in `PROJECT_NAME`.
     thresholds, or removes it. Both write `hosts.yaml` in place (comments kept), so the file stays
     the source of truth; the id never changes, so place and history are kept.
 
+12. **Districts as containers, probes, balancers, discovery, runbooks (decided 2026-11-11):** a
+    district holds any mix of servers, databases, buckets, load balancers and probes, described in
+    an optional districts.yaml. New kinds: HTTP/TCP probes (checked from this machine) and AWS
+    load balancers. A slower read-only discovery script finds services, containers, failed units,
+    updates and connections on each host; links on the floor come only from dependsOn, observed
+    connections and balancer targets. Runbooks (runbooks.yaml plus built-in diagnostics) and
+    fleet-wide commands run after the user picks the servers and confirms; every run is audited.
+    Alerts: desktop notifications and an optional webhook. UI polish is deliberately deferred in
+    favour of these capabilities.
+
 ---
 
 # Project: <project name> (working codename)

@@ -3,7 +3,10 @@ import {
   PROTOCOL_VERSION,
   usagePercent,
   type DataMode,
+  type District,
   type Host,
+  type Link,
+  type Runbook,
   type HostState,
   type Resource,
   type ResourceState,
@@ -45,6 +48,11 @@ export interface FleetSnapshot {
   resourceStates: Record<string, ResourceState>;
   /** One point per resource poll: its main metric, for the HUD sparkline. */
   resourceHistory: Record<string, ResourceSample[]>;
+  /** Every district something lives in (protocol v3). */
+  districts: District[];
+  /** Topology: who uses whom (protocol v3). */
+  links: Link[];
+  runbooks: Runbook[];
   lastError: string | null;
 }
 
@@ -70,6 +78,9 @@ export const EMPTY_FLEET: FleetSnapshot = {
   resources: [],
   resourceStates: {},
   resourceHistory: {},
+  districts: [],
+  links: [],
+  runbooks: [],
   lastError: null,
 };
 
@@ -107,8 +118,14 @@ export function reduceFleet(fleet: FleetSnapshot, message: ServerMessage): Fleet
         history,
         hostKeyRefusals: keepKeys(fleet.hostKeyRefusals, ids),
         ...applyResourceSnapshot(fleet, message.resources, message.resourceStates),
+        districts: message.districts,
+        links: message.links,
+        runbooks: message.runbooks,
       };
     }
+
+    case 'links':
+      return { ...fleet, links: message.links };
 
     case 'resourceStates': {
       const resourceStates = { ...fleet.resourceStates };

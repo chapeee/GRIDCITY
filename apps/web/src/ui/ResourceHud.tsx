@@ -1,6 +1,7 @@
 import {
   DEFAULT_RESOURCE_THRESHOLDS,
   isStale,
+  linksOf,
   RESOURCE_KIND_LABELS,
   type ResourceMetric,
   type ResourceState,
@@ -31,6 +32,12 @@ export function ResourceHud() {
     focusedId ? store.resourceHistory[focusedId] : undefined,
   );
   const dataMode = useFleetStore((store) => store.dataMode);
+  const links = useFleetStore((store) => store.links);
+  const hosts = useFleetStore((store) => store.hosts);
+  const resources = useFleetStore((store) => store.resources);
+  const nameOf = (id: string) =>
+    hosts.find((h) => h.id === id)?.name ?? resources.find((r) => r.id === id)?.name ?? id;
+  const { uses, usedBy } = linksOf(links, focusedId ?? '');
   const now = useNow(1000);
 
   const series = useMemo(
@@ -69,7 +76,15 @@ export function ResourceHud() {
                 <StatusDot status={status} stale={stale} /> {resource.name}
               </h2>
               <p className="hud-subtitle">
-                {resource.engine} · {resource.district}
+                {resource.engine} ·{' '}
+                <button
+                  type="button"
+                  className="hud-link"
+                  title="Frame this district"
+                  onClick={() => useUiStore.getState().focusDistrict(resource.district)}
+                >
+                  {resource.district}
+                </button>
               </p>
               <p className="hud-subtitle">{resource.target}</p>
             </div>
@@ -109,6 +124,39 @@ export function ResourceHud() {
               />
             </div>
           </section>
+
+          {(uses.length > 0 || usedBy.length > 0) && (
+            <section className="hud-list" aria-label="Topology">
+              <h3>Talks to</h3>
+              <ul>
+                {uses.map((link) => (
+                  <li key={link.id}>
+                    <button type="button" className="hud-link" onClick={() => focusHost(link.to)}>
+                      {nameOf(link.to)}
+                    </button>
+                    <small>
+                      {' '}
+                      {link.kind}
+                      {link.label ? ` ${link.label}` : ''}
+                    </small>
+                  </li>
+                ))}
+                {usedBy.map((link) => (
+                  <li key={link.id}>
+                    <small>used by </small>
+                    <button type="button" className="hud-link" onClick={() => focusHost(link.from)}>
+                      {nameOf(link.from)}
+                    </button>
+                    <small>
+                      {' '}
+                      {link.kind}
+                      {link.label ? ` ${link.label}` : ''}
+                    </small>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <p className="hud-os">
             {RESOURCE_KIND_LABELS[resource.kind]} · polled every{' '}

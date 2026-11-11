@@ -96,6 +96,50 @@ The resource HUD lists every metric the connector reported (dashes for unknown, 
 bucket count was capped) and one sparkline of the value that drives the building's light. It has
 no "Jack in": Enter on a resource says there is no shell.
 
+### Probes and load balancers
+
+| Kind              | Shape                                                                    |
+| ----------------- | ------------------------------------------------------------------------ |
+| HTTP or TCP probe | **Beacon**: a thin spire, taller than a tower, watching from the edge    |
+| AWS load balancer | **Gate**: a low wide slab the traffic passes through, 6 horizontal bands |
+
+| Effect               | Data field                       | Mapping                                                                                           | When `null`  |
+| -------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------- | ------------ |
+| Pulse speed (beacon) | `gauges.latencyMs`               | Log scale: ≤ 20 ms → 0.2 Hz, 3 000 ms → 2.0 Hz. A slow endpoint pulses fast                       | Steady glow  |
+| Pulse speed (gate)   | `gauges.opsPerSec` (requests/s)  | Same log scale as drums                                                                           | Steady glow  |
+| Lit bands (gate)     | `gauges.targets.healthy / total` | round(share × 6) bands lit bottom-up; every target healthy = all six                              | No bands lit |
+| Caption              | status / `Resource.engine`       | "HTTPS", "TCP · TLS", "ALB"; degraded → reason ("slow: 2100 ms", "certificate expires in 5 days") | —            |
+
+Degraded rules for probes and balancers (`resource-status.ts`): latency > 1 500 ms, certificate
+expiring within 14 days (or expired), any unhealthy target, a connector warning ("certificate not
+trusted", "12 ELB 5xx/min"). Offline: a refused connection, a timeout, an unexpected HTTP status,
+a body or banner that does not match.
+
+## Topology (links)
+
+Mapping code: [`apps/web/src/world/TopologyLinks.tsx`](../apps/web/src/world/TopologyLinks.tsx).
+A link is a line of light on the floor between two buildings, drawn in `neutrals.gridSection`
+(brightened) and never in an accent, so links never compete with status. Pulses travel along it
+**from the user to the used**: a web server's link to its database flows toward the database.
+
+| Effect              | Data field                      | Mapping                                                                                      |
+| ------------------- | ------------------------------- | -------------------------------------------------------------------------------------------- |
+| Line strength       | `Link.kind`                     | observed 0.55, balances 0.6, probes 0.35, declared 0.3 (a plan is fainter than a fact)       |
+| Flow                | `Link.kind`                     | Pulses move on observed, balances and probes links; declared links drift slowly; lite: still |
+| Sideways bow        | `Link.kind`                     | Observed links bow one way, balances the other, so two links between a pair never overlap    |
+| Brightness on focus | focused building                | Links touching the focused building turn `accents.online` and full strength; others fade     |
+| Presence            | `Link.lastSeenAt` (server-side) | Observed links disappear after 4 discovery rounds without the connection                     |
+
+Links are never inferred from names or districts: an observed link needs a real established
+connection whose peer address and port belong to another building.
+
+## Districts
+
+A district is a floor plate holding any mix of buildings. Its label is clickable: the camera
+frames the plate and the district panel opens (counts per status, members, links across its
+border). Districts have no light of their own; the panel's status dot is the worst status among
+members (offline > degraded > unknown > online).
+
 ## World
 
 | Effect          | Driven by          | Notes                                                                 |
