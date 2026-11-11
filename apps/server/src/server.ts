@@ -1,7 +1,9 @@
 import { lookup } from 'node:dns/promises';
 import {
   createDemoLinks,
+  createDemoReplayFrame,
   DEMO_DISTRICTS,
+  type ReplayFrame,
   createDemoHistory,
   DEFAULT_RESOURCE_THRESHOLDS,
   DEFAULT_STATUS_THRESHOLDS,
@@ -568,6 +570,39 @@ export async function startServer({
       });
       registerManageRoutes(instance, {
         audit,
+        replayOldest: () => (env.DATA_MODE === 'demo' ? null : history.oldest()),
+        replayFrame: (at) => {
+          const hostIds = hub.currentProvider.hosts.map((host) => host.id);
+          const resourceIds = hub.currentResources.resources().map((resource) => resource.id);
+          // Demo data has no recorded past: its replay is generated (and labelled DEMO DATA).
+          if (env.DATA_MODE === 'demo' || !statusEvents) {
+            return createDemoReplayFrame(hostIds, resourceIds, at, Date.now());
+          }
+          history.writeOpen();
+          const samples = history.frameAt(at);
+          const statuses = statusEvents.statusAt(at);
+          const hosts: ReplayFrame['hosts'] = {};
+          for (const id of hostIds) {
+            const sample = samples.get(id);
+            const status = statuses.get(id);
+            if (!sample && !status) continue; // not measured then: shown as unknown
+            hosts[id] = {
+              status: status?.status ?? 'online',
+              reason: status?.reason ?? null,
+              cpuPercent: sample?.cpuPercent ?? null,
+              memoryPercent: sample?.memoryPercent ?? null,
+              maxDiskPercent: sample?.maxDiskPercent ?? null,
+              networkBytesPerSec: sample?.networkBytesPerSec ?? null,
+              loadOne: sample?.loadOne ?? null,
+            };
+          }
+          const resources: ReplayFrame['resources'] = {};
+          for (const id of resourceIds) {
+            const status = statuses.get(id);
+            if (status) resources[id] = status;
+          }
+          return { at, hosts, resources };
+        },
         alerts: {
           configured: () => webhookUrl() !== null,
           fromEnvironment: () => !vault.has(WEBHOOK_SECRET_ID) && Boolean(env.ALERT_WEBHOOK_URL),

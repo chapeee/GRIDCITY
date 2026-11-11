@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useFleetStore } from '../data/fleet-store';
+import { useReplayStore } from '../data/replay-store';
 import { useUiStore } from './ui-store';
 
 interface ShortcutOptions {
@@ -58,7 +59,9 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
       switch (event.key) {
         case 'Escape':
           // Innermost first: panels, then ambient mode, then focus.
-          if (ui.doctorTarget !== undefined) ui.openDoctor(undefined);
+          if (useReplayStore.getState().active && !ui.focusedHostId)
+            useReplayStore.getState().close();
+          else if (ui.doctorTarget !== undefined) ui.openDoctor(undefined);
           else if (ui.auditLogOpen) ui.setAuditLogOpen(false);
           else if (ui.historyTarget !== undefined) ui.openHistory(undefined);
           else if (ui.settingsOpen) ui.setSettingsOpen(false);
@@ -106,6 +109,15 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
               .resources.find((r) => r.id === ui.focusedHostId);
             if (resource) ui.setEditResourceId(resource.sourceId);
           }
+          break;
+        }
+        case 't':
+        case 'T': {
+          // Time travel on or off.
+          if (event.ctrlKey || event.metaKey || event.altKey) return;
+          const replay = useReplayStore.getState();
+          if (replay.active) replay.close();
+          else replay.open();
           break;
         }
         case 'd':

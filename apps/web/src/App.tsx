@@ -12,6 +12,7 @@ import { ResourceHud } from './ui/ResourceHud';
 import { DistrictHud } from './ui/DistrictHud';
 import { RunbookPanel } from './ui/RunbookPanel';
 import { DoctorPanel, IncidentBanner } from './ui/DoctorPanel';
+import { TimelineBar } from './ui/TimelineBar';
 import { useAlerts } from './ui/use-alerts';
 import { EditHostDialog } from './ui/EditHostDialog';
 import { ConnectResourceDialog } from './ui/ConnectResourceDialog';
@@ -89,6 +90,7 @@ export function App() {
       <SettingsPanel />
       <RunbookPanel />
       <DoctorPanel />
+      <TimelineBar />
       <EditHostDialog />
       <ConnectResourceDialog />
       <EditResourceDialog />

@@ -1,6 +1,7 @@
 import { DEFAULT_RESOURCE_THRESHOLDS, isStale, runbookMatches } from '@app/shared';
 import { Command } from 'cmdk';
 import { useFleetStore } from '../data/fleet-store';
+import { useReplayStore } from '../data/replay-store';
 import { StatusDot } from './StatusDot';
 import { useServerLink } from '../data/server-link';
 import { useHostImport } from './use-host-import';
@@ -177,6 +178,14 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
         )}
 
         <Command.Group heading="Actions">
+          <Command.Item
+            value="time travel replay rewind history scrub past timeline"
+            onSelect={() => run(() => useReplayStore.getState().open())}
+          >
+            <span className="palette-item-title">Time travel</span>
+            <span className="palette-item-meta">rewind the whole city, play it back</span>
+            <kbd>T</kbd>
+          </Command.Item>
           <Command.Item
             value="doctor diagnose why fix connection problem broken root cause"
             onSelect={() => run(() => useUiStore.getState().openDoctor(focusedHostId ?? null))}

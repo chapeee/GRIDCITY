@@ -3,6 +3,7 @@ import {
   type AppSettings,
   type HistoryPoint,
   type HistoryResponse,
+  type ReplayFrame,
   type StatusThresholds,
 } from '@app/shared';
 import type { FastifyInstance } from 'fastify';
@@ -18,6 +19,10 @@ const DAY_MS = 86_400_000;
 
 export interface ManageDependencies {
   audit: AuditLog;
+  /** The city at a past moment (time travel); absent in tests that do not need it. */
+  replayFrame?(at: number): ReplayFrame;
+  /** The oldest recorded moment, for the timeline. */
+  replayOldest?(): number | null;
   /** The alert webhook, set in Settings and saved encrypted (optional in tests). */
   alerts?: {
     configured(): boolean;
@@ -109,6 +114,20 @@ export function registerManageRoutes(app: FastifyInstance, deps: ManageDependenc
       fromEnvironment: deps.alerts?.fromEnvironment() ?? false,
     },
     ...(deps.hostsFile ? { hostsFile: process.env.HOSTS_FILE_HINT ?? deps.hostsFile } : {}),
+  });
+
+  app.get('/api/replay', async (request, reply) => {
+    const at = Number((request.query as { at?: string }).at);
+    if (!Number.isFinite(at) || at <= 0)
+      return reply.code(400).send({ error: 'at (epoch ms) expected' });
+    if (!deps.replayFrame) return reply.code(404).send({ error: 'time travel is not available' });
+    const settings = deps.loadSettings();
+    const until = now();
+    const since = Math.max(
+      until - settings.historyRetentionDays * DAY_MS,
+      deps.replayOldest?.() ?? 0,
+    );
+    return { since, until, frame: deps.replayFrame(Math.min(Math.max(at, since), until)) };
   });
 
   app.get('/api/settings', async () => settingsView());

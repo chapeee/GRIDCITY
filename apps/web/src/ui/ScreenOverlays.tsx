@@ -47,7 +47,8 @@ export function ShortcutHints() {
       <kbd>Ctrl</kbd>
       <kbd>K</kbd> commands <span className="separator">·</span> <kbd>Tab</kbd> next host{' '}
       <span className="separator">·</span> <kbd>Esc</kbd> overview{' '}
-      <span className="separator">·</span> <kbd>A</kbd> ambient <span className="separator">·</span>{' '}
+      <span className="separator">·</span> <kbd>T</kbd> time travel{' '}
+      <span className="separator">·</span> <kbd>D</kbd> doctor <span className="separator">·</span>{' '}
       drag to move · right-drag to orbit
     </p>
   );

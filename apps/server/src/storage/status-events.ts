@@ -53,6 +53,17 @@ export class StatusEvents {
       .run(olderThan);
   }
 
+  /** Every target's recorded status at a moment (its last transition at or before it). */
+  statusAt(at: number): Map<string, { status: HostStatus; reason: string | null }> {
+    const rows = this.db
+      .prepare(
+        `SELECT target_id AS targetId, status, reason FROM status_events e
+         WHERE id = (SELECT MAX(id) FROM status_events WHERE target_id = e.target_id AND at <= ?)`,
+      )
+      .all(at) as { targetId: string; status: HostStatus; reason: string | null }[];
+    return new Map(rows.map((row) => [row.targetId, { status: row.status, reason: row.reason }]));
+  }
+
   /** Incidents (degraded or offline periods) overlapping [since, until], oldest first. */
   incidents(targetId: string | null, since: number, until: number): HistoryIncident[] {
     const rows = (

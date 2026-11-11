@@ -8,6 +8,7 @@ import {
   type DoctorOverview,
 } from '../data/doctor-api';
 import { useFleetStore } from '../data/fleet-store';
+import { useReplayStore } from '../data/replay-store';
 import { useServerLink } from '../data/server-link';
 import { DoctorReportView } from './DoctorReportView';
 import { StatusDot } from './StatusDot';
@@ -294,6 +295,7 @@ function Overview({ live, nameOf }: { live: boolean; nameOf(id: string): string 
  * that explains the others, so the eye goes to the cause, not the symptoms.
  */
 export function IncidentBanner() {
+  const replaying = useReplayStore((store) => store.active);
   const links = useFleetStore((store) => store.links);
   const states = useFleetStore((store) => store.states);
   const resourceStates = useFleetStore((store) => store.resourceStates);
@@ -310,7 +312,7 @@ export function IncidentBanner() {
     );
     return rootCauses(links, failing).find((r) => r.explains.length > 0) ?? null;
   }, [links, states, resourceStates]);
-  if (!root) return null;
+  if (!root || replaying) return null; // live analysis; hidden while showing the past
   const nameOf = (id: string) =>
     hosts.find((h) => h.id === id)?.name ?? resources.find((r) => r.id === id)?.name ?? id;
   return (

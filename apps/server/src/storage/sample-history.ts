@@ -131,6 +131,34 @@ export class SampleHistory {
       .all(hostId, since) as StoredSample[];
   }
 
+  /**
+   * The latest stored row of every host at a moment (time travel): the
+   * bucket that covers `at`, or the last one before it within `windowMs`.
+   * Hosts with nothing recorded in that window are simply absent.
+   */
+  frameAt(at: number, windowMs = 120_000): Map<string, StoredSample> {
+    const rows = this.db
+      .prepare(
+        `SELECT m.host_id AS hostId, m.at, m.cpu_percent AS cpuPercent, m.memory_percent AS memoryPercent,
+                m.network_bytes_per_sec AS networkBytesPerSec, m.load_one AS loadOne,
+                m.max_disk_percent AS maxDiskPercent
+         FROM metric_samples m
+         JOIN (SELECT host_id, MAX(at) AS at FROM metric_samples
+               WHERE at <= ? AND at > ? GROUP BY host_id) latest
+           ON latest.host_id = m.host_id AND latest.at = m.at`,
+      )
+      .all(at, at - windowMs) as (StoredSample & { hostId: string })[];
+    return new Map(rows.map(({ hostId, ...sample }) => [hostId, sample]));
+  }
+
+  /** The oldest stored moment, for the timeline's start. */
+  oldest(): number | null {
+    const row = this.db.prepare('SELECT MIN(at) AS at FROM metric_samples').get() as {
+      at: number | null;
+    };
+    return row.at;
+  }
+
   private write(hostId: string, bucket: Bucket): void {
     const average = (key: MetricKey) =>
       bucket.counts[key] > 0 ? bucket.sums[key] / bucket.counts[key] : null;

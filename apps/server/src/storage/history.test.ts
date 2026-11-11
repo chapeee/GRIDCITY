@@ -169,3 +169,31 @@ describe('editing hosts.yaml', () => {
     expect(thresholds.cpuDegradedPercent).toBe(90);
   });
 });
+
+describe('time travel queries', () => {
+  it('returns the latest bucket per host at a moment and each status then', async () => {
+    const { openDatabase } = await import('./database');
+    const { SampleHistory } = await import('./sample-history');
+    const { StatusEvents } = await import('./status-events');
+    const db = openDatabase(':memory:');
+    const insert = db.prepare(
+      'INSERT INTO metric_samples (host_id, at, cpu_percent, memory_percent, network_bytes_per_sec, load_one, max_disk_percent) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    );
+    insert.run('web', 60_000, 10, 20, 100, 0.1, 50);
+    insert.run('web', 90_000, 95, 21, 100, 3.9, 50);
+    insert.run('db', 30_000, 5, 60, 10, 0.1, 70);
+    const history = new SampleHistory(db, { bucketMs: 30_000, retentionMs: 10 ** 12 });
+    const frame = history.frameAt(100_000, 120_000);
+    expect(frame.get('web')?.cpuPercent).toBe(95);
+    expect(frame.get('db')?.memoryPercent).toBe(60);
+    expect(history.frameAt(100_000, 20_000).has('db')).toBe(false); // too old for the window
+    expect(history.oldest()).toBe(30_000);
+
+    const events = new StatusEvents(db, () => 0);
+    events.record('web', 'online', null, 10_000);
+    events.record('web', 'degraded', 'CPU 95%', 80_000);
+    events.record('web', 'online', null, 200_000);
+    expect(events.statusAt(100_000).get('web')).toEqual({ status: 'degraded', reason: 'CPU 95%' });
+    expect(events.statusAt(250_000).get('web')?.status).toBe('online');
+  });
+});

@@ -1,6 +1,8 @@
 import {
   DEFAULT_RESOURCE_THRESHOLDS,
   RESOURCE_SHAPES,
+  replayHostState,
+  replayResourceState,
   thresholdsForHost,
   type District,
   type Host,
@@ -9,6 +11,7 @@ import {
 } from '@app/shared';
 import { useMemo } from 'react';
 import { useFleetStore } from '../data/fleet-store';
+import { useReplayStore } from '../data/replay-store';
 import { cityGeometry } from '../design/tokens';
 import { useNow } from '../ui/use-now';
 import {
@@ -40,14 +43,41 @@ export interface CityModel {
  */
 export function useCityModel(): CityModel {
   const hosts = useFleetStore((store) => store.hosts);
-  const states = useFleetStore((store) => store.states);
+  const liveStates = useFleetStore((store) => store.states);
   const resources = useFleetStore((store) => store.resources);
-  const resourceStates = useFleetStore((store) => store.resourceStates);
+  const liveResourceStates = useFleetStore((store) => store.resourceStates);
+  // Time travel swaps the whole picture for a recorded moment, never a mix.
+  const replayFrame = useReplayStore((store) => (store.active ? store.frame : null));
+  const states = useMemo(
+    () =>
+      replayFrame
+        ? Object.fromEntries(
+            hosts.map((h) => [
+              h.id,
+              replayHostState(h.id, replayFrame.hosts[h.id], replayFrame.at),
+            ]),
+          )
+        : liveStates,
+    [replayFrame, hosts, liveStates],
+  );
+  const resourceStates = useMemo(
+    () =>
+      replayFrame
+        ? Object.fromEntries(
+            resources.map((r) => [
+              r.id,
+              replayResourceState(r.id, replayFrame.resources[r.id], replayFrame.at),
+            ]),
+          )
+        : liveResourceStates,
+    [replayFrame, resources, liveResourceStates],
+  );
   const districts = useFleetStore((store) => store.districts);
   const links = useFleetStore((store) => store.links);
   const thresholds = useFleetStore((store) => store.thresholds);
   const layoutSlots = useFleetStore((store) => store.layoutSlots);
-  const now = useNow(1000);
+  const clock = useNow(1000);
+  const now = replayFrame ? replayFrame.at : clock;
 
   const items = useMemo(
     () => [
