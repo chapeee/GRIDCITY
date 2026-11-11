@@ -42,6 +42,9 @@ const prefersReducedMotion = () =>
  */
 export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
   const camera = useThree((state) => state.camera);
+  // The canvas itself, not the wrapper: wheel and drags over panels and the command
+  // palette must never move the camera.
+  const canvas = useThree((state) => state.gl.domElement);
   const controlsRef = useRef<OrbitControlsHandle>(null);
   const tweenRef = useRef<gsap.core.Tween | null>(null);
   const hasFramedCity = useRef(false);
@@ -51,6 +54,16 @@ export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
   const introPlaying = useUiStore((store) => store.introPlaying);
   const focusedDistrict = useUiStore((store) => store.focusedDistrict);
   const introTweenRef = useRef<gsap.core.Tween | null>(null);
+
+  // Arrow keys pan from anywhere on the page. Only the key listener goes on the body:
+  // drei's keyEvents prop would connect the wheel and drag handlers there too, and
+  // then scrolling a panel or the command palette would zoom the camera.
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    controls.listenToKeyEvents(document.body);
+    return () => controls.stopListenToKeyEvents();
+  }, []);
 
   // Frame the city once, as soon as there is one to frame.
   useEffect(() => {
@@ -250,6 +263,7 @@ export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
     <OrbitControls
       ref={controlsRef}
       makeDefault
+      domElement={canvas}
       enableDamping
       dampingFactor={0.08}
       minDistance={cameraTokens.minDistance}
@@ -264,7 +278,6 @@ export function CameraRig({ layout, focusedHostId }: CameraRigProps) {
       screenSpacePanning={false}
       panSpeed={1.1}
       keyPanSpeed={cameraTokens.keyPanSpeed}
-      keyEvents={typeof document === 'undefined' ? false : document.body}
       keys={{ LEFT: 'ArrowLeft', UP: 'ArrowUp', RIGHT: 'ArrowRight', BOTTOM: 'ArrowDown' }}
     />
   );
