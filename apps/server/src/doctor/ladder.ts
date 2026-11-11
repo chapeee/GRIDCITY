@@ -88,7 +88,7 @@ export async function climbLadder(
       detail: `${endpoint.host} does not resolve (${code})`,
       ms: round(performance.now() - dnsStart),
     });
-    return finish(steps, addresses, endpoint);
+    return finish(steps, addresses);
   }
 
   // 2. TCP
@@ -110,7 +110,7 @@ export async function climbLadder(
           ? `port ${endpoint.port} did not answer within ${timeoutMs} ms: a firewall or security group drops it, or the host is down`
           : `port ${endpoint.port}: ${code}`;
     steps.push({ step: 'tcp', status: 'failed', detail, ms: null });
-    return finish(steps, addresses, endpoint);
+    return finish(steps, addresses);
   }
 
   // 3. TLS (only for protocols that start with it; MySQL/Postgres negotiate it inside)
@@ -141,10 +141,10 @@ export async function climbLadder(
       ms: null,
     });
   }
-  return finish(steps, addresses, endpoint);
+  return finish(steps, addresses);
 }
 
-function finish(steps: LadderStep[], addresses: string[], _endpoint: Endpoint): LadderResult {
+function finish(steps: LadderStep[], addresses: string[]): LadderResult {
   const failed = steps.find((step) => step.status === 'failed');
   return { steps, addresses, failedAt: failed?.step ?? null };
 }

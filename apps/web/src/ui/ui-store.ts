@@ -56,6 +56,8 @@ interface UiStore {
   runbookPanel: { hostIds: string[]; runbookId: string | null } | null;
   /** Desktop notifications when something goes offline, degraded or recovers. */
   notificationsEnabled: boolean;
+  /** The Doctor panel: undefined = closed, null = check everything, otherwise one host or resource. */
+  doctorTarget: string | null | undefined;
 
   focusHost(hostId: string | null): void;
   setPaletteOpen(open: boolean): void;
@@ -90,6 +92,7 @@ interface UiStore {
   openRunbooks(hostIds?: string[], runbookId?: string | null): void;
   closeRunbooks(): void;
   setNotificationsEnabled(enabled: boolean): void;
+  openDoctor(target: string | null | undefined): void;
 }
 
 /**
@@ -129,6 +132,7 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   focusedDistrict: null,
   runbookPanel: null,
   notificationsEnabled: readStoredJson(NOTIFICATIONS_KEY, false),
+  doctorTarget: undefined,
 
   // Any manual navigation takes the camera back from ambient mode.
   focusHost: (hostId) => set({ focusedHostId: hostId, ambientMode: false, focusedDistrict: null }),
@@ -184,6 +188,12 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   openRunbooks: (hostIds = [], runbookId = null) =>
     set({ runbookPanel: { hostIds, runbookId }, paletteOpen: false }),
   closeRunbooks: () => set({ runbookPanel: null }),
+  openDoctor: (target) =>
+    set(
+      target === undefined
+        ? { doctorTarget: undefined }
+        : { doctorTarget: target, paletteOpen: false },
+    ),
   setNotificationsEnabled: (enabled) => {
     writeStoredJson(NOTIFICATIONS_KEY, enabled);
     set({ notificationsEnabled: enabled });

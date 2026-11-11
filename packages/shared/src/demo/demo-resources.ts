@@ -348,6 +348,12 @@ export function createDemoResources(
           status,
           statusReason: reason,
           error: reason,
+          // What the Doctor's rules say about this error (demo: precomputed, same wording).
+          hint: {
+            id: 'net.refused',
+            title: `Nothing accepts connections on port ${resource.target.split(':').pop()}`,
+            action: 'Check the service and its bind address',
+          },
         });
         continue;
       }

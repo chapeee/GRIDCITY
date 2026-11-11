@@ -23,6 +23,7 @@ import { Sparkline } from './Sparkline';
 import { StatusDot } from './StatusDot';
 import { useNow } from './use-now';
 import { useUiStore } from './ui-store';
+import { BlastRadiusLine, DoctorHintLine } from './DoctorHintLine';
 
 const PERCENT_RANGE: [number, number] = [0, 100];
 
@@ -137,6 +138,9 @@ export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
           {state?.error && state.error !== state.statusReason && (
             <p className="hud-error">{state.error}</p>
           )}
+
+          <DoctorHintLine hint={state?.hint} targetId={host.id} />
+          <BlastRadiusLine targetId={host.id} />
 
           <dl className="hud-metrics">
             <Metric label="CPU" value={formatPercent(state?.cpuPercent ?? null)} />

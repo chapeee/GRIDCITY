@@ -177,6 +177,19 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
         )}
 
         <Command.Group heading="Actions">
+          <Command.Item
+            value="doctor diagnose why fix connection problem broken root cause"
+            onSelect={() => run(() => useUiStore.getState().openDoctor(focusedHostId ?? null))}
+          >
+            <span className="palette-item-title">
+              Doctor
+              {focusedHostId
+                ? `: diagnose ${focusedResource?.name ?? focusedHost?.name ?? focusedHostId}`
+                : ': check everything'}
+            </span>
+            <span className="palette-item-meta">root causes and proven fixes</span>
+            <kbd>D</kbd>
+          </Command.Item>
           {focusedHostId && (
             <Command.Item
               value="history incidents overloaded when was it down"

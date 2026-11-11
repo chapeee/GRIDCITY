@@ -1,3 +1,4 @@
+import { detectProvider, type Fix } from '@app/shared';
 import { AnimatePresence, motion } from 'motion/react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useFleetStore } from '../data/fleet-store';
@@ -17,6 +18,7 @@ import {
   type PasswordSource,
 } from './resource-draft';
 import { formatMetric } from './ResourceHud';
+import { DoctorReportView } from './DoctorReportView';
 import { useUiStore } from './ui-store';
 
 /**
@@ -110,10 +112,59 @@ function ConnectResourceForm() {
     }
   };
 
-  const test = () =>
+  const test = (override?: Record<string, string | boolean>) =>
     run('Testing…', async () => {
-      setResult(await testResource(draft(), credentials()));
+      const entry = override
+        ? buildDraft({
+            kind: spec!.kind,
+            id: id || slugify(name),
+            name,
+            district,
+            values: override,
+            passwordSource,
+            passwordRef,
+            provider,
+          })
+        : draft();
+      setResult(await testResource(entry, credentials()));
     });
+
+  /** A proven Doctor fix: put its settings in the form, then test again. */
+  const applyFix = (fix: Fix) => {
+    if (!fix.patch) return;
+    const next = { ...values };
+    for (const [key, value] of Object.entries(fix.patch)) {
+      if (key === 'passwordSecret' || key === 'passwordEnv' || key === 'passwordFile') {
+        setSecrets((current) => ({ ...current, password: '' }));
+        continue;
+      }
+      if (value === undefined || value === null) next[key] = '';
+      else next[key] = typeof value === 'boolean' ? value : String(value);
+    }
+    setValues(next);
+    void test(next);
+  };
+
+  // Prevention: recognise managed services from the host and say what they need.
+  const hostValue = String(values.host ?? values.url ?? '');
+  const providerProfile = spec ? detectProvider(spec.kind, hostValue) : null;
+  const providerMismatch =
+    providerProfile &&
+    ((providerProfile.tlsRequired && values.tls !== true && spec?.kind !== 'mongodb') ||
+      (providerProfile.port !== undefined &&
+        'port' in values &&
+        String(values.port) !== String(providerProfile.port)));
+  const applyProvider = () => {
+    if (!providerProfile) return;
+    setValues((current) => ({
+      ...current,
+      ...(providerProfile.tlsRequired ? { tls: true } : {}),
+      ...(providerProfile.port !== undefined && 'port' in current
+        ? { port: String(providerProfile.port) }
+        : {}),
+    }));
+    setResult(null);
+  };
 
   const add = (event: FormEvent) => {
     event.preventDefault();
@@ -257,6 +308,19 @@ function ConnectResourceForm() {
                         onChange={(event) => setValue(field.key, event.target.checked)}
                       />
                     </label>
+                  ) : field.type === 'textarea' ? (
+                    <label key={field.key} className="settings-field is-wide">
+                      <span>{field.label}</span>
+                      <textarea
+                        rows={3}
+                        spellCheck={false}
+                        value={
+                          typeof values[field.key] === 'string' ? (values[field.key] as string) : ''
+                        }
+                        onChange={(event) => setValue(field.key, event.target.value)}
+                        placeholder={field.placeholder}
+                      />
+                    </label>
                   ) : (
                     <label key={field.key} className="settings-field">
                       <span>{field.label}</span>
@@ -278,6 +342,18 @@ function ConnectResourceForm() {
                     </label>
                   ),
                 )}
+              {providerProfile && (
+                <div className={`provider-note${providerMismatch ? ' is-warning' : ''}`}>
+                  <strong>{providerProfile.name}</strong> · {providerProfile.note}
+                  {providerMismatch && (
+                    <button type="button" onClick={applyProvider}>
+                      Use its settings
+                      {providerProfile.tlsRequired ? ' (TLS on' : ' ('}
+                      {providerProfile.port !== undefined ? `, port ${providerProfile.port})` : ')'}
+                    </button>
+                  )}
+                </div>
+              )}
               {pointsAtLocalhost(values) && (
                 <p className="settings-help is-warning">
                   If the app runs in Docker, “localhost” is the container itself: use
@@ -452,6 +528,16 @@ function ConnectResourceForm() {
                     </li>
                   ))}
                 </ul>
+                {!result.ok && result.doctor && (
+                  <>
+                    <h3 className="doctor-title">Doctor</h3>
+                    <DoctorReportView
+                      report={result.doctor}
+                      onApply={applyFix}
+                      applying={busy === 'Testing…' ? 'any' : null}
+                    />
+                  </>
+                )}
               </section>
             )}
             {error && (

@@ -11,6 +11,7 @@ import { canOpenTerminal, FocusHud } from './ui/FocusHud';
 import { ResourceHud } from './ui/ResourceHud';
 import { DistrictHud } from './ui/DistrictHud';
 import { RunbookPanel } from './ui/RunbookPanel';
+import { DoctorPanel, IncidentBanner } from './ui/DoctorPanel';
 import { useAlerts } from './ui/use-alerts';
 import { EditHostDialog } from './ui/EditHostDialog';
 import { ConnectResourceDialog } from './ui/ConnectResourceDialog';
@@ -73,6 +74,7 @@ export function App() {
       <WorldScene model={model} />
       <TopBar />
       <StatusBanners />
+      <IncidentBanner />
       <EmptyFleet />
       <FocusHud onJackIn={jackIn} />
       <ResourceHud />
@@ -86,6 +88,7 @@ export function App() {
       <HistoryPanel />
       <SettingsPanel />
       <RunbookPanel />
+      <DoctorPanel />
       <EditHostDialog />
       <ConnectResourceDialog />
       <EditResourceDialog />

@@ -588,7 +588,22 @@ function tickHost(
           ? 'heartbeat lost (keepalive timeout)'
           : `connect ECONNREFUSED ${spec.address}:22`;
     // Offline means we do not know current metrics, so they are all unknown.
-    const state = { ...emptyState(spec.id, lastSeenAt), error };
+    const state: HostState = {
+      ...emptyState(spec.id, lastSeenAt),
+      error,
+      // The Doctor's quick hint for this error (demo: same wording as the real rules).
+      hint: /ECONNREFUSED/.test(error)
+        ? {
+            id: 'ssh.hint',
+            title: 'Nothing listens on the SSH port',
+            action: 'Check sshd and the port',
+          }
+        : {
+            id: 'ssh.hint',
+            title: 'The server does not answer: firewall, or it is down',
+            action: 'Allow this IP or check the server',
+          },
+    };
     host.cpuBusyStreak = 0;
     const offline = withStatus(
       state,

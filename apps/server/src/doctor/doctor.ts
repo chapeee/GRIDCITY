@@ -64,7 +64,7 @@ export function applyPatch(config: ResourceConfig, patch: Record<string, unknown
   const next = { ...config } as Record<string, unknown>;
   for (const [key, value] of Object.entries(patch)) {
     if (!PATCHABLE_KEYS.has(key)) continue;
-    if (value === undefined) delete next[key];
+    if (value === undefined || value === null) delete next[key];
     else next[key] = value;
   }
   return next as ResourceConfig;

@@ -15,6 +15,7 @@ import { Sparkline } from './Sparkline';
 import { StatusDot } from './StatusDot';
 import { useNow } from './use-now';
 import { useUiStore } from './ui-store';
+import { BlastRadiusLine, DoctorHintLine } from './DoctorHintLine';
 
 /**
  * Focus panel for databases, RDS instances and buckets. It lists whatever
@@ -99,6 +100,9 @@ export function ResourceHud() {
           {state?.error && state.error !== state.statusReason && (
             <p className="hud-error">{state.error}</p>
           )}
+
+          <DoctorHintLine hint={state?.hint} targetId={resource.id} />
+          <BlastRadiusLine targetId={resource.id} />
 
           <dl className="hud-metrics">
             {(state?.metrics ?? []).map((entry) => (

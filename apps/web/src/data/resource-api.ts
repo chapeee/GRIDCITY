@@ -1,4 +1,4 @@
-import type { ResourceMetric } from '@app/shared';
+import type { DoctorReport, ResourceMetric } from '@app/shared';
 
 /** "Connect a database or bucket": calls to the local server (real mode only). */
 
@@ -35,6 +35,8 @@ export interface OneTimeSecrets {
 
 export interface ResourceTestResult {
   ok: boolean;
+  /** Why it failed and which proven change fixes it (only when not ok). */
+  doctor?: DoctorReport;
   found: {
     name: string;
     engine: string;

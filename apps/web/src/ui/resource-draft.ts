@@ -6,7 +6,7 @@ import type { ResourceDraft } from '../data/resource-api';
  * and how the typed values become a resources.yaml entry. Pure, so it is
  * unit tested. Secrets are never part of a draft: only where they live.
  */
-export type FieldType = 'text' | 'number' | 'checkbox' | 'list';
+export type FieldType = 'text' | 'number' | 'checkbox' | 'list' | 'textarea';
 
 export interface FieldSpec {
   key: string;
@@ -56,6 +56,20 @@ const user = (required = true): FieldSpec => ({
   required,
 });
 const tls: FieldSpec = { key: 'tls', label: 'Use TLS', type: 'checkbox', initial: false };
+const tlsVerify: FieldSpec = {
+  key: 'tlsVerify',
+  label: 'Verify the certificate',
+  type: 'checkbox',
+  initial: true,
+  help: 'keep on; paste the CA below when the provider uses its own',
+};
+const tlsCa: FieldSpec = {
+  key: 'tlsCa',
+  label: 'CA certificate',
+  type: 'textarea',
+  placeholder: '-----BEGIN CERTIFICATE-----  (only for managed databases with their own CA)',
+};
+const tlsGroup = [tls, tlsVerify, tlsCa];
 
 export const RESOURCE_KINDS: KindSpec[] = [
   {
@@ -67,7 +81,7 @@ export const RESOURCE_KINDS: KindSpec[] = [
       port(5432),
       user(),
       { key: 'database', label: 'Database', type: 'text', initial: 'postgres' },
-      tls,
+      ...tlsGroup,
     ],
     password: true,
     grant: 'CREATE ROLE monitor LOGIN PASSWORD …; GRANT pg_monitor TO monitor;',
@@ -81,7 +95,7 @@ export const RESOURCE_KINDS: KindSpec[] = [
       port(3306),
       user(),
       { key: 'database', label: 'Database', type: 'text', placeholder: 'optional' },
-      tls,
+      ...tlsGroup,
     ],
     password: true,
     grant:
@@ -98,9 +112,12 @@ export const RESOURCE_KINDS: KindSpec[] = [
         type: 'text',
         placeholder: 'mongodb://monitor@10.0.0.6:27017/?authSource=admin',
         required: true,
-        help: 'No password in the URL: choose where it lives below.',
+        help: 'No password in the URL: paste it below.',
       },
       user(false),
+      { ...tls, help: 'mongodb+srv:// turns it on by itself' },
+      tlsVerify,
+      tlsCa,
     ],
     password: true,
     grant:
@@ -110,7 +127,7 @@ export const RESOURCE_KINDS: KindSpec[] = [
     kind: 'redis',
     label: 'Redis / Valkey',
     blurb: 'clients, commands/s, memory, hit ratio',
-    fields: [host, port(6379), user(false), tls],
+    fields: [host, port(6379), user(false), ...tlsGroup],
     password: true,
     grant: 'ACL SETUSER monitor on >… -@all +info +slowlog|get +ping',
   },
