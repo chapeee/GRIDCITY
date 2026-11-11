@@ -34,7 +34,12 @@ export type AuditKind =
   | 'host_removed'
   | 'resource_added'
   | 'resource_edited'
-  | 'resource_removed';
+  | 'resource_removed'
+  // Runbooks and fleet-wide commands the user ran (command, hosts, exit codes).
+  | 'runbook_run'
+  | 'fleet_command_run'
+  // Alerts sent to the webhook (what, never the URL).
+  | 'alert_sent';
 
 export interface AuditEntry {
   id: number;

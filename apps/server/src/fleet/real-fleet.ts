@@ -1,10 +1,13 @@
 import { thresholdsForHost, type Host, type HostState, type StatusThresholds } from '@app/shared';
 import { COLLECTOR_COMMAND, COLLECTOR_SCRIPT } from '../metrics/collector-script';
+import { INVENTORY_COMMAND, INVENTORY_SCRIPT } from '../metrics/inventory-script';
+import { parseInventoryOutput, type HostInventory } from '../metrics/parse-inventory';
 import { parseCollectorOutput } from '../metrics/parse-collector-output';
 import type { HostConnection, HostConnectionOptions, PhaseChange } from '../ssh/host-connection';
 import type { AuditLog } from '../storage/audit-log';
 import type { FleetListener, FleetProvider } from './fleet-provider';
 import {
+  applyInventory,
   applyPhaseChange,
   applyPollFailure,
   applyPollSuccess,
@@ -39,6 +42,8 @@ export class RealFleet implements FleetProvider {
   private readonly connections = new Map<string, HostConnection>();
   private readonly pollsInFlight = new Set<string>();
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private discoveryTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly discoveriesInFlight = new Set<string>();
   private listener: FleetListener = () => {};
   private readonly now: () => number;
 
@@ -65,11 +70,17 @@ export class RealFleet implements FleetProvider {
       connection.start();
     }
     this.pollTimer = setInterval(() => this.pollAll(), this.options.thresholds.pollIntervalMs);
+    this.discoveryTimer = setInterval(
+      () => this.discoverAll(),
+      this.options.thresholds.discoveryIntervalMs,
+    );
   }
 
   stop(): void {
     if (this.pollTimer) clearInterval(this.pollTimer);
     this.pollTimer = null;
+    if (this.discoveryTimer) clearInterval(this.discoveryTimer);
+    this.discoveryTimer = null;
     for (const connection of this.connections.values()) connection.stop();
     this.connections.clear();
   }
@@ -83,6 +94,16 @@ export class RealFleet implements FleetProvider {
   /** File-wide thresholds with this host's own warning overrides (Edit) on top. */
   thresholdsFor(host: Host): StatusThresholds {
     return thresholdsForHost(this.options.thresholds, host);
+  }
+
+  /** Latest discovery round per host, for the topology. */
+  inventories(): ReadonlyMap<string, HostInventory> {
+    const map = new Map<string, HostInventory>();
+    for (const [hostId, runtime] of this.runtimes) {
+      if (runtime.inventory && runtime.connection === 'connected')
+        map.set(hostId, runtime.inventory);
+    }
+    return map;
   }
 
   /** The connection for a host (used by the terminal in Phase 4, and by tests). */
@@ -104,7 +125,10 @@ export class RealFleet implements FleetProvider {
     }
     this.listener({ type: 'changed' });
     // Poll right away on connect instead of waiting for the next tick.
-    if (change.phase === 'connected') void this.poll(host);
+    if (change.phase === 'connected') {
+      void this.poll(host);
+      void this.discover(host);
+    }
   }
 
   /** Records connection transitions, not every retry, so the log stays readable. */
@@ -137,6 +161,30 @@ export class RealFleet implements FleetProvider {
 
   private pollAll(): void {
     for (const host of this.options.hosts) void this.poll(host);
+  }
+
+  private discoverAll(): void {
+    for (const host of this.options.hosts) void this.discover(host);
+  }
+
+  /** Runs the discovery script (services, containers, connections); slower and tolerant. */
+  async discover(host: Host): Promise<void> {
+    const connection = this.connections.get(host.id);
+    if (!connection || connection.phase !== 'connected' || this.discoveriesInFlight.has(host.id))
+      return;
+    this.discoveriesInFlight.add(host.id);
+    try {
+      const result = await connection.exec(INVENTORY_COMMAND, INVENTORY_SCRIPT, 20_000);
+      const inventory = parseInventoryOutput(result.stdout, this.now());
+      if (inventory) {
+        this.runtimes.set(host.id, applyInventory(this.runtime(host.id), inventory));
+        this.listener({ type: 'discovered', hostId: host.id });
+      }
+    } catch {
+      // Discovery is best effort: the previous inventory stays and ages visibly.
+    } finally {
+      this.discoveriesInFlight.delete(host.id);
+    }
   }
 
   private async poll(host: Host): Promise<void> {

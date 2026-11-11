@@ -21,6 +21,7 @@ function fakeConnector(config: ResourceConfig) {
         tags: [],
         target: 'db:5432',
         sourceId: config.id,
+        dependsOn: [],
       },
     ] as Resource[],
     next: [] as PollOutcome[],

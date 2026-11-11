@@ -1,8 +1,11 @@
 import type { DataMode, Host, HostState, StatusThresholds } from '@app/shared';
+import type { HostInventory } from '../metrics/parse-inventory';
 
 export type FleetEvent =
   /** Some host state may have changed; the hub recomputes and diffs. */
   | { type: 'changed' }
+  /** A discovery round finished on a host: services and connections may have changed. */
+  | { type: 'discovered'; hostId: string }
   | { type: 'hostKeyRefused'; hostId: string; reason: 'unknown' | 'changed'; fingerprint: string };
 
 export type FleetListener = (event: FleetEvent) => void;
@@ -20,4 +23,6 @@ export interface FleetProvider {
   stop(): void;
   /** Current state of every host. Staleness is evaluated against `now`. */
   currentStates(now: number): HostState[];
+  /** Latest discovery round per host, for the topology (real fleets only). */
+  inventories?(): ReadonlyMap<string, HostInventory>;
 }

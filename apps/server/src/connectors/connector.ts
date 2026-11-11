@@ -29,6 +29,8 @@ export interface Connector {
   /** One round of measurements. Throwing means every resource of this entry is unreachable. */
   poll(): Promise<PollOutcome[]>;
   close(): Promise<void>;
+  /** Addresses the resources talk to (load balancer targets), from the last poll. */
+  peers?(): ResourcePeer[];
 }
 
 export type PollOutcome =
@@ -65,7 +67,22 @@ export function singleResource(config: ResourceConfig, engine: string, target: s
     tags: config.tags,
     target,
     sourceId: config.id,
+    dependsOn: config.dependsOn,
   };
+}
+
+/**
+ * An address a resource is known to talk to (a load balancer's targets),
+ * for the topology. Matched against host addresses and resource targets;
+ * never shown as a link when nothing matches.
+ */
+export interface ResourcePeer {
+  resourceId: string;
+  /** IP or hostname, or an instance id for AWS instance targets. */
+  address: string;
+  port: number | null;
+  /** "healthy", "unhealthy", "draining"… */
+  state: string;
 }
 
 export function defaultEngine(config: ResourceConfig): string {

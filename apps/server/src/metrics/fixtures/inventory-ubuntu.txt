@@ -1,0 +1,33 @@
+@@section listen
+tcp   LISTEN 0      4096         0.0.0.0:22        0.0.0.0:*    users:(("sshd",pid=812,fd=3))
+tcp   LISTEN 0      511          0.0.0.0:80        0.0.0.0:*    users:(("nginx",pid=1204,fd=6),("nginx",pid=1203,fd=6))
+tcp   LISTEN 0      511          0.0.0.0:443       0.0.0.0:*    users:(("nginx",pid=1204,fd=7),("nginx",pid=1203,fd=7))
+tcp   LISTEN 0      244        127.0.0.1:5432      0.0.0.0:*    users:(("postgres",pid=990,fd=6))
+tcp   LISTEN 0      4096            [::]:22           [::]:*    users:(("sshd",pid=812,fd=4))
+tcp   LISTEN 0      4096               *:4000            *:*
+udp   UNCONN 0      0        127.0.0.53%lo:53        0.0.0.0:*    users:(("systemd-resolve",pid=640,fd=13))
+@@section established
+0      0        10.0.1.12:48812   10.0.4.20:5432
+0      0        10.0.1.12:48814   10.0.4.20:5432
+0      0        10.0.1.12:22      203.0.113.9:51022
+0      0        10.0.1.12:39144   10.0.4.51:6379
+0      36       10.0.1.12:4000    10.0.1.13:55120
+@@section addrs
+127.0.0.1/8
+::1/128
+10.0.1.12/24
+fe80::216:3eff:fe12:3456/64
+172.17.0.1/16
+@@section docker
+lekhix-api	ghcr.io/lekhix/api:2.14.0	running	Up 3 days (healthy)
+lekhix-worker	ghcr.io/lekhix/worker:2.14.0	restarting	Restarting (137) 12 seconds ago
+otel-collector	otel/opentelemetry-collector:0.108.0	exited	Exited (0) 2 weeks ago
+@@section failed
+● certbot.service loaded failed failed Certbot
+@@section reboot
+yes
+@@section updates
+12 updates can be applied immediately.
+3 of these updates are standard security updates.
+To see these additional updates run: apt list --upgradable
+@@end-inventory

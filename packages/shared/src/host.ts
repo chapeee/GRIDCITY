@@ -77,6 +77,8 @@ export const HostSchema = z.object({
   jump: JumpHostSchema.optional(),
   /** This server's own warning thresholds (Edit); unset values use the file-wide ones. */
   thresholds: HostThresholdOverridesSchema.optional(),
+  /** Ids of servers or resources this one uses (declared topology; drawn as links). */
+  dependsOn: z.array(z.string().min(1)).optional(),
 });
 export type Host = z.infer<typeof HostSchema>;
 /** Host as written by the user, before defaults are applied. */

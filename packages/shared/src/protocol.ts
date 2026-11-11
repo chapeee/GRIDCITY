@@ -1,14 +1,17 @@
 import { z } from 'zod';
+import { DistrictSchema } from './district';
 import { HostSchema } from './host';
 import { HostStateSchema } from './host-state';
+import { LinkSchema } from './link';
 import { ResourceSchema, ResourceStateSchema } from './resource';
+import { RunbookSchema } from './runbook';
 import { StatusThresholdsSchema } from './thresholds';
 
 /**
  * Version of the WebSocket protocol below. Bump on any breaking change so a
  * stale browser tab can tell the user to reload instead of misreading data.
  */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /**
  * Where the data comes from. Real and demo data are never mixed in one
@@ -39,9 +42,15 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     states: z.array(HostStateSchema),
     /** Sticky layout slot per host or resource id (persisted by the server). */
     layoutSlots: z.record(z.string(), z.number().int().nonnegative()),
-    /** Databases, RDS instances and buckets (protocol v2). */
+    /** Databases, RDS instances, buckets, probes and load balancers (protocol v2). */
     resources: z.array(ResourceSchema).default([]),
     resourceStates: z.array(ResourceStateSchema).default([]),
+    /** Every district, declared or inferred, that something lives in (protocol v3). */
+    districts: z.array(DistrictSchema).default([]),
+    /** Topology: declared dependencies, observed connections, balancer targets (v3). */
+    links: z.array(LinkSchema).default([]),
+    /** Runbooks the user can run from the palette (v3). */
+    runbooks: z.array(RunbookSchema).default([]),
   }),
   /** Diff at resource granularity: only resources whose state changed. */
   z.object({
@@ -52,6 +61,11 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('hostStates'),
     states: z.array(HostStateSchema),
+  }),
+  /** The topology changed (a connection appeared or faded): the whole list, it is small. */
+  z.object({
+    type: z.literal('links'),
+    links: z.array(LinkSchema),
   }),
   /** A host was removed from configuration. */
   z.object({

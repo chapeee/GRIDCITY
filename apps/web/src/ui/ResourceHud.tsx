@@ -170,6 +170,8 @@ export function formatMetric(entry: ResourceMetric): string {
       return `${prefix}${formatNumber(value)} s`;
     case 'ms':
       return `${prefix}${Math.round(value)} ms`;
+    case 'days':
+      return value < 0 ? `expired ${-Math.round(value)} d ago` : `${Math.round(value)} d`;
     case 'count':
       return prefix + Math.round(value).toLocaleString('en-US');
   }

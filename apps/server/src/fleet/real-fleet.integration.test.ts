@@ -25,6 +25,7 @@ const USER = 'ops';
 const thresholds: StatusThresholds = {
   pollIntervalMs: 250,
   staleAfterPolls: 3,
+  discoveryIntervalMs: 60_000,
   cpuDegradedPercent: 90,
   cpuDegradedPolls: 3,
   memoryDegradedPercent: 90,

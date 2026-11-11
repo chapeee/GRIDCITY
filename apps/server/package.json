@@ -16,6 +16,7 @@
     "@agentclientprotocol/sdk": "^2.5.0",
     "@app/shared": "*",
     "@aws-sdk/client-cloudwatch": "^3.1165.0",
+    "@aws-sdk/client-elastic-load-balancing-v2": "^3.1166.0",
     "@aws-sdk/client-rds": "^3.1165.0",
     "@aws-sdk/client-s3": "^3.1165.0",
     "@fastify/static": "^10.1.10",

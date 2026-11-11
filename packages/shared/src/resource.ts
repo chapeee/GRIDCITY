@@ -2,14 +2,15 @@ import { z } from 'zod';
 import { HostStatusSchema } from './host-state';
 
 /**
- * Resources beyond SSH: databases, managed database instances and object
- * storage buckets. Each kind is watched by one connector on the server and
- * drawn with its own fixed shape in the city.
+ * Resources beyond SSH: databases, managed database instances, object
+ * storage buckets, load balancers and probes (an HTTP endpoint or a TCP port
+ * watched from this machine). Each kind is watched by one connector on the
+ * server and drawn with its own fixed shape in the city.
  *
  * This file is the wire model (what the browser sees). The server's config
  * model (resources.yaml) lives in apps/server and never reaches the browser,
  * because one config entry can expand into many resources (every RDS
- * instance in a region, every bucket of an account).
+ * instance in a region, every bucket of an account, every load balancer).
  */
 export const ResourceKindSchema = z.enum([
   'postgres',
@@ -20,11 +21,14 @@ export const ResourceKindSchema = z.enum([
   'sqlite',
   'rds',
   's3',
+  'http',
+  'tcp',
+  'loadbalancer',
 ]);
 export type ResourceKind = z.infer<typeof ResourceKindSchema>;
 
 /** The fixed 3D shape of each kind (see docs/VISUAL_LANGUAGE.md). */
-export type ResourceShape = 'drum' | 'prism' | 'caged-drum' | 'warehouse';
+export type ResourceShape = 'drum' | 'prism' | 'caged-drum' | 'warehouse' | 'beacon' | 'gate';
 
 export const RESOURCE_SHAPES: Record<ResourceKind, ResourceShape> = {
   postgres: 'drum',
@@ -35,6 +39,9 @@ export const RESOURCE_SHAPES: Record<ResourceKind, ResourceShape> = {
   redis: 'prism',
   rds: 'caged-drum',
   s3: 'warehouse',
+  http: 'beacon',
+  tcp: 'beacon',
+  loadbalancer: 'gate',
 };
 
 /** Short engine tag shown on captions and in the palette. */
@@ -47,7 +54,13 @@ export const RESOURCE_KIND_LABELS: Record<ResourceKind, string> = {
   sqlite: 'SQLite',
   rds: 'RDS',
   s3: 'S3',
+  http: 'HTTP',
+  tcp: 'TCP',
+  loadbalancer: 'Load balancer',
 };
+
+/** Kinds that watch something from the outside, without logging in to it. */
+export const PROBE_KINDS: ReadonlySet<ResourceKind> = new Set(['http', 'tcp']);
 
 /** A resource as shown in the world. Contains no secrets, ever. */
 export const ResourceSchema = z.object({
@@ -55,14 +68,16 @@ export const ResourceSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   kind: ResourceKindSchema,
-  /** Engine label, e.g. "PostgreSQL", "MariaDB", "RDS · postgres", "S3 · R2". */
+  /** Engine label, e.g. "PostgreSQL", "MariaDB", "RDS · postgres", "S3 · R2", "ALB". */
   engine: z.string().min(1),
   district: z.string().min(1),
   tags: z.array(z.string()).default([]),
-  /** Where it lives, for display only: "db.internal:5432", a file path, an endpoint. */
+  /** Where it lives, for display only: "db.internal:5432", a file path, an endpoint, a URL. */
   target: z.string(),
   /** The resources.yaml entry this resource came from. */
   sourceId: z.string().min(1),
+  /** Ids of buildings this one uses (declared topology, from resources.yaml). */
+  dependsOn: z.array(z.string()).optional(),
 });
 export type Resource = z.infer<typeof ResourceSchema>;
 
@@ -75,6 +90,7 @@ export const MetricUnitSchema = z.enum([
   'seconds',
   'ms',
   'bytesPerHour',
+  'days',
   'text',
 ]);
 export type MetricUnit = z.infer<typeof MetricUnitSchema>;
@@ -97,7 +113,7 @@ export type ResourceMetric = z.infer<typeof ResourceMetricSchema>;
  * `null` always means "not known", never zero.
  */
 export const ResourceGaugesSchema = z.object({
-  /** Queries, transactions or commands per second (pulse speed of drums and prisms). */
+  /** Queries, transactions, commands or requests per second (pulse speed). */
   opsPerSec: z.number().nonnegative().nullable(),
   /** CPU percent of a managed instance (pulse speed of RDS). */
   cpuPercent: z.number().min(0).max(100).nullable(),
@@ -111,6 +127,12 @@ export const ResourceGaugesSchema = z.object({
     .nullable(),
   /** Net growth of stored bytes per hour (S3 particles; only growth is drawn). */
   growthBytesPerHour: z.number().nullable(),
+  /** Round trip of the last probe or the load balancer's target response time (beacon pulse). */
+  latencyMs: z.number().nonnegative().nullable(),
+  /** Load balancer targets: healthy out of total (gate bands). */
+  targets: z
+    .object({ healthy: z.number().nonnegative(), total: z.number().nonnegative() })
+    .nullable(),
 });
 export type ResourceGauges = z.infer<typeof ResourceGaugesSchema>;
 
@@ -120,6 +142,8 @@ export const EMPTY_GAUGES: ResourceGauges = {
   connections: null,
   storage: null,
   growthBytesPerHour: null,
+  latencyMs: null,
+  targets: null,
 };
 
 /** Live state of one resource. Same truth rules as hosts. */
@@ -171,6 +195,10 @@ export const ResourceThresholdsSchema = z.object({
   /** Managed instance CPU above this percent for `cpuDegradedPolls` polls. */
   cpuDegradedPercent: z.number().min(0).max(100).default(90),
   cpuDegradedPolls: z.number().int().min(1).default(3),
+  /** Probe round trip (or load balancer response time) above this many ms. */
+  latencyDegradedMs: z.number().min(0).default(1500),
+  /** TLS certificate expiring within this many days. */
+  certificateDegradedDays: z.number().int().min(0).default(14),
 });
 export type ResourceThresholds = z.infer<typeof ResourceThresholdsSchema>;
 export const DEFAULT_RESOURCE_THRESHOLDS: ResourceThresholds = ResourceThresholdsSchema.parse({});

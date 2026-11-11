@@ -1,6 +1,7 @@
 import {
   createUnknownResourceState,
   DEFAULT_RESOURCE_THRESHOLDS,
+  EMPTY_GAUGES,
   type Resource,
   type ResourceGauges,
   type ResourceMetric,
@@ -17,11 +18,24 @@ import { isStale } from '../staleness';
 import { createSeededRandom } from './seeded-random';
 
 /**
- * Demo resources: databases, an RDS instance and buckets, each exercising a
- * truth state. Like the demo fleet, every sample runs through the real
- * status rules, and whoever serves them must announce demo mode.
+ * Demo resources: databases, RDS instances, buckets, load balancers and
+ * probes, each exercising a truth state, living in the same districts as the
+ * demo servers (AWS Mumbai holds EC2 and RDS and the ALB, like a real VPC).
+ * Like the demo fleet, every sample runs through the real status rules, and
+ * whoever serves them must announce demo mode.
  */
-type DemoResourceBehavior = 'steady' | 'lagging-replica' | 'offline' | 'goes-stale' | 'growing';
+type DemoResourceBehavior =
+  | 'steady'
+  | 'lagging-replica'
+  | 'offline'
+  | 'goes-stale'
+  | 'growing'
+  /** Probe: answers, but slowly (above the latency threshold). */
+  | 'slow'
+  /** Probe: healthy, but its certificate expires in a few days. */
+  | 'cert-expiring'
+  /** Load balancer with one target failing its health check. */
+  | 'unhealthy-target';
 
 interface DemoResourceSpec {
   resource: Resource;
@@ -32,24 +46,29 @@ interface DemoResourceSpec {
 const GiB = 1024 ** 3;
 
 const spec = (
-  resource: Omit<Resource, 'tags' | 'sourceId'> & { tags?: string[] },
+  resource: Omit<Resource, 'tags' | 'sourceId' | 'dependsOn'> & {
+    tags?: string[];
+    dependsOn?: string[];
+  },
   behavior: DemoResourceBehavior,
   pollIntervalMs = 2000,
 ): DemoResourceSpec => ({
-  resource: { tags: [], sourceId: resource.id, ...resource },
+  resource: { tags: [], dependsOn: [], sourceId: resource.id, ...resource },
   behavior,
   pollIntervalMs,
 });
 
 const DEMO_RESOURCE_SPECS: DemoResourceSpec[] = [
+  // AWS Mumbai: the databases next to the servers that use them
   spec(
     {
       id: 'orders-db',
       name: 'orders-db',
       kind: 'postgres',
       engine: 'PostgreSQL',
-      district: 'Databases',
+      district: 'AWS Mumbai',
       target: '10.0.4.20:5432',
+      tags: ['prod', 'db'],
     },
     'steady',
   ),
@@ -59,54 +78,12 @@ const DEMO_RESOURCE_SPECS: DemoResourceSpec[] = [
       name: 'orders-replica',
       kind: 'postgres',
       engine: 'PostgreSQL',
-      district: 'Databases',
+      district: 'AWS Mumbai',
       target: '10.0.4.21:5432',
+      tags: ['prod', 'db'],
+      dependsOn: ['orders-db'],
     },
     'lagging-replica',
-  ),
-  spec(
-    {
-      id: 'shop-mysql',
-      name: 'shop-mysql',
-      kind: 'mysql',
-      engine: 'MariaDB',
-      district: 'Databases',
-      target: '10.0.4.30:3306',
-    },
-    'steady',
-  ),
-  spec(
-    {
-      id: 'events-mongo',
-      name: 'events-mongo',
-      kind: 'mongodb',
-      engine: 'MongoDB',
-      district: 'Databases',
-      target: '10.0.4.40:27017',
-    },
-    'steady',
-  ),
-  spec(
-    {
-      id: 'session-cache',
-      name: 'session-cache',
-      kind: 'redis',
-      engine: 'Redis',
-      district: 'Databases',
-      target: '10.0.4.50:6379',
-    },
-    'offline',
-  ),
-  spec(
-    {
-      id: 'rate-limit-cache',
-      name: 'rate-limit',
-      kind: 'redis',
-      engine: 'Redis',
-      district: 'Databases',
-      target: '10.0.4.51:6379',
-    },
-    'steady',
   ),
   spec(
     {
@@ -114,8 +91,9 @@ const DEMO_RESOURCE_SPECS: DemoResourceSpec[] = [
       name: 'billing-prod',
       kind: 'rds',
       engine: 'RDS · postgres',
-      district: 'RDS · ap-south-1',
+      district: 'AWS Mumbai',
       target: 'billing-prod.example.ap-south-1.rds.amazonaws.com',
+      tags: ['prod', 'managed'],
     },
     'steady',
     5000,
@@ -126,8 +104,9 @@ const DEMO_RESOURCE_SPECS: DemoResourceSpec[] = [
       name: 'reports-ro',
       kind: 'rds',
       engine: 'RDS · mysql',
-      district: 'RDS · ap-south-1',
+      district: 'AWS Mumbai',
       target: 'reports-ro.example.ap-south-1.rds.amazonaws.com',
+      tags: ['managed'],
     },
     'goes-stale',
     5000,
@@ -137,21 +116,174 @@ const DEMO_RESOURCE_SPECS: DemoResourceSpec[] = [
       id: 'media-bucket',
       name: 'media-uploads',
       kind: 's3',
-      engine: 'S3 · Spaces',
-      district: 'Object storage',
-      target: 'blr1.digitaloceanspaces.com',
+      engine: 'S3 · AWS',
+      district: 'AWS Mumbai',
+      target: 's3.ap-south-1.amazonaws.com',
+      tags: ['prod'],
     },
     'growing',
     5000,
   ),
   spec(
     {
+      id: 'lekhix-alb',
+      name: 'lekhix-alb',
+      kind: 'loadbalancer',
+      engine: 'ALB',
+      district: 'AWS Mumbai',
+      target: 'lekhix-alb-1234.ap-south-1.elb.amazonaws.com',
+      tags: ['prod', 'edge'],
+    },
+    'steady',
+    5000,
+  ),
+  // DigitalOcean: caches and object storage beside the droplets
+  spec(
+    {
+      id: 'session-cache',
+      name: 'session-cache',
+      kind: 'redis',
+      engine: 'Redis',
+      district: 'DigitalOcean',
+      target: '10.0.4.50:6379',
+    },
+    'offline',
+  ),
+  spec(
+    {
+      id: 'rate-limit-cache',
+      name: 'rate-limit',
+      kind: 'redis',
+      engine: 'Redis',
+      district: 'DigitalOcean',
+      target: '10.0.4.51:6379',
+    },
+    'steady',
+  ),
+  spec(
+    {
       id: 'backups-bucket',
       name: 'nightly-backups',
       kind: 's3',
-      engine: 'S3 · R2',
-      district: 'Object storage',
-      target: 'example.r2.cloudflarestorage.com',
+      engine: 'S3 · Spaces',
+      district: 'DigitalOcean',
+      target: 'blr1.digitaloceanspaces.com',
+      tags: ['backup'],
+    },
+    'steady',
+    5000,
+  ),
+  spec(
+    {
+      id: 'skillgen-lb',
+      name: 'skillgen-lb',
+      kind: 'loadbalancer',
+      engine: 'DO LB',
+      district: 'DigitalOcean',
+      target: '139.59.0.42',
+      tags: ['prod', 'edge'],
+    },
+    'unhealthy-target',
+    5000,
+  ),
+  // Hetzner: self-managed databases on the dedicated boxes
+  spec(
+    {
+      id: 'shop-mysql',
+      name: 'shop-mysql',
+      kind: 'mysql',
+      engine: 'MariaDB',
+      district: 'Hetzner',
+      target: '10.40.0.20:3306',
+      tags: ['db'],
+    },
+    'steady',
+  ),
+  spec(
+    {
+      id: 'events-mongo',
+      name: 'events-mongo',
+      kind: 'mongodb',
+      engine: 'MongoDB',
+      district: 'Hetzner',
+      target: '10.40.0.20:27017',
+      tags: ['db'],
+    },
+    'steady',
+  ),
+  // Edge: the public face, probed from this machine
+  spec(
+    {
+      id: 'probe-lekhix',
+      name: 'lekhix.com',
+      kind: 'http',
+      engine: 'HTTPS',
+      district: 'Edge',
+      target: 'https://lekhix.com/healthz',
+      tags: ['prod'],
+    },
+    'steady',
+    5000,
+  ),
+  spec(
+    {
+      id: 'probe-myselfraj',
+      name: 'myselfraj.com',
+      kind: 'http',
+      engine: 'HTTPS',
+      district: 'Edge',
+      target: 'https://myselfraj.com/',
+      tags: ['prod'],
+    },
+    'cert-expiring',
+    5000,
+  ),
+  spec(
+    {
+      id: 'probe-skillgen',
+      name: 'skillgen.app',
+      kind: 'http',
+      engine: 'HTTPS',
+      district: 'Edge',
+      target: 'https://skillgen.app/api/health',
+      tags: ['prod'],
+    },
+    'slow',
+    5000,
+  ),
+  spec(
+    {
+      id: 'probe-gitsmith',
+      name: 'gitsmith docs',
+      kind: 'http',
+      engine: 'HTTPS',
+      district: 'Edge',
+      target: 'https://gitsmith.dev/',
+    },
+    'steady',
+    5000,
+  ),
+  // Home lab: probes for the things without SSH metrics of their own
+  spec(
+    {
+      id: 'probe-jellyfin',
+      name: 'jellyfin web',
+      kind: 'http',
+      engine: 'HTTP',
+      district: 'Home lab',
+      target: 'http://192.168.1.15:8096/health',
+    },
+    'steady',
+    5000,
+  ),
+  spec(
+    {
+      id: 'probe-nas-smb',
+      name: 'nas smb',
+      kind: 'tcp',
+      engine: 'TCP',
+      district: 'Home lab',
+      target: '192.168.1.10:445',
     },
     'steady',
     5000,
@@ -204,7 +336,7 @@ export function createDemoResources(
         const { status, reason } = computeResourceStatus(
           {
             failed: true,
-            failureReason: 'connect ECONNREFUSED 10.0.4.50:6379',
+            failureReason: `connect ECONNREFUSED ${resource.target}`,
             hasPolled: false,
             sample: null,
             streaks: { slowQueries: 0, cpu: 0 },
@@ -295,16 +427,12 @@ function sampleFor(
   noise: (spread: number) => number,
 ): DemoSample {
   const wave = Math.sin(elapsedMs / 9000 + resource.id.length);
-  const gauges: ResourceGauges = {
-    opsPerSec: null,
-    cpuPercent: null,
-    connections: null,
-    storage: null,
-    growthBytesPerHour: null,
-  };
+  const gauges: ResourceGauges = { ...EMPTY_GAUGES };
   let lag: number | null = null;
   let slow: number | null = 0;
   let cacheHit: number | null = null;
+  let certificateDaysLeft: number | null = null;
+  const warnings: string[] = [];
   const metrics: ResourceMetric[] = [];
 
   switch (resource.kind) {
@@ -392,6 +520,57 @@ function sampleFor(
       slow = null;
       break;
     }
+    case 'http': {
+      const base = behavior === 'slow' ? 2100 : resource.target.startsWith('http://') ? 9 : 140;
+      const latency = Math.max(2, base + base * 0.25 * wave + noise(base * 0.1));
+      const tls = resource.target.startsWith('https://');
+      gauges.latencyMs = latency;
+      certificateDaysLeft = tls ? (behavior === 'cert-expiring' ? 5 : 61) : null;
+      metrics.push(
+        metric('status', 'HTTP status', 'count', 200),
+        metric('latency', 'Round trip', 'ms', latency),
+        metric('ttfb', 'Time to first byte', 'ms', latency * 0.7),
+        metric('size', 'Body', 'bytes', 1842),
+        metric('certDays', 'Certificate expires in', 'days', certificateDaysLeft),
+        textMetric('issuer', 'Certificate issuer', tls ? "Let's Encrypt" : 'no TLS'),
+      );
+      slow = null;
+      break;
+    }
+    case 'tcp': {
+      const latency = Math.max(1, 3 + 2 * wave + noise(1));
+      gauges.latencyMs = latency;
+      metrics.push(
+        metric('latency', 'Connect time', 'ms', latency),
+        textMetric('banner', 'Banner', 'none (port open)'),
+      );
+      slow = null;
+      break;
+    }
+    case 'loadbalancer': {
+      const total = 2;
+      const healthy = behavior === 'unhealthy-target' ? 1 : 2;
+      const requests = Math.max(0, 180 + 90 * wave + noise(20));
+      const latency = Math.max(5, 62 + 20 * wave + noise(8));
+      gauges.opsPerSec = requests;
+      gauges.latencyMs = latency;
+      gauges.targets = { healthy, total };
+      gauges.connections = { used: Math.round(640 + 180 * wave), max: null };
+      certificateDaysLeft = 74;
+      metrics.push(
+        textMetric('scheme', 'Scheme', 'internet-facing · HTTPS:443 → HTTP:3000'),
+        metric('targets', 'Healthy targets', 'count', healthy),
+        metric('targetsTotal', 'Targets', 'count', total),
+        metric('requests', 'Requests', 'perSec', requests),
+        metric('latency', 'Target response time', 'ms', latency),
+        metric('5xx', '5xx per minute', 'count', behavior === 'unhealthy-target' ? 12 : 0),
+        metric('4xx', '4xx per minute', 'count', Math.round(8 + 4 * wave)),
+        metric('active', 'Active connections', 'count', gauges.connections.used),
+        metric('certDays', 'Certificate expires in', 'days', certificateDaysLeft),
+      );
+      slow = null;
+      break;
+    }
     case 'mssql':
     case 'sqlite':
       break;
@@ -403,7 +582,8 @@ function sampleFor(
       replicationLagSeconds: lag,
       slowQueries: slow,
       cacheHitPercent: cacheHit,
-      warnings: [],
+      certificateDaysLeft,
+      warnings,
     },
     metrics,
   };

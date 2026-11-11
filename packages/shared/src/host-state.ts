@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { HostServicesSchema } from './services';
 
 /**
  * Health of a host as computed by the server's state engine.
@@ -69,6 +70,11 @@ export const HostStateSchema = z.object({
   os: z.string().nullable(),
   /** Last connection or poll error, if any. Shown verbatim in the HUD. */
   error: z.string().nullable(),
+  /**
+   * What runs on the host (ports, containers, failed units, updates), from
+   * the slower discovery poll. Absent or null until the first discovery.
+   */
+  services: HostServicesSchema.nullish(),
 });
 export type HostState = z.infer<typeof HostStateSchema>;
 

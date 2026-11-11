@@ -201,6 +201,10 @@ function describeTarget(config: ResourceConfig): string {
       return `rds ${config.region}`;
     case 's3':
       return `s3 ${config.provider}${config.endpoint ? ` ${config.endpoint}` : ''}`;
+    case 'http':
+      return `http ${config.url}`;
+    case 'loadbalancer':
+      return `loadbalancer ${config.provider} ${config.region}`;
     default:
       return `${config.kind} ${config.host}:${config.port}`;
   }

@@ -15,6 +15,41 @@ export interface McpEndpointOptions {
   /** Server name the AI sees, from PROJECT_NAME. */
   serverName: string;
   version: string;
+  /** Display name the user knows the app by (PROJECT_NAME); defaults to serverName. */
+  appName?: string;
+}
+
+/**
+ * How every AI client (Claude Code in a terminal or the desktop app, Codex,
+ * Gemini...) should treat the user. The key split: questions for the user go
+ * in the AI's own chat, which works the same in a terminal and an app; only
+ * what a command itself reads (a password) goes through the app, so a secret
+ * never passes through the AI, and the AI always says when to look at the app.
+ */
+export function mcpInstructions(appName: string): string {
+  return [
+    `${appName} shows the user's servers, databases, buckets, probes and load balancers as a city,`,
+    'grouped in districts, and runs commands on the servers.',
+    'Call list_servers and list_resources first to see what exists and how it is doing.',
+    '',
+    `Every run_command waits for the user to approve it in ${appName}. Rules:`,
+    `1. Before each run_command, tell the user in one short line that it needs their approval in ${appName}`,
+    `   (for example: "Approve the disk check on web-1 in ${appName}."). Explain why in \`reason\`.`,
+    `2. If a result says WAITING, tell the user right away to check ${appName}, then call`,
+    '   wait_for_command with the request_id. Repeat while it says WAITING; never send the command twice.',
+    '3. Questions for the user that the command does not read (which server, which option, a go-ahead',
+    `   for a plan, missing details) belong in your own chat with the user, not in ${appName}.`,
+    '4. Input the command itself reads on stdin that only the user knows (a token for --password-stdin,',
+    `   a y/n answer) goes in run_command's \`input\`: ${appName} shows the user a field and pipes the answer`,
+    `   to stdin. For sudo by a non-root user ${appName} asks for the password on its own. Never ask the user`,
+    '   to paste a password or secret into your chat.',
+    '5. Commands get no terminal, so nothing interactive: no `sudo su`, `su`, `sudo -i`, editors, pagers or',
+    "   prompts. Use `sudo sh -c '...'` for several root commands, -y flags and --no-pager. A command that",
+    '   waits for input gets end-of-file and fails instead of hanging.',
+    '6. If the user denied a command or added a note, follow the note. Prefer read-only checks first.',
+    '7. Commands cannot run on databases, buckets, probes or load balancers: list_resources gives their',
+    '   status. To query a database, run its client (psql, mysql, redis-cli, aws) on a server that reaches it.',
+  ].join('\n');
 }
 
 /**
@@ -53,20 +88,29 @@ export function registerMcpEndpoint(app: FastifyInstance, options: McpEndpointOp
 }
 
 /** Turns a command result into what the AI reads. */
-export function describeRunResult(result: RunCommandResult): { text: string; isError: boolean } {
+export function describeRunResult(
+  result: RunCommandResult,
+  appName = 'the app',
+): { text: string; isError: boolean } {
   switch (result.state) {
     case 'refused':
       return { text: result.reason, isError: true };
     case 'waiting': {
-      const what =
-        result.phase === 'asking'
-          ? `The user has not answered yet in the app${result.needsInput ? ' (the command needs something only they can type)' : ''}.`
-          : 'The user allowed it and the command is still running.';
+      const collect = `call wait_for_command with request_id "${result.requestId}". Do not send the same command again.`;
+      if (result.phase === 'running') {
+        return {
+          text: `RUNNING: the user allowed it and the command is still running on ${result.serverName}. To get the output, ${collect}`,
+          isError: false,
+        };
+      }
+      const what = result.needsInput
+        ? 'approve the command and type the input it needs'
+        : 'approve or deny the command';
       return {
         text:
-          `${what} Tell the user to look at the approval card for ${result.serverName} in the app, ` +
-          `then call wait_for_command with request_id "${result.requestId}" to collect the result. ` +
-          'Do not send the same command again.',
+          `WAITING for the user in ${appName}: the command on ${result.serverName} has not run yet. ` +
+          `Tell the user now: "Please check ${appName} to ${what} on ${result.serverName}." Then ${collect} ` +
+          'Do not ask for passwords in chat. Unanswered requests are denied after 5 minutes.',
         isError: false,
       };
     }
@@ -82,20 +126,10 @@ export function describeRunResult(result: RunCommandResult): { text: string; isE
 
 /** One MCP server instance per request (stateless), bound to the caller's label. */
 export function buildMcpServer(options: McpEndpointOptions, client: string): McpServer {
+  const appName = options.appName ?? options.serverName;
   const server = new McpServer(
     { name: options.serverName, version: options.version },
-    {
-      instructions: [
-        `${options.serverName} shows the user's servers, databases, buckets, probes and load`,
-        'balancers as a city, grouped in districts, and runs commands on the servers.',
-        'Call list_servers (and list_resources) first to see what exists and how it is doing.',
-        'run_command runs a shell command on one server over SSH. The user approves every',
-        'command in the app before it runs, so explain why in `reason`, keep commands',
-        'focused, and prefer read-only checks before changing anything. If run_command answers',
-        '"waiting", tell the user to look at the app and collect the result with wait_for_command.',
-        'Never ask the user for passwords in chat: declare `input` and they type it in the app.',
-      ].join(' '),
-    },
+    { instructions: mcpInstructions(appName) },
   );
 
   server.registerTool(
@@ -139,7 +173,9 @@ export function buildMcpServer(options: McpEndpointOptions, client: string): Mcp
       title: 'Run a command on a server',
       description:
         'Runs a shell command on one server over its SSH connection and returns the exit code and output. ' +
-        'The user sees the exact command and must approve it first; denied commands do not run. ' +
+        `The user sees the exact command and must approve it in ${appName} first; tell them so in one line before calling. ` +
+        'Denied commands do not run. If nobody answers within about 25 seconds it returns WAITING with a request_id: ' +
+        `tell the user to check ${appName}, then call wait_for_command. ` +
         'No interactive programs (no editors, no prompts); add flags like -y where needed. ' +
         'If the command reads a secret on stdin (sudo password, a token for --password-stdin), ' +
         'declare it in `input`: the user types it in the app and you never see it.',
@@ -176,7 +212,7 @@ export function buildMcpServer(options: McpEndpointOptions, client: string): Mcp
         client,
         signal: ctx.mcpReq.signal,
       });
-      const { text, isError } = describeRunResult(result);
+      const { text, isError } = describeRunResult(result, appName);
       return { content: [{ type: 'text', text }], isError };
     },
   );
@@ -194,7 +230,7 @@ export function buildMcpServer(options: McpEndpointOptions, client: string): Mcp
     },
     async (input, ctx) => {
       const result = await options.tools.waitForCommand(input.request_id, ctx.mcpReq.signal);
-      const { text, isError } = describeRunResult(result);
+      const { text, isError } = describeRunResult(result, appName);
       return { content: [{ type: 'text', text }], isError };
     },
   );

@@ -1,3 +1,4 @@
+import { DEFAULT_RESOURCE_THRESHOLDS } from '@app/shared';
 import { describe, expect, it } from 'vitest';
 import { parseResourcesYaml } from '../config/resources-file';
 import { applyOutcome, runtimeToState } from '../fleet/resource-fleet';
@@ -132,16 +133,7 @@ describe('resource runtime (truth rules)', () => {
   const base = {
     resourceId: 'pg',
     pollIntervalMs: 10_000,
-    thresholds: {
-      staleAfterPolls: 3,
-      connectionsDegradedPercent: 90,
-      replicationLagDegradedSeconds: 30,
-      slowQueryDegradedPolls: 3,
-      cacheHitDegradedPercent: 90,
-      storageDegradedPercent: 90,
-      cpuDegradedPercent: 90,
-      cpuDegradedPolls: 3,
-    },
+    thresholds: { ...DEFAULT_RESOURCE_THRESHOLDS },
     hasPolled: false,
     failed: false,
     error: null,

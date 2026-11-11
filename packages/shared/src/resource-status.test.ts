@@ -95,7 +95,17 @@ describe('demo resources', () => {
     expect(byId.get('reports-rds')?.stale).toBe(true);
     expect(byId.get('orders-db')?.status).toBe('online');
     expect(new Set(demo.resources.map((r) => r.kind))).toEqual(
-      new Set(['postgres', 'mysql', 'mongodb', 'redis', 'rds', 's3']),
+      new Set([
+        'postgres',
+        'mysql',
+        'mongodb',
+        'redis',
+        'rds',
+        's3',
+        'http',
+        'tcp',
+        'loadbalancer',
+      ]),
     );
   });
 });

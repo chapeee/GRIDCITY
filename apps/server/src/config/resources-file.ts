@@ -33,6 +33,8 @@ const baseFields = {
   pollIntervalMs: z.number().int().min(1000).optional(),
   /** Overrides of the file-wide resource thresholds. */
   thresholds: ResourceThresholdsSchema.partial().optional(),
+  /** Ids of servers or resources this one uses (drawn as links in the city). */
+  dependsOn: z.array(z.string().min(1)).default([]),
 };
 
 /** Password by reference only. */
@@ -144,6 +146,52 @@ const S3Schema = z.strictObject({
   forcePathStyle: z.boolean().optional(),
 });
 
+/** An HTTP(S) endpoint checked from this machine: status, latency, certificate. */
+const HttpSchema = z.strictObject({
+  kind: z.literal('http'),
+  ...baseFields,
+  url: z
+    .string()
+    .regex(/^https?:\/\//, 'must start with http:// or https://')
+    .refine((value) => !/\/\/[^/@\s]*:[^/@\s]*@/.test(value), 'no password in the URL'),
+  method: z.enum(['GET', 'HEAD']).default('GET'),
+  /** Accept only this status; any 2xx or 3xx otherwise. */
+  expectStatus: z.number().int().min(100).max(599).optional(),
+  /** The body must contain this text (GET only). */
+  expectBody: z.string().min(1).max(200).optional(),
+  /** Follow redirects (up to 5). */
+  followRedirects: z.boolean().default(true),
+  /** Accept self-signed or otherwise untrusted certificates (still reports expiry). */
+  insecure: z.boolean().default(false),
+  timeoutMs: z.number().int().min(500).max(60_000).default(10_000),
+});
+
+/** A TCP port checked from this machine: open or not, connect time, optional TLS. */
+const TcpSchema = z.strictObject({
+  kind: z.literal('tcp'),
+  ...baseFields,
+  ...hostPort(443),
+  /** Do a TLS handshake after connecting and report the certificate. */
+  tls: z.boolean().default(false),
+  /** The first line the server sends must contain this (SSH, SMTP, Redis banners). */
+  expectBanner: z.string().min(1).max(200).optional(),
+  timeoutMs: z.number().int().min(500).max(60_000).default(5_000),
+});
+
+export const LOAD_BALANCER_PROVIDERS = ['aws'] as const;
+
+/** AWS Application / Network Load Balancers: state, target health and CloudWatch traffic. */
+const LoadBalancerSchema = z.strictObject({
+  kind: z.literal('loadbalancer'),
+  ...baseFields,
+  provider: z.enum(LOAD_BALANCER_PROVIDERS).default('aws'),
+  region: z.string().min(1),
+  profile: z.string().min(1).optional(),
+  /** Load balancer names to watch; all in the region when omitted. */
+  names: z.array(z.string().min(1)).optional(),
+  endpoint: z.url().optional(),
+});
+
 export const ResourceConfigSchema = z.discriminatedUnion(
   'kind',
   [
@@ -155,6 +203,9 @@ export const ResourceConfigSchema = z.discriminatedUnion(
     SqliteSchema,
     RdsSchema,
     S3Schema,
+    HttpSchema,
+    TcpSchema,
+    LoadBalancerSchema,
   ],
   { error: (issue) => describeBadKind(issue.input) },
 );
@@ -169,7 +220,7 @@ function describeBadKind(input: unknown): string {
     typeof input === 'object' && input !== null && 'kind' in input
       ? String((input as { kind: unknown }).kind)
       : undefined;
-  return `kind must be one of postgres, mysql, mongodb, redis, mssql, sqlite, rds, s3${kind ? ` (got "${kind}")` : ''}`;
+  return `kind must be one of postgres, mysql, mongodb, redis, mssql, sqlite, rds, s3, http, tcp, loadbalancer${kind ? ` (got "${kind}")` : ''}`;
 }
 
 /** Default poll interval per kind: CloudWatch reports per minute, listing buckets is expensive. */
@@ -182,6 +233,9 @@ export const DEFAULT_POLL_INTERVAL_MS: Record<ResourceConfig['kind'], number> = 
   sqlite: 10_000,
   rds: 60_000,
   s3: 300_000,
+  http: 30_000,
+  tcp: 30_000,
+  loadbalancer: 60_000,
 };
 
 export const ResourcesFileSchema = z
@@ -304,6 +358,26 @@ export const RESOURCES_FILE_TEMPLATE = `# Databases, RDS and object storage show
 #     accessKeyIdEnv: SPACES_KEY
 #     secretAccessKeyEnv: SPACES_SECRET
 #     buckets: [media-uploads]   # optional; all listable buckets otherwise
+#
+#   - kind: http                 # an endpoint checked from this machine
+#     id: shop-health
+#     url: https://shop.example.com/healthz
+#     expectStatus: 200          # optional; any 2xx/3xx otherwise
+#     expectBody: '"ok"'         # optional; the body must contain this
+#     district: Edge
+#     dependsOn: [shop-lb]       # draws a link to what it really hits
+#
+#   - kind: tcp                  # a port checked from this machine
+#     id: mail-smtp
+#     host: mail.example.com
+#     port: 587
+#     expectBanner: ESMTP        # optional
+#
+#   - kind: loadbalancer         # AWS ALB/NLB: state, target health, CloudWatch traffic
+#     id: shop-lb
+#     region: eu-west-1
+#     names: [shop-prod]         # optional; every load balancer in the region otherwise
+#     dependsOn: [web-01, web-02]  # the servers behind it, when target IPs cannot be matched
 #
 # thresholds:                    # optional; defaults shown
 #   staleAfterPolls: 3

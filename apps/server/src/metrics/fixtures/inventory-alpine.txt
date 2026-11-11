@@ -1,0 +1,19 @@
+@@section listen
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      1/sshd
+tcp        0      0 :::22                   :::*                    LISTEN      1/sshd
+udp        0      0 0.0.0.0:68              0.0.0.0:*                           -
+@@section established
+tcp        0      0 192.168.1.2:22          192.168.1.50:60122      ESTABLISHED
+@@section addrs
+192.168.1.2
+@@section docker
+@@unavailable
+@@section failed
+@@unavailable
+@@section reboot
+unknown
+@@section updates
+@@unavailable
+@@end-inventory

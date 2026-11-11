@@ -1,4 +1,7 @@
+import { lookup } from 'node:dns/promises';
 import {
+  createDemoLinks,
+  DEMO_DISTRICTS,
   createDemoHistory,
   DEFAULT_RESOURCE_THRESHOLDS,
   DEFAULT_STATUS_THRESHOLDS,
@@ -21,6 +24,10 @@ import { loadHostsFile, type HostsConfig } from './config/hosts-file';
 import { addHostToFile } from './config/hosts-writer';
 import { editHostInFile, removeHostFromFile, setFileThresholds } from './config/hosts-editor';
 import { importSshConfig } from './config/ssh-config-importer';
+import { loadDistrictsFile } from './config/districts-file';
+import { loadRunbooksFile } from './config/runbooks-file';
+import { createWebhookNotifier } from './alerts/webhook';
+import { registerRunbookRoutes } from './http/runbook-routes';
 import { loadResourcesFile, type ResourcesConfig } from './config/resources-file';
 import { createConnector, type ConnectorContext } from './connectors';
 import { DemoFleetProvider } from './fleet/demo-fleet-provider';
@@ -170,6 +177,37 @@ export async function startServer({
     resourceErrors = loaded.ok ? built.errors : loaded.errors;
   }
 
+  // Districts (provider, region) and runbooks (saved commands), both optional files.
+  // In demo mode the districts come with the demo city; runbooks are still yours.
+  const loadDeclarations = async () => {
+    const [districts, runbooks] = await Promise.all([
+      env.DATA_MODE === 'demo'
+        ? Promise.resolve({ ok: true as const, districts: DEMO_DISTRICTS })
+        : loadDistrictsFile(paths.districtsFile),
+      loadRunbooksFile(paths.runbooksFile),
+    ]);
+    const errors = [
+      ...(districts.ok ? [] : [`districts.yaml has errors:\n${districts.errors.join('\n')}`]),
+      ...(runbooks.ok ? [] : [`runbooks.yaml has errors:\n${runbooks.errors.join('\n')}`]),
+    ];
+    return {
+      districts: districts.ok ? districts.districts : [],
+      runbooks: runbooks.ok ? runbooks.runbooks : [],
+      errors,
+    };
+  };
+  const declarations = await loadDeclarations();
+
+  // Alerts: an optional webhook gets every real transition into or out of trouble.
+  const notifier =
+    env.DATA_MODE === 'real' && env.ALERT_WEBHOOK_URL
+      ? createWebhookNotifier({
+          url: env.ALERT_WEBHOOK_URL,
+          projectName: env.PROJECT_NAME,
+          log: (message) => console.warn(message),
+        })
+      : null;
+
   const hub = new StateHub({
     provider,
     resources: resourceProvider,
@@ -177,9 +215,24 @@ export async function startServer({
     layoutStore: new LayoutStore(db),
     history,
     statusEvents,
+    districts: declarations.districts,
+    runbooks: declarations.runbooks,
+    fixedLinks: env.DATA_MODE === 'demo' ? (now) => createDemoLinks(now) : undefined,
+    resolve:
+      env.DATA_MODE === 'real'
+        ? (hostname) => lookup(hostname, { all: true }).then((all) => all.map((a) => a.address))
+        : undefined,
+    onTransition: notifier
+      ? (event) => {
+          if (notifier.notify(event)) {
+            audit.append('alert_sent', event.targetId, `${event.from ?? '?'} → ${event.to}`);
+          }
+        }
+      : undefined,
   });
   hub.setConfigErrors(configErrors);
   hub.setResourceConfigErrors(resourceErrors);
+  hub.setOtherConfigErrors(declarations.errors);
   hub.start();
 
   let lastResourcesMtime = existsSync(paths.resourcesFile)
@@ -203,6 +256,15 @@ export async function startServer({
     }
   };
   if (env.DATA_MODE === 'real') {
+    // districts.yaml and runbooks.yaml reload live too (runbooks in demo mode as well).
+    const reloadDeclarations = async () => {
+      const next = await loadDeclarations();
+      hub.replaceDeclarations({ districts: next.districts, runbooks: next.runbooks });
+      hub.setOtherConfigErrors(next.errors);
+    };
+    for (const file of [paths.districtsFile, paths.runbooksFile]) {
+      watchFile(file, { interval: HOSTS_FILE_POLL_MS }, () => void reloadDeclarations());
+    }
     watchFile(paths.resourcesFile, { interval: HOSTS_FILE_POLL_MS }, (current) => {
       if (current.mtimeMs !== lastResourcesMtime) void reloadResources();
     });
@@ -288,6 +350,7 @@ export async function startServer({
       registerMcpEndpoint(instance, {
         tools: fleetTools,
         serverName: mcpName,
+        appName: env.PROJECT_NAME,
         version: packageJson.version,
       });
       await registerAgentRoutes(instance, {
@@ -346,6 +409,16 @@ export async function startServer({
             hostsFile: paths.hostsFile,
             defaultUser: userInfo().username,
           }),
+      });
+      registerRunbookRoutes(instance, {
+        audit,
+        demoMode: env.DATA_MODE === 'demo',
+        hosts: () => hub.currentProvider.hosts,
+        runbooks: () => hub.currentRunbooks,
+        runner: {
+          isConnected: (hostId) => fleetAccess.isConnected(hostId),
+          exec: (hostId, command, timeoutMs) => fleetAccess.exec(hostId, command, timeoutMs),
+        },
       });
       registerResourceRoutes(instance, {
         audit,
@@ -412,6 +485,8 @@ export async function startServer({
       clearInterval(pruneTimer);
       unwatchFile(paths.hostsFile);
       unwatchFile(paths.resourcesFile);
+      unwatchFile(paths.districtsFile);
+      unwatchFile(paths.runbooksFile);
       agentHub.close();
       hub.stop();
       await app.close();

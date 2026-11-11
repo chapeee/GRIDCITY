@@ -30,6 +30,12 @@ export const ServerEnvSchema = z.object({
    * fleet. One mode per process: demo and real data are never mixed.
    */
   DATA_MODE: z.enum(['real', 'demo']).default('real'),
+  /**
+   * Optional webhook (Slack, Discord, ntfy, anything taking JSON) that gets a
+   * message when a server or resource goes offline, degraded, or recovers.
+   * Real mode only; the URL is a secret and lives only in the environment.
+   */
+  ALERT_WEBHOOK_URL: z.url().optional(),
 });
 export type ServerEnv = z.infer<typeof ServerEnvSchema>;
 

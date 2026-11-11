@@ -1,6 +1,7 @@
 import type { Host } from '../host';
 import type { DiskUsage, HostState, NetworkRate } from '../host-state';
 import { computeHostStatus, nextCpuBusyStreak, type ConnectionPhase } from '../host-status';
+import type { HostServices } from '../services';
 import { isStale } from '../staleness';
 import { DEFAULT_STATUS_THRESHOLDS, type StatusThresholds } from '../thresholds';
 import { createSeededRandom, type SeededRandom } from './seeded-random';
@@ -444,8 +445,12 @@ export function createDemoFleet(options: DemoFleetOptions = {}): DemoFleet {
     port: 22,
     user: 'ops',
     district: spec.district,
-    tags: [spec.behavior === 'steady' ? 'demo' : `demo:${spec.behavior}`],
+    tags: [
+      spec.behavior === 'steady' ? 'demo' : `demo:${spec.behavior}`,
+      ...(DEMO_HOST_TAGS[spec.id] ?? []),
+    ],
     auth: { method: 'agent' },
+    dependsOn: DEMO_DEPENDS_ON[spec.id] ?? [],
   }));
 
   return {
@@ -665,8 +670,199 @@ function sampleHost(
     network,
     uptimeSeconds: Math.round((now - host.bootedAt) / 1000),
     os: spec.os,
+    services: demoServices(host, now),
   };
   return withStatus(state, 'connected', true, host, thresholds, now);
+}
+
+/** Extra tags so runbooks and the palette have something to match. */
+const DEMO_HOST_TAGS: Record<string, string[]> = {
+  'ausia-edge': ['edge', 'prod'],
+  'ausia-web': ['web', 'prod'],
+  'lekhix-api': ['api', 'prod', 'docker'],
+  'lekhix-web': ['web', 'prod'],
+  'lekhix-db': ['db', 'prod'],
+  'lekhix-backups': ['backup'],
+  'lekhix-scraper': ['worker', 'docker'],
+  'myselfraj-web': ['web', 'prod'],
+  'skillgen-app': ['app', 'prod', 'docker'],
+  'skillgen-redis': ['cache'],
+  'leadgent-queue': ['worker'],
+  'reverse-seo': ['web'],
+  'home-nas': ['storage'],
+  pihole: ['dns'],
+  jellyfin: ['media', 'docker'],
+  'gitsmith-docs': ['web'],
+  'bizmail-api': ['api', 'docker'],
+  'whatson-db': ['db'],
+  'formtest-cron': ['worker'],
+  'yuruper-staging': ['staging', 'docker'],
+};
+
+/** Declared topology (what hosts.yaml `dependsOn` would say for this fleet). */
+const DEMO_DEPENDS_ON: Record<string, string[]> = {
+  'ausia-edge': ['ausia-web'],
+  'lekhix-web': ['lekhix-api'],
+  'lekhix-api': ['orders-db', 'rate-limit-cache', 'media-bucket'],
+  'lekhix-scraper': ['events-mongo', 'lekhix-api'],
+  'lekhix-backups': ['lekhix-db', 'backups-bucket'],
+  'skillgen-app': ['session-cache', 'skillgen-redis', 'shop-mysql'],
+  'myselfraj-web': ['media-bucket'],
+  'leadgent-queue': ['skillgen-redis'],
+  'bizmail-api': ['shop-mysql'],
+  'formtest-cron': ['bizmail-api'],
+  jellyfin: ['home-nas'],
+};
+
+interface DemoServiceSpec {
+  listening: { port: number; process: string }[];
+  containers?: { name: string; image: string }[];
+  failedUnits?: string[];
+  rebootRequired?: boolean;
+  pendingUpdates?: [total: number, security: number];
+}
+
+const web = (process = 'nginx') => [
+  { port: 22, process: 'sshd' },
+  { port: 80, process },
+  { port: 443, process },
+];
+
+/** What service discovery would find on each demo host. */
+const DEMO_SERVICES: Record<string, DemoServiceSpec> = {
+  'ausia-edge': { listening: [...web('caddy'), { port: 8404, process: 'haproxy' }] },
+  'ausia-web': { listening: [...web(), { port: 3000, process: 'node' }] },
+  'lekhix-api': {
+    listening: [...web(), { port: 4000, process: 'docker-proxy' }],
+    containers: [
+      { name: 'lekhix-api', image: 'ghcr.io/lekhix/api:2.14.0' },
+      { name: 'lekhix-worker', image: 'ghcr.io/lekhix/worker:2.14.0' },
+      { name: 'otel-collector', image: 'otel/opentelemetry-collector:0.108.0' },
+    ],
+  },
+  'lekhix-web': { listening: [...web(), { port: 3000, process: 'node' }] },
+  'lekhix-db': {
+    listening: [
+      { port: 22, process: 'sshd' },
+      { port: 5432, process: 'postgres' },
+      { port: 9187, process: 'postgres_exporter' },
+    ],
+  },
+  'lekhix-backups': {
+    listening: [{ port: 22, process: 'sshd' }],
+    pendingUpdates: [41, 9],
+    rebootRequired: true,
+  },
+  'lekhix-scraper': {
+    listening: [{ port: 22, process: 'sshd' }],
+    containers: [
+      { name: 'scraper', image: 'ghcr.io/lekhix/scraper:1.9.2' },
+      { name: 'playwright', image: 'mcr.microsoft.com/playwright:v1.48.0' },
+    ],
+  },
+  'myselfraj-web': { listening: web() },
+  'skillgen-app': {
+    listening: [...web(), { port: 8080, process: 'docker-proxy' }],
+    containers: [
+      { name: 'skillgen', image: 'skillgen/app:0.31.4' },
+      { name: 'skillgen-cron', image: 'skillgen/app:0.31.4' },
+    ],
+  },
+  'skillgen-redis': {
+    listening: [
+      { port: 22, process: 'sshd' },
+      { port: 6379, process: 'redis-server' },
+    ],
+  },
+  'leadgent-queue': {
+    listening: [
+      { port: 22, process: 'sshd' },
+      { port: 5672, process: 'beam.smp' },
+      { port: 15672, process: 'beam.smp' },
+    ],
+  },
+  'reverse-seo': { listening: web('apache2'), failedUnits: ['certbot.service'] },
+  'home-nas': {
+    listening: [
+      { port: 22, process: 'sshd' },
+      { port: 445, process: 'smbd' },
+      { port: 2049, process: 'nfsd' },
+      { port: 9000, process: 'minio' },
+    ],
+  },
+  pihole: {
+    listening: [
+      { port: 22, process: 'sshd' },
+      { port: 53, process: 'pihole-FTL' },
+      { port: 80, process: 'lighttpd' },
+    ],
+  },
+  jellyfin: {
+    listening: [
+      { port: 22, process: 'sshd' },
+      { port: 8096, process: 'docker-proxy' },
+    ],
+    containers: [
+      { name: 'jellyfin', image: 'jellyfin/jellyfin:10.9.11' },
+      { name: 'watchtower', image: 'containrrr/watchtower:1.7.1' },
+    ],
+  },
+  'gitsmith-docs': { listening: web('caddy') },
+  'bizmail-api': {
+    listening: [...web(), { port: 25, process: 'postfix' }, { port: 587, process: 'postfix' }],
+    containers: [{ name: 'bizmail-api', image: 'ghcr.io/raj/bizmail:0.8.0' }],
+  },
+  'whatson-db': {
+    listening: [
+      { port: 22, process: 'sshd' },
+      { port: 3306, process: 'mariadbd' },
+      { port: 27017, process: 'mongod' },
+    ],
+  },
+  'formtest-cron': { listening: [{ port: 22, process: 'sshd' }] },
+  'yuruper-staging': {
+    listening: [...web(), { port: 5173, process: 'node' }],
+    containers: [{ name: 'yuruper', image: 'yuruper/app:staging' }],
+    pendingUpdates: [23, 4],
+    rebootRequired: true,
+  },
+};
+
+/**
+ * The inventory a discovery round would report. Mostly static per host;
+ * a memory leak shows as a restarting container, so the HUD tells the story.
+ */
+function demoServices(host: SimulatedHost, now: number): HostServices | null {
+  const spec = DEMO_SERVICES[host.spec.id];
+  if (!spec) return null;
+  const leaking = host.incident?.kind === 'memory-leak';
+  const uptime = Math.max(0, now - host.bootedAt);
+  const since =
+    uptime > 2 * 86_400_000
+      ? `Up ${Math.floor(uptime / 86_400_000)} days`
+      : uptime > 3_600_000
+        ? `Up ${Math.floor(uptime / 3_600_000)} hours`
+        : `Up ${Math.max(1, Math.floor(uptime / 60_000))} minutes`;
+  return {
+    collectedAt: now,
+    listening: spec.listening.map(({ port, process }) => ({
+      port,
+      protocol: port === 53 ? 'udp' : 'tcp',
+      address: port === 22 || port === 80 || port === 443 ? '0.0.0.0' : '127.0.0.1',
+      process,
+    })),
+    containers: spec.containers
+      ? spec.containers.map((container, index) => ({
+          ...container,
+          state: leaking && index === 0 ? 'restarting' : 'running',
+          status: leaking && index === 0 ? 'Restarting (137) 12 seconds ago' : `${since} (healthy)`,
+        }))
+      : null,
+    failedUnits: spec.failedUnits ?? [],
+    rebootRequired: spec.rebootRequired ?? false,
+    pendingUpdates: spec.pendingUpdates?.[0] ?? 0,
+    pendingSecurityUpdates: spec.pendingUpdates?.[1] ?? 0,
+  };
 }
 
 function simulateInterface(

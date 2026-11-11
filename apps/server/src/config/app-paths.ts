@@ -8,6 +8,10 @@ export interface AppPaths {
   dataDir: string;
   hostsFile: string;
   resourcesFile: string;
+  /** Optional descriptions of districts (provider, region). */
+  districtsFile: string;
+  /** Saved commands (runbooks). */
+  runbooksFile: string;
   databaseFile: string;
   /** The user's SSH directory (keys, known_hosts). Overridable for Docker. */
   sshDir: string;
@@ -72,6 +76,8 @@ export function resolveAppPaths({ projectName, env, platform, homeDir }: PathCon
     dataDir,
     hostsFile: p.join(configDir, 'hosts.yaml'),
     resourcesFile: p.join(configDir, 'resources.yaml'),
+    districtsFile: p.join(configDir, 'districts.yaml'),
+    runbooksFile: p.join(configDir, 'runbooks.yaml'),
     databaseFile: p.join(dataDir, 'state.db'),
     sshDir,
     knownHostsFiles: env.KNOWN_HOSTS_FILE

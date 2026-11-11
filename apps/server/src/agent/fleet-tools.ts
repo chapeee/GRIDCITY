@@ -50,6 +50,12 @@ export interface ServerSummary {
   memoryPercent: number | null;
   disks: string[];
   uptimeHours: number | null;
+  /** From service discovery: "22 sshd, 443 nginx"; null until the first discovery. */
+  listeningPorts: string[] | null;
+  containers: string[] | null;
+  failedUnits: string[] | null;
+  rebootRequired: boolean | null;
+  pendingUpdates: string | null;
 }
 
 /** A database, RDS instance or bucket as an AI sees it. Never a secret. */
@@ -433,6 +439,7 @@ function findResource(resources: readonly Resource[], wanted: string): Resource 
 }
 
 function summarize(host: Host, state: HostState | undefined, connected: boolean): ServerSummary {
+  const services = state?.services ?? null;
   const percent = (used: number, total: number) =>
     total > 0 ? Math.round((used / total) * 100) : null;
   return {
@@ -452,6 +459,18 @@ function summarize(host: Host, state: HostState | undefined, connected: boolean)
       (disk) => `${disk.mount} ${percent(disk.usedBytes, disk.totalBytes) ?? '?'}%`,
     ),
     uptimeHours: state?.uptimeSeconds == null ? null : Math.round(state.uptimeSeconds / 3600),
+    listeningPorts: services
+      ? services.listening.map((p) => `${p.port}/${p.protocol}${p.process ? ` ${p.process}` : ''}`)
+      : null,
+    containers: services?.containers
+      ? services.containers.map((c) => `${c.name} (${c.image}) ${c.state}: ${c.status}`)
+      : null,
+    failedUnits: services?.failedUnits ?? null,
+    rebootRequired: services?.rebootRequired ?? null,
+    pendingUpdates:
+      services?.pendingUpdates == null
+        ? null
+        : `${services.pendingUpdates} (${services.pendingSecurityUpdates ?? 0} security)`,
   };
 }
 
@@ -484,6 +503,7 @@ const UNIT_SUFFIX: Record<ResourceMetric['unit'], string> = {
   seconds: ' s',
   ms: ' ms',
   bytesPerHour: ' bytes/h',
+  days: ' days',
   text: '',
 };
 

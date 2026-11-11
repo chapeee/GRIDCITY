@@ -20,6 +20,7 @@ import {
   withTimeout,
   type Connector,
   type PollOutcome,
+  type ResourcePeer,
 } from '../connectors/connector';
 import type { AuditLog } from '../storage/audit-log';
 
@@ -33,6 +34,8 @@ export interface ResourceProvider {
   start(listener: ResourceListener): void;
   stop(): void;
   currentStates(now: number): ResourceState[];
+  /** Addresses the resources talk to (load balancer targets); none by default. */
+  peers?(): ResourcePeer[];
 }
 
 interface Runtime {
@@ -141,6 +144,11 @@ export class ResourceFleet implements ResourceProvider {
 
   resources(): Resource[] {
     return this.connectors.flatMap(({ connector }) => connector.resources());
+  }
+
+  /** Addresses the resources talk to (load balancer targets), for the topology. */
+  peers(): ResourcePeer[] {
+    return this.connectors.flatMap(({ connector }) => connector.peers?.() ?? []);
   }
 
   start(listener: ResourceListener): void {

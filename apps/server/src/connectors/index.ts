@@ -1,5 +1,7 @@
 import type { ResourceConfig } from '../config/resources-file';
 import type { Connector, ConnectorContext } from './connector';
+import { createHttpConnector } from './http';
+import { createLoadBalancerConnector } from './loadbalancer';
 import { createMongoConnector } from './mongodb';
 import { createMssqlConnector } from './mssql';
 import { createMysqlConnector } from './mysql';
@@ -8,8 +10,9 @@ import { createRdsConnector } from './rds';
 import { createRedisConnector } from './redis';
 import { createS3Connector } from './s3';
 import { createSqliteConnector } from './sqlite';
+import { createTcpConnector } from './tcp';
 
-export type { Connector, ConnectorContext, PollOutcome } from './connector';
+export type { Connector, ConnectorContext, PollOutcome, ResourcePeer } from './connector';
 
 /** The one place that knows every kind. A new kind = a new file + one line here. */
 export function createConnector(config: ResourceConfig, context: ConnectorContext): Connector {
@@ -30,5 +33,11 @@ export function createConnector(config: ResourceConfig, context: ConnectorContex
       return createRdsConnector(config, context);
     case 's3':
       return createS3Connector(config, context);
+    case 'http':
+      return createHttpConnector(config, context);
+    case 'tcp':
+      return createTcpConnector(config, context);
+    case 'loadbalancer':
+      return createLoadBalancerConnector(config, context);
   }
 }

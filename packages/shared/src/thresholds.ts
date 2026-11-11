@@ -9,6 +9,8 @@ export const StatusThresholdsSchema = z.object({
   pollIntervalMs: z.number().int().min(500).default(2000),
   /** Data older than `pollIntervalMs * staleAfterPolls` is considered stale. */
   staleAfterPolls: z.number().int().min(1).default(3),
+  /** How often services, containers and connections are discovered on each host, ms. */
+  discoveryIntervalMs: z.number().int().min(5000).default(30_000),
   /** CPU percent above which a host counts as busy... */
   cpuDegradedPercent: z.number().min(0).max(100).default(90),
   /** ...for this many consecutive polls before it becomes `degraded`. */
@@ -42,6 +44,7 @@ export type HostThresholdOverrides = z.infer<typeof HostThresholdOverridesSchema
 export const ThresholdsPatchSchema = HostThresholdOverridesSchema.extend({
   pollIntervalMs: z.number().int().min(500).max(600_000).optional(),
   staleAfterPolls: polls.optional(),
+  discoveryIntervalMs: z.number().int().min(5000).max(3_600_000).optional(),
 });
 
 /** The thresholds in effect for one host. */

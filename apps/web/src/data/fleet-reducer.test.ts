@@ -28,7 +28,7 @@ const polled = (id: string, lastSeenAt: number): HostState => ({
   network: [{ iface: 'eth0', rxBytesPerSec: 100, txBytesPerSec: 50 }],
 });
 
-const hello = (dataMode: 'real' | 'demo', protocolVersion = 2): ServerMessage => ({
+const hello = (dataMode: 'real' | 'demo', protocolVersion = 3): ServerMessage => ({
   type: 'hello',
   protocolVersion,
   dataMode,

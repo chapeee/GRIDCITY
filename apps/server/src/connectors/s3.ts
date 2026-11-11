@@ -55,6 +55,7 @@ export function createS3Connector(
     tags: config.tags,
     target: config.endpoint ? new URL(config.endpoint).host : `s3.${config.region}.amazonaws.com`,
     sourceId: config.id,
+    dependsOn: config.dependsOn,
   });
 
   const placeholder = (): Resource => ({

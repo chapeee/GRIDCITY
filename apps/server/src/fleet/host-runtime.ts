@@ -7,6 +7,7 @@ import {
   type StatusThresholds,
 } from '@app/shared';
 import { deriveRates, type DerivedRates, type TimedSample } from '../metrics/compute-sample';
+import type { HostInventory } from '../metrics/parse-inventory';
 import type { PhaseChange } from '../ssh/host-connection';
 
 /**
@@ -24,6 +25,8 @@ export interface HostRuntime {
   cpuBusyStreak: number;
   /** Last polling problem (timeout, bad output). Data stays as it was and goes stale. */
   pollError: string | null;
+  /** Last discovery round (services, addresses, connections); null before the first. */
+  inventory: HostInventory | null;
 }
 
 export function createHostRuntime(): HostRuntime {
@@ -36,6 +39,7 @@ export function createHostRuntime(): HostRuntime {
     rates: null,
     cpuBusyStreak: 0,
     pollError: null,
+    inventory: null,
   };
 }
 
@@ -72,6 +76,11 @@ export function applyPollSuccess(
 /** Records a failed poll. Nothing else changes, so the data honestly goes stale. */
 export function applyPollFailure(runtime: HostRuntime, message: string): HostRuntime {
   return { ...runtime, pollError: message };
+}
+
+/** Records a discovery round. A failed round keeps the previous inventory (it ages visibly). */
+export function applyInventory(runtime: HostRuntime, inventory: HostInventory): HostRuntime {
+  return { ...runtime, inventory };
 }
 
 export function buildHostState(
@@ -112,5 +121,7 @@ export function buildHostState(
     uptimeSeconds: metrics?.uptimeSeconds ?? null,
     os: raw?.os ?? null,
     error: offline ? runtime.connectionError : runtime.pollError,
+    // What runs there is unknown while offline, like every other metric.
+    services: offline ? null : (runtime.inventory?.services ?? null),
   };
 }

@@ -25,6 +25,7 @@ const ORIGIN = 'http://127.0.0.1:4601';
 const thresholds: StatusThresholds = {
   pollIntervalMs: 500,
   staleAfterPolls: 3,
+  discoveryIntervalMs: 60_000,
   cpuDegradedPercent: 90,
   cpuDegradedPolls: 3,
   memoryDegradedPercent: 90,

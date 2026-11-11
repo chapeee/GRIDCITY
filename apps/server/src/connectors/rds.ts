@@ -84,6 +84,7 @@ export function createRdsConnector(
     tags: config.tags,
     target: config.region,
     sourceId: config.id,
+    dependsOn: config.dependsOn,
   });
 
   const toResource = (instance: DBInstance): Resource => ({
@@ -95,6 +96,7 @@ export function createRdsConnector(
     tags: config.tags,
     target: instance.Endpoint?.Address ?? config.region,
     sourceId: config.id,
+    dependsOn: config.dependsOn,
   });
 
   const discover = async (): Promise<DBInstance[]> => {

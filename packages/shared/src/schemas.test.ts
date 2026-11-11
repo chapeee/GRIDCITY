@@ -85,6 +85,7 @@ describe('DEFAULT_STATUS_THRESHOLDS', () => {
     expect(DEFAULT_STATUS_THRESHOLDS).toEqual({
       pollIntervalMs: 2000,
       staleAfterPolls: 3,
+      discoveryIntervalMs: 30_000,
       cpuDegradedPercent: 90,
       cpuDegradedPolls: 3,
       memoryDegradedPercent: 90,

@@ -13,9 +13,11 @@ export interface ResourceHealthSample {
   slowQueries: number | null;
   /** Cache hit percent over this poll; null without enough reads to judge. */
   cacheHitPercent: number | null;
+  /** Days until the TLS certificate expires (probes, load balancer listeners); null when no TLS. */
+  certificateDaysLeft?: number | null;
   /**
    * A problem the connector itself reports that is not a failure to connect,
-   * e.g. "replica link down" or "instance is rebooting".
+   * e.g. "replica link down", "instance is rebooting", "HTTP 503".
    */
   warnings: string[];
 }
@@ -46,7 +48,7 @@ export function findResourceDegradedReasons(
   thresholds: ResourceThresholds,
 ): string[] {
   const reasons = [...sample.warnings];
-  const { connections, storage, cpuPercent } = sample.gauges;
+  const { connections, storage, cpuPercent, latencyMs, targets } = sample.gauges;
 
   if (connections?.max) {
     const percent = (connections.used / connections.max) * 100;
@@ -76,6 +78,20 @@ export function findResourceDegradedReasons(
   }
   if (cpuPercent !== null && streaks.cpu >= thresholds.cpuDegradedPolls) {
     reasons.push(`CPU ${Math.round(cpuPercent)}% for ${streaks.cpu} polls`);
+  }
+  if (latencyMs !== null && latencyMs > thresholds.latencyDegradedMs) {
+    reasons.push(`slow: ${Math.round(latencyMs)} ms`);
+  }
+  if (targets && targets.total > 0 && targets.healthy < targets.total) {
+    reasons.push(`${targets.total - targets.healthy} of ${targets.total} targets unhealthy`);
+  }
+  const certDays = sample.certificateDaysLeft ?? null;
+  if (certDays !== null && certDays <= thresholds.certificateDegradedDays) {
+    reasons.push(
+      certDays < 0
+        ? 'certificate expired'
+        : `certificate expires in ${certDays} day${certDays === 1 ? '' : 's'}`,
+    );
   }
   return reasons;
 }
