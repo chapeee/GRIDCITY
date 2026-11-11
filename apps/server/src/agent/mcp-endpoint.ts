@@ -32,7 +32,9 @@ export function mcpInstructions(appName: string): string {
     'grouped in districts, and runs commands on the servers.',
     'Call list_servers and list_resources first to see what exists and how it is doing.',
     '',
-    `Every run_command waits for the user to approve it in ${appName}. Rules:`,
+    `Every run_command waits for the user to approve it in ${appName}, unless they chose "allow all" on that server.`,
+    'Even then, commands that delete, wipe, uninstall, stop or shut down something still ask: set `risky` on any',
+    'command you judge hard to undo. Rules:',
     `1. Before each run_command, tell the user in one short line that it needs their approval in ${appName}`,
     `   (for example: "Approve the disk check on web-1 in ${appName}."). Explain why in \`reason\`.`,
     `2. If a result says WAITING, tell the user right away to check ${appName}, then call`,
@@ -258,6 +260,13 @@ export function buildMcpServer(options: McpEndpointOptions, client: string): Mcp
           })
           .optional()
           .describe('Something only the user can type, written to the command on stdin.'),
+        risky: z
+          .boolean()
+          .optional()
+          .describe(
+            'Set true when the command deletes, overwrites, stops or changes something that is hard to undo. ' +
+              'It then asks the user even on a server they marked "allow all".',
+          ),
       }),
       annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     },
@@ -268,6 +277,7 @@ export function buildMcpServer(options: McpEndpointOptions, client: string): Mcp
         reason: input.reason,
         timeoutSeconds: input.timeout_seconds,
         input: input.input,
+        risky: input.risky,
         client,
         signal: ctx.mcpReq.signal,
       });

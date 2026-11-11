@@ -84,3 +84,72 @@ describe('ApprovalGate', () => {
     expect(() => gate.decide('nope', 'allow')).not.toThrow();
   });
 });
+
+describe('ApprovalGate on a trusted server', () => {
+  const sudoInput = { prompt: 'sudo password for ops', secret: true, optional: true };
+  const sudo = (command = 'sudo apt-get update'): ApprovalRequest => ({
+    ...ask('web-1', command),
+    input: sudoInput,
+    sudoPassword: true,
+  });
+  const trust = async (gate: ApprovalGate, request: ApprovalRequest, answer?: string) => {
+    const outcome = gate.request(request);
+    gate.decide(gate.approvals[0]!.id, 'allow-host', { answer });
+    return outcome;
+  };
+
+  it('still asks for destructive commands, and says why', async () => {
+    const gate = new ApprovalGate();
+    await trust(gate, ask());
+    await expect(gate.request(ask('web-1', 'uptime'))).resolves.toMatchObject({
+      by: 'trusted-host',
+    });
+
+    const outcome = gate.request({ ...ask('web-1', 'rm -rf /srv/app'), risk: 'deletes files' });
+    expect(gate.approvals).toHaveLength(1);
+    expect(gate.approvals[0]).toMatchObject({ risk: 'deletes files' });
+    gate.decide(gate.approvals[0]!.id, 'allow');
+    await expect(outcome).resolves.toMatchObject({ allowed: true, by: 'you' });
+  });
+
+  it('remembers the sudo password given with allow all, for that server only', async () => {
+    const gate = new ApprovalGate();
+    await expect(trust(gate, sudo(), 'hunter2')).resolves.toMatchObject({ answer: 'hunter2' });
+
+    await expect(gate.request(sudo('sudo systemctl restart nginx'))).resolves.toEqual({
+      allowed: true,
+      by: 'trusted-host',
+      note: null,
+      answer: 'hunter2',
+    });
+    expect(gate.approvals).toHaveLength(0);
+
+    // Another server still asks.
+    void gate.request({ ...sudo(), hostId: 'db-1', hostName: 'db-1' });
+    expect(gate.approvals).toHaveLength(1);
+  });
+
+  it('asks again after the password is rejected or the server is untrusted', async () => {
+    const gate = new ApprovalGate();
+    await trust(gate, sudo(), 'wrong');
+    gate.forgetSudoPassword('web-1');
+    void gate.request(sudo());
+    expect(gate.approvals).toHaveLength(1);
+    gate.decide(gate.approvals[0]!.id, 'allow', { answer: 'right' });
+    await expect(gate.request(sudo())).resolves.toMatchObject({ answer: 'right' });
+
+    gate.untrust('web-1');
+    void gate.request(sudo());
+    expect(gate.approvals).toHaveLength(1);
+  });
+
+  it('keeps asking for input the AI declared, like a token', async () => {
+    const gate = new ApprovalGate();
+    await trust(gate, ask());
+    void gate.request({
+      ...ask(),
+      input: { prompt: 'registry token', secret: true, optional: false },
+    });
+    expect(gate.approvals).toHaveLength(1);
+  });
+});

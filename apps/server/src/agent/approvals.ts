@@ -12,6 +12,13 @@ export interface ApprovalRequest {
   client: string;
   /** Something only the user can type, read by the command on stdin. */
   input?: ApprovalInput | null;
+  /** The input is this server's sudo password (remembered for the session on a trusted server). */
+  sudoPassword?: boolean;
+  /**
+   * Why this command still asks on a trusted server: it deletes, wipes, stops
+   * or shuts down something (see command-risk.ts), or the AI marked it risky.
+   */
+  risk?: string | null;
 }
 
 /** What the user sent back with a decision. */
@@ -31,6 +38,7 @@ export const APPROVAL_TIMEOUT_MS = 5 * 60 * 1000;
 
 interface Pending {
   approval: AgentApproval;
+  request: ApprovalRequest;
   settle(outcome: ApprovalOutcome): void;
   timer: ReturnType<typeof setTimeout>;
 }
@@ -44,15 +52,22 @@ const clean = (text: string | undefined): string | null => text?.trim() || null;
 
 /**
  * The one place an AI's command waits for the user. Commands run only after
- * an explicit "allow"; "allow on this server" trusts that host until the
- * server restarts (it is never saved). Unanswered requests are denied.
+ * an explicit "allow"; "allow all on this server" trusts that host until the
+ * app restarts (it is never saved). Unanswered requests are denied.
  *
- * A command that needs the user's input (a sudo password) always asks, even
- * on a trusted server: trust skips the click, not the answer.
+ * On a trusted server every command runs without asking, except:
+ * - destructive ones (delete, wipe, uninstall, stop, shut down) and any the AI
+ *   marked risky: they always ask, and say why;
+ * - input the AI declared (a token): the user types it each time.
+ * The sudo password is asked once: given with "allow all", it is kept in
+ * memory for that server until the app restarts or the server is untrusted,
+ * and never written anywhere. If sudo rejects it, it is forgotten.
  */
 export class ApprovalGate {
   private readonly pending = new Map<string, Pending>();
   private readonly trusted = new Set<string>();
+  /** Sudo passwords given with "allow all", per host. Memory only, never logged or saved. */
+  private readonly sudoPasswords = new Map<string, string>();
   private readonly listeners = new Set<() => void>();
   private readonly timeoutMs: number;
   private readonly now: () => number;
@@ -65,8 +80,9 @@ export class ApprovalGate {
   /** Resolves once the user decides (or the request times out). */
   request(request: ApprovalRequest, signal?: AbortSignal): Promise<ApprovalOutcome> {
     const input = request.input ?? null;
-    if (this.trusted.has(request.hostId) && !input) {
-      return Promise.resolve({ allowed: true, by: 'trusted-host', note: null, answer: null });
+    const auto = this.autoAnswer(request);
+    if (auto !== undefined) {
+      return Promise.resolve({ allowed: true, by: 'trusted-host', note: null, answer: auto });
     }
     if (signal?.aborted) {
       return Promise.resolve({ allowed: false, why: 'cancelled', note: null });
@@ -81,6 +97,7 @@ export class ApprovalGate {
         reason: request.reason,
         client: request.client,
         input,
+        risk: request.risk ?? null,
         requestedAt: this.now(),
       };
       const settle = (outcome: ApprovalOutcome) => {
@@ -99,7 +116,7 @@ export class ApprovalGate {
         this.timeoutMs,
       );
       timer.unref?.();
-      this.pending.set(approval.id, { approval, settle, timer });
+      this.pending.set(approval.id, { approval, request, settle, timer });
       this.changed();
     });
   }
@@ -119,14 +136,19 @@ export class ApprovalGate {
       return; // the card requires an answer; keep waiting
     }
     entry.settle({ allowed: true, by: 'you', note, answer });
+    const { hostId } = entry.approval;
+    // A sudo password typed on a trusted server (or with "allow all") is kept for the session.
+    if (entry.request.sudoPassword && (decision === 'allow-host' || this.trusted.has(hostId))) {
+      this.sudoPasswords.set(hostId, answer ?? '');
+    }
     if (decision === 'allow-host') {
-      const { hostId } = entry.approval;
       this.trusted.add(hostId);
       // Everything else already waiting on that host is now allowed too,
-      // except commands that still need the user's input.
+      // unless it is destructive or needs an answer only the user can give.
       for (const other of [...this.pending.values()]) {
-        if (other.approval.hostId === hostId && !other.approval.input) {
-          other.settle({ allowed: true, by: 'trusted-host', note: null, answer: null });
+        const auto = this.autoAnswer(other.request);
+        if (auto !== undefined) {
+          other.settle({ allowed: true, by: 'trusted-host', note: null, answer: auto });
         }
       }
       this.changed();
@@ -135,7 +157,27 @@ export class ApprovalGate {
 
   /** Back to asking for every command on this host. */
   untrust(hostId: string): void {
+    this.sudoPasswords.delete(hostId);
     if (this.trusted.delete(hostId)) this.changed();
+  }
+
+  /** Sudo rejected the remembered password: ask again next time. */
+  forgetSudoPassword(hostId: string): void {
+    this.sudoPasswords.delete(hostId);
+  }
+
+  /**
+   * The answer to run with when trust lets the request skip the card, or
+   * undefined when the user has to see it.
+   */
+  private autoAnswer(request: ApprovalRequest): string | null | undefined {
+    if (!this.trusted.has(request.hostId) || request.risk) return undefined;
+    const input = request.input ?? null;
+    if (!input) return null;
+    if (request.sudoPassword && this.sudoPasswords.has(request.hostId)) {
+      return this.sudoPasswords.get(request.hostId) || null;
+    }
+    return undefined;
   }
 
   /** Cancels one request (the AI stopped waiting for it). */

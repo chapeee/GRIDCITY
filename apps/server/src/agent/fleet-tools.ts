@@ -19,6 +19,7 @@ import { randomUUID } from 'node:crypto';
 import type { ExecResult } from '../ssh/host-connection';
 import type { AuditLog } from '../storage/audit-log';
 import type { ApprovalGate, ApprovalOutcome } from './approvals';
+import { commandRisk } from './command-risk';
 
 /** What the tools need from the running fleet. */
 export interface FleetAccess {
@@ -105,6 +106,8 @@ export interface RunCommandInput {
   timeoutSeconds?: number;
   /** Something only the user knows that the command reads on stdin. */
   input?: CommandInputRequest;
+  /** The AI thinks this is hard to undo: ask the user even on a trusted server. */
+  risky?: boolean;
   /** Who asks (shown on the approval card and in the audit log). */
   client: string;
   signal?: AbortSignal;
@@ -152,6 +155,9 @@ const RESULT_KEEP_MS = 15 * 60 * 1000;
 /** Output handed back to the AI: the start and the end, which is where errors are. */
 const OUTPUT_HEAD_CHARS = 8_000;
 const OUTPUT_TAIL_CHARS = 24_000;
+
+/** What sudo prints when the password on stdin is wrong. */
+const SUDO_REJECTED = /Sorry, try again|incorrect password attempt|no password was provided/i;
 
 /** `sudo` as a command word (start, after ; & | ( or $( or a space). */
 const SUDO_WORD = /(^|[\s;&|(`]|\$\()sudo(?=\s|$)/;
@@ -453,6 +459,9 @@ export class FleetTools {
         reason: input.reason?.trim() || null,
         client: input.client,
         input: approvalInput,
+        // Only the field the app adds on its own for sudo is a password worth remembering.
+        sudoPassword: approvalInput !== null && !input.input?.prompt.trim(),
+        risk: commandRisk(command) ?? (input.risky ? 'the AI marked it as hard to undo' : null),
       },
       signal,
     );
@@ -489,6 +498,9 @@ export class FleetTools {
       .join(', ');
     try {
       const result = await fleet.exec(host.id, toRun, timeoutS * 1000, stdin);
+      if (outcome.by === 'trusted-host' && answer && SUDO_REJECTED.test(result.stderr)) {
+        gate.forgetSudoPassword(host.id); // the remembered password is wrong: ask next time
+      }
       audit?.append(
         'agent_command_run',
         host.id,

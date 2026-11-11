@@ -1256,6 +1256,12 @@ button:disabled {
   font-size: 12px;
 }
 
+.approval-risk {
+  margin: 0 0 10px;
+  color: var(--color-degraded);
+  font-size: 12px;
+}
+
 .approval-actions {
   display: flex;
   flex-wrap: wrap;

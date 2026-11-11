@@ -42,6 +42,8 @@ export const AgentApprovalSchema = z.object({
   client: z.string(),
   /** Set when the command reads an answer from the user on stdin. */
   input: ApprovalInputSchema.nullable(),
+  /** Why it asks even on a trusted server (it deletes, stops or shuts down something), or null. */
+  risk: z.string().nullable().default(null),
   requestedAt: z.number().int(),
 });
 export type AgentApproval = z.infer<typeof AgentApprovalSchema>;

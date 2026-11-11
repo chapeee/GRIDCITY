@@ -68,6 +68,9 @@ function ApprovalCard({ approval }: { approval: AgentApproval }) {
       </p>
       <pre className="approval-command">{approval.command}</pre>
       {approval.reason && <p className="approval-reason">{approval.reason}</p>}
+      {approval.risk && (
+        <p className="approval-risk">Asks even with "allow all": this command {approval.risk}.</p>
+      )}
       {approval.input && (
         <label className="approval-input">
           <span>{approval.input.prompt}</span>
@@ -106,7 +109,11 @@ function ApprovalCard({ approval }: { approval: AgentApproval }) {
         >
           Allow
         </button>
-        <button type="button" onClick={() => decide('allow-host')} title="Until the app restarts">
+        <button
+          type="button"
+          onClick={() => decide('allow-host')}
+          title="Until the app restarts: commands run without asking, and a sudo password typed here is remembered. Destructive commands still ask."
+        >
           Allow all on {approval.hostName}
         </button>
         <button type="button" onClick={() => decide('deny')}>

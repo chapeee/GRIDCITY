@@ -8,16 +8,16 @@ description: 'The tools GRIDCITY gives AI agents over MCP, with their inputs and
 Endpoint: `http://127.0.0.1:4600/mcp` (Streamable HTTP), with `Authorization: Bearer <token>` and an
 optional `X-Agent-Client: <your app>` header shown on approval cards. `gridcity mcp` prints both.
 
-| Tool               | Input                                                                                  | Read-only | Answer                                                                                              |
-| ------------------ | -------------------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------- |
-| `incident_report`  | none                                                                                   | yes       | healthy/total, root causes (with what each explains and what is at risk), every troubled target     |
-| `diagnose`         | `target`: server or resource id or name                                                | yes¹      | a Doctor report: ladder, diagnoses, fixes with `verified`                                           |
-| `get_topology`     | `target` (optional)                                                                    | yes       | all districts and links, or one target's uses, used-by and blast radius                             |
-| `list_servers`     | none                                                                                   | yes       | servers: status, OS, CPU, memory, disks, uptime, listening ports, containers, failed units, updates |
-| `list_resources`   | none                                                                                   | yes       | databases, buckets, probes, load balancers: status and metrics                                      |
-| `list_runbooks`    | none                                                                                   | yes       | runbooks with command, read-only flag and `match`                                                   |
-| `run_command`      | `server`, `command`, `reason`, `timeout_seconds` (1–600), `input` {`prompt`, `secret`} | no        | exit code, stdout, stderr, the user's note; or _waiting_ with a `request_id`                        |
-| `wait_for_command` | `request_id`                                                                           | yes       | the result of a command that was waiting                                                            |
+| Tool               | Input                                                                                           | Read-only | Answer                                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------- |
+| `incident_report`  | none                                                                                            | yes       | healthy/total, root causes (with what each explains and what is at risk), every troubled target     |
+| `diagnose`         | `target`: server or resource id or name                                                         | yes¹      | a Doctor report: ladder, diagnoses, fixes with `verified`                                           |
+| `get_topology`     | `target` (optional)                                                                             | yes       | all districts and links, or one target's uses, used-by and blast radius                             |
+| `list_servers`     | none                                                                                            | yes       | servers: status, OS, CPU, memory, disks, uptime, listening ports, containers, failed units, updates |
+| `list_resources`   | none                                                                                            | yes       | databases, buckets, probes, load balancers: status and metrics                                      |
+| `list_runbooks`    | none                                                                                            | yes       | runbooks with command, read-only flag and `match`                                                   |
+| `run_command`      | `server`, `command`, `reason`, `timeout_seconds` (1–600), `input` {`prompt`, `secret`}, `risky` | no        | exit code, stdout, stderr, the user's note; or _waiting_ with a `request_id`                        |
+| `wait_for_command` | `request_id`                                                                                    | yes       | the result of a command that was waiting                                                            |
 
 ¹ `diagnose` makes a few read-only connection attempts to prove fixes; it changes nothing.
 

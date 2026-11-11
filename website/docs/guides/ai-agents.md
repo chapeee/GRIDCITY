@@ -48,6 +48,25 @@ Cards appear on top of everything, even an open terminal:
 - When a command needs a secret on stdin (a `sudo` password, a token for `--password-stdin`), the
   card asks **you** for it. It goes to the command only, never to the AI, never to the log.
 
+### Allow all on this server
+
+**Allow all** lets the AI work on that server without a card for every command, until the app
+restarts or you untrust the server in the agent panel. It is never saved.
+
+- **Everyday commands run straight away:** status checks, logs, restarts, installs, upgrades.
+- **Destructive commands still ask**, and the card says why: deleting files, wiping disks, dropping
+  database data, removing containers or packages, deleting users or cron jobs, stopping services,
+  killing processes, clearing firewall rules, discarding git history, deleting cloud resources,
+  rebooting or shutting down.
+- **The AI can ask too:** it marks any command it judges hard to undo as `risky`, and that command
+  asks even on a trusted server.
+- **The sudo password is asked once.** Type it on the card where you choose Allow all, and the app
+  keeps it in memory for that server and reuses it for later `sudo` commands. It is never written to
+  disk, logged or shown to the AI. If sudo rejects it, the app forgets it and asks again.
+- **Secrets the AI asks for**, such as a registry token, are asked every time.
+
+Prefer **Allow** on servers that matter: command output can contain text that tries to steer the AI.
+
 An AI is never left hanging: if you do not answer within 25 seconds, it is told to wait and collects
 the result later with `wait_for_command`. Unanswered requests are denied after 5 minutes. Every
 command run or denied is in the audit log, with who allowed it.
