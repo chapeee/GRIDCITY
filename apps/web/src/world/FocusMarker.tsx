@@ -26,7 +26,11 @@ export function FocusMarker({ tower }: FocusMarkerProps) {
   if (!tower) return null;
 
   return (
-    <mesh geometry={geometry} position={[tower.x, 0.04, tower.z]} raycast={() => null}>
+    <mesh
+      geometry={geometry}
+      position={[tower.x, cityGeometry.plateHeight + 0.04, tower.z]}
+      raycast={() => null}
+    >
       <meshBasicMaterial color={neutrals.textBright} transparent opacity={0.85} fog />
     </mesh>
   );

@@ -14,6 +14,8 @@ import type { BuildingShape } from './city-layout';
 import { ResourceCages } from './ResourceCages';
 import { TowerField } from './TowerField';
 import { TopologyLinks } from './TopologyLinks';
+import { CityAtmosphere } from './CityAtmosphere';
+import { TroubleBeacons } from './TroubleBeacons';
 
 /** One instanced mesh per shape; a shape with no buildings draws nothing. */
 const BUILDING_SHAPES: readonly BuildingShape[] = [
@@ -68,7 +70,9 @@ export function WorldScene({ model }: WorldSceneProps) {
       <color attach="background" args={[neutrals.base]} />
       <fog attach="fog" args={[atmosphere.fogColor, atmosphere.fogNear, atmosphere.fogFar]} />
 
-      <CityFloor districts={layout.districts} />
+      <CityAtmosphere stars={!liteMode} />
+      <CityFloor districts={layout.districts} tones={model.districtTones} reflections={!liteMode} />
+      <TroubleBeacons towers={layout.towers} statuses={model.statuses} visuals={visuals} />
       {BUILDING_SHAPES.map((shape) => (
         <TowerField
           key={shape}

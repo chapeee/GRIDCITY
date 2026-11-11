@@ -23,7 +23,7 @@ interface DiskRingsProps {
 }
 
 /** Lift above the floor to avoid z-fighting with the grid. */
-const RING_HEIGHT = 0.03;
+const RING_HEIGHT = cityGeometry.plateHeight + 0.03;
 
 /** Disk usage rings at every tower base, as one instanced mesh. */
 export function DiskRings({ towers, visuals, glowScale }: DiskRingsProps) {

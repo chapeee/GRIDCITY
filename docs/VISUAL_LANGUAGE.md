@@ -44,6 +44,11 @@ metrics, so spatial memory stays stable. Data is expressed through light only.
 | Name label                 | `Host.name`                               | Text above the tower                                                                                                                                  | —                        |
 | Caption (second line)      | status / staleness                        | Degraded → `statusReason` in the degraded accent · stale → "last seen _N_ ago" · offline → "offline · last seen" · unknown → "waiting for first poll" | —                        |
 | Label tone                 | status / staleness                        | Dim (muted) for offline, unknown and stale hosts                                                                                                      | —                        |
+| Trouble beacon             | `HostState.status`                        | `degraded` (live, not stale) → a soft, static amber shaft of light above the building, visible from anywhere in the city. Offline stays dark.         | n/a                      |
+
+Buildings are shaded as volumes: the dark body is darker at the foot, a little lighter at the
+top, with a lighter roof. This is shape only, neutral and far below the bloom threshold; it is the
+same for every building and never changes with data.
 
 ### Truth states (override everything above)
 
@@ -135,20 +140,32 @@ connection whose peer address and port belong to another building.
 
 ## Districts
 
-A district is a floor plate holding any mix of buildings. Its label is clickable: the camera
+A district is a low raised plate holding any mix of buildings. Its label is clickable: the camera
 frames the plate and the district panel opens (counts per status, members, links across its
-border). Districts have no light of their own; the panel's status dot is the worst status among
-members (offline > degraded > unknown > online).
+border). The panel's status dot is the worst status among members (offline > degraded > unknown >
+online).
+
+The plate's rim and corner brackets are the district's only light, and they encode one thing:
+
+| Plate edge | Members                                                |
+| ---------- | ------------------------------------------------------ |
+| Amber      | At least one member is degraded or offline             |
+| Cyan       | Otherwise, at least one live (not stale) member online |
+| Muted      | Nothing measured yet, only stale members, or empty     |
+
+Stale members never count as online: their data is old.
 
 ## World
 
-| Effect          | Driven by          | Notes                                                                 |
-| --------------- | ------------------ | --------------------------------------------------------------------- |
-| District block  | `Host.district`    | One per distinct label, sorted by name; thin outline on the floor.    |
-| District label  | `Host.district`    | Name in capitals, floating low in front of the district.              |
-| Tower position  | Sticky layout slot | Not data. A host keeps its slot; new hosts take the lowest free slot. |
-| Fog, grid floor | none (atmosphere)  | Static; never animated.                                               |
-| Bloom, vignette | none (atmosphere)  | Off in lite mode.                                                     |
+| Effect           | Driven by          | Notes                                                                                |
+| ---------------- | ------------------ | ------------------------------------------------------------------------------------ |
+| District plate   | `Host.district`    | One per distinct label, sorted by name; edge tone as in Districts.                   |
+| District label   | `Host.district`    | Name in capitals, floating low in front of the district.                             |
+| Tower position   | Sticky layout slot | Not data. A host keeps its slot; new hosts take the lowest free slot.                |
+| Fog, grid floor  | none (atmosphere)  | Static; never animated.                                                              |
+| Sky dome, stars  | none (atmosphere)  | Static. Stars are seeded, so the sky is the same on every load. Lite mode: no stars. |
+| Floor reflection | none (atmosphere)  | The city's own light, softly mirrored. Off in lite mode.                             |
+| Bloom, vignette  | none (atmosphere)  | Off in lite mode.                                                                    |
 
 ## 2D layer
 

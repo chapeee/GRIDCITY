@@ -66,10 +66,14 @@ on its own clock, so towers freeze even if the server stops sending.
 
 ## The floor
 
-- **Districts** are floor plates with their name in front; click it to frame the district.
+- **Districts** are raised plates with their name in front; click it to frame the district. The
+  plate's rim is amber when anything inside is degraded or offline, cyan when every measured member
+  is online, and muted when nothing has been measured yet.
+- **Trouble beacons** are soft amber shafts of light above degraded buildings, so a problem shows
+  from anywhere in the city. Offline buildings stay dark.
 - **Links** are lines of light from user to used ([Topology](../guides/topology.md)); they never use
   an accent color, so they never compete with status.
-- The grid and fog are atmosphere: static, never data.
+- The grid, fog, sky, stars and floor reflections are atmosphere: static, never data.
 
 ## UI marks (not data)
 

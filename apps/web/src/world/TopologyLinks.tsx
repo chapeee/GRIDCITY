@@ -2,7 +2,7 @@ import { useFrame } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import { BufferAttribute, BufferGeometry, Color, ShaderMaterial, type LineSegments } from 'three';
 import type { Link } from '@app/shared';
-import { accents, neutrals } from '../design/tokens';
+import { accents, cityGeometry, neutrals } from '../design/tokens';
 import type { TowerPlacement } from './city-layout';
 
 interface TopologyLinksProps {
@@ -15,7 +15,7 @@ interface TopologyLinksProps {
 }
 
 /** Height of the conduits above the floor; below every building's base light. */
-const LINK_HEIGHT = 0.06;
+const LINK_HEIGHT = cityGeometry.plateHeight + 0.06;
 /** Segments per link: enough for the flow to read as motion. */
 const SEGMENTS = 24;
 

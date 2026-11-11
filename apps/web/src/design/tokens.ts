@@ -176,6 +176,8 @@ export const cityGeometry = {
   diskRingOuterRadius: 2.3,
   /** Particle pool per tower; caps the visible rate. */
   particlesPerTower: 64,
+  /** Height of the district plates the buildings stand on; floor marks (rings, links) sit above it. */
+  plateHeight: 0.12,
 } as const;
 
 /** Camera framing. */

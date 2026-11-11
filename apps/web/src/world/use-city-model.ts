@@ -6,6 +6,7 @@ import {
   thresholdsForHost,
   type District,
   type Host,
+  type HostStatus,
   type Link,
   type Resource,
 } from '@app/shared';
@@ -23,6 +24,7 @@ import {
 } from './city-layout';
 import { computeHostVisual, type HostVisual } from './host-visuals';
 import { computeResourceVisual } from './resource-visuals';
+import { districtTone, type DistrictTone } from './district-visuals';
 
 /** Everything the 3D scene needs, derived from the fleet store. */
 export interface CityModel {
@@ -32,6 +34,10 @@ export interface CityModel {
   links: Link[];
   layout: CityLayout;
   visuals: ReadonlyMap<string, HostVisual>;
+  /** District name -> the tone of its plate edge (attention, online, unknown). */
+  districtTones: ReadonlyMap<string, DistrictTone>;
+  /** Building id -> its status right now (or at the replayed moment). */
+  statuses: ReadonlyMap<string, HostStatus>;
   /** Host and resource ids in reading order (district, then row, then column), for Tab navigation. */
   navigationOrder: string[];
 }
@@ -146,5 +152,37 @@ export function useCityModel(): CityModel {
     [layout],
   );
 
-  return { hosts, resources, districts, links, layout, visuals, navigationOrder };
+  const statuses = useMemo(
+    () =>
+      new Map<string, HostStatus>([
+        ...hosts.map((h) => [h.id, states[h.id]?.status ?? 'unknown'] as const),
+        ...resources.map((r) => [r.id, resourceStates[r.id]?.status ?? 'unknown'] as const),
+      ]),
+    [hosts, resources, states, resourceStates],
+  );
+  const districtTones = useMemo(() => {
+    const members = new Map<string, { status: HostStatus; stale: boolean }[]>();
+    const add = (district: string, status: HostStatus, frozen: boolean) => {
+      const list = members.get(district) ?? [];
+      list.push({ status, stale: frozen });
+      members.set(district, list);
+    };
+    for (const h of hosts)
+      add(h.district, statuses.get(h.id) ?? 'unknown', visuals.get(h.id)?.frozen ?? false);
+    for (const r of resources)
+      add(r.district, statuses.get(r.id) ?? 'unknown', visuals.get(r.id)?.frozen ?? false);
+    return new Map(layout.districts.map((d) => [d.name, districtTone(members.get(d.name) ?? [])]));
+  }, [hosts, resources, statuses, visuals, layout.districts]);
+
+  return {
+    hosts,
+    resources,
+    districts,
+    links,
+    layout,
+    visuals,
+    navigationOrder,
+    statuses,
+    districtTones,
+  };
 }

@@ -132,7 +132,11 @@ const fragmentShader = /* glsl */ `
     float time = vFrozenAt >= 0.0 ? vFrozenAt : uTime;
     float pulse = vPulseHz > 0.0 ? 0.72 + 0.28 * sin(6.2831853 * vPulseHz * time + vPulsePhase) : 1.0;
 
-    vec3 color = uBodyColor;
+    // Shape, not data: the dark body is darker at the foot and a little lighter at the top,
+    // with a lighter roof, so buildings read as volumes. Neutral and far below bloom.
+    float heightRatio = clamp(vLocalPosition.y / max(uTowerSize.y, 0.001), 0.0, 1.0);
+    vec3 color = uBodyColor * mix(0.55, 1.45, heightRatio);
+    if (vLocalNormal.y > 0.5) color = uBodyColor * 1.8;
     color += vGlowColor * vGlowIntensity * uGlowScale * pulse * edge;
 
     vec3 litBandColor = vGlowColor * uBandIntensity * uGlowScale * (vGlowIntensity / uReferenceGlow);
