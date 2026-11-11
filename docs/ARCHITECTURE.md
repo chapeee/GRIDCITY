@@ -257,6 +257,9 @@ shell instead of faking one.
 | `POST /api/connect/install`         | Install a public key with the password once (422 if rejected)                                            |
 | `GET/POST/DELETE /mcp`              | MCP endpoint for AI apps (Bearer token; no Origin needed)                                                |
 | `GET /ws/agent`                     | Approvals and the agent panel (WebSocket)                                                                |
+| `POST /api/resources/test`          | One real poll of a draft resource; a password typed for the test lives in that request only              |
+| `POST /api/resources`               | Add a resource to resources.yaml (comments kept; secrets and duplicate ids refused)                      |
+| `PATCH/DELETE /api/resources/:id`   | Edit name, district, tags of a resources.yaml entry, or remove it                                        |
 | `GET /api/history?target=&days=`    | Incidents and chart points (averaged to ≤ 720) for one host/resource, or every incident without `target` |
 | `GET/PUT /api/settings`             | Retention and file-wide thresholds (PUT writes hosts.yaml; 409 with demo data)                           |
 | `PATCH /api/hosts/:id`              | Edit name, district, tags, own thresholds (hosts.yaml in place; 422 with the problems)                   |

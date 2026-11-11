@@ -114,7 +114,13 @@ docker compose -f compose.yaml -f compose.ssh.yaml up --build
 
 ## Databases, RDS and object storage
 
-Add them to `resources.yaml`, next to `hosts.yaml` (created with a commented example on first
+**In the app:** Ctrl+K → **Connect a database or bucket…**. Pick the kind, fill a short form,
+press **Test connection** (one real read-only poll shows what it can see, or why it can't), then
+**Add to the city**. Passwords are never saved: you say where the password lives (an environment
+variable or a file), and can type it once just for the test. A focused database has **Edit**
+(name, district, tags) and **Remove**.
+
+**Or by hand:** add them to `resources.yaml`, next to `hosts.yaml` (created with a commented example on first
 start, reloaded live). Each kind is watched by one connector built on the standard open-source
 library for it, and gets its own building in the city:
 

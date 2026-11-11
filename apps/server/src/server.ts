@@ -31,6 +31,7 @@ import { StateHub } from './fleet/state-hub';
 import { registerApiRoutes } from './http/api-routes';
 import { registerConnectRoutes } from './http/connect-routes';
 import { registerManageRoutes } from './http/manage-routes';
+import { registerResourceRoutes } from './http/resource-routes';
 import { createApp } from './http/create-app';
 import { registerStateSocket } from './http/state-socket';
 import { registerTerminalSocket } from './http/terminal-socket';
@@ -343,6 +344,14 @@ export async function startServer({
             hostsFile: paths.hostsFile,
             defaultUser: userInfo().username,
           }),
+      });
+      registerResourceRoutes(instance, {
+        audit,
+        demoMode: env.DATA_MODE === 'demo',
+        resourcesFile: paths.resourcesFile,
+        context: connectorContext,
+        hostIds: () => new Set(hub.currentProvider.hosts.map((host) => host.id)),
+        reload: reloadResources, // the new building appears at once
       });
       registerManageRoutes(instance, {
         audit,

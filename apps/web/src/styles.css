@@ -1724,3 +1724,93 @@ button:disabled {
 .history-panel .audit-actions button {
   white-space: nowrap;
 }
+
+/* Connect a database or bucket */
+.kind-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.kind-tile {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  text-align: left;
+}
+
+.kind-tile-title {
+  color: var(--color-text-bright);
+}
+
+.kind-tile-blurb {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.connect-resource fieldset {
+  margin: 0;
+  padding: 8px 10px;
+  border: var(--panel-border);
+}
+
+.connect-resource .settings-field {
+  grid-template-columns: 150px minmax(0, 1fr);
+}
+
+.connect-resource .settings-field .settings-help {
+  grid-column: 2 / -1;
+}
+
+.connect-resource .settings-field.is-check input {
+  justify-self: start;
+  width: auto;
+}
+
+.connect-resource select {
+  padding: 4px 6px;
+  color: var(--color-text);
+  background: var(--color-base);
+  border: var(--panel-border);
+  font-family: var(--font-mono);
+}
+
+.connect-resource code {
+  overflow-wrap: anywhere;
+}
+
+.link-button {
+  justify-self: start;
+  border: none;
+  padding: 0;
+  color: var(--color-online);
+  background: none;
+}
+
+.settings-help.is-warning {
+  color: var(--color-degraded);
+}
+
+.connect-result {
+  padding: 8px 10px;
+  border: var(--panel-border);
+  font-size: 12px;
+}
+
+.connect-result.is-ok {
+  border-color: var(--color-online);
+}
+
+.connect-result.is-error {
+  border-color: var(--color-alert);
+}
+
+.connect-result h3 {
+  margin: 0 0 4px;
+  font-size: 12px;
+}
+
+.connect-result ul {
+  margin: 0;
+  padding-left: 16px;
+}

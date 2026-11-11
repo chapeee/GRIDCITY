@@ -31,7 +31,10 @@ export type AuditKind =
   // Settings and Edit (the change, never secrets).
   | 'settings_changed'
   | 'host_edited'
-  | 'host_removed';
+  | 'host_removed'
+  | 'resource_added'
+  | 'resource_edited'
+  | 'resource_removed';
 
 export interface AuditEntry {
   id: number;

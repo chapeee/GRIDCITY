@@ -30,6 +30,7 @@ export function ResourceHud() {
   const history = useFleetStore((store) =>
     focusedId ? store.resourceHistory[focusedId] : undefined,
   );
+  const dataMode = useFleetStore((store) => store.dataMode);
   const now = useNow(1000);
 
   const series = useMemo(
@@ -118,6 +119,14 @@ export function ResourceHud() {
             <button type="button" onClick={() => useUiStore.getState().openHistory(resource.id)}>
               History <kbd>H</kbd>
             </button>
+            {dataMode === 'real' && (
+              <button
+                type="button"
+                onClick={() => useUiStore.getState().setEditResourceId(resource.sourceId)}
+              >
+                Edit <kbd>E</kbd>
+              </button>
+            )}
             <button type="button" onClick={() => focusHost(null)}>
               Overview <kbd>Esc</kbd>
             </button>

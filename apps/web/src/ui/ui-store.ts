@@ -45,6 +45,10 @@ interface UiStore {
   settingsOpen: boolean;
   /** The host being edited (rename, district, thresholds), or null. */
   editHostId: string | null;
+  /** "Connect a database or bucket" dialog. */
+  connectResourceOpen: boolean;
+  /** The resources.yaml entry being edited (a resource's sourceId), or null. */
+  editResourceId: string | null;
 
   focusHost(hostId: string | null): void;
   setPaletteOpen(open: boolean): void;
@@ -73,6 +77,8 @@ interface UiStore {
   openHistory(target: string | null | undefined): void;
   setSettingsOpen(open: boolean): void;
   setEditHostId(hostId: string | null): void;
+  setConnectResourceOpen(open: boolean): void;
+  setEditResourceId(sourceId: string | null): void;
 }
 
 /**
@@ -107,6 +113,8 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   historyTarget: undefined,
   settingsOpen: false,
   editHostId: null,
+  connectResourceOpen: false,
+  editResourceId: null,
 
   // Any manual navigation takes the camera back from ambient mode.
   focusHost: (hostId) => set({ focusedHostId: hostId, ambientMode: false }),
@@ -155,4 +163,6 @@ export const useUiStore = create<UiStore>()((set, get) => ({
         : { settingsOpen: false },
     ),
   setEditHostId: (hostId) => set({ editHostId: hostId, paletteOpen: false }),
+  setConnectResourceOpen: (open) => set({ connectResourceOpen: open, paletteOpen: false }),
+  setEditResourceId: (sourceId) => set({ editResourceId: sourceId, paletteOpen: false }),
 }));

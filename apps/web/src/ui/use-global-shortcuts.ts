@@ -34,6 +34,13 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
         if (event.key === 'Escape') ui.setEditHostId(null);
         return;
       }
+      if (ui.connectResourceOpen || ui.editResourceId) {
+        if (event.key === 'Escape') {
+          ui.setConnectResourceOpen(false);
+          ui.setEditResourceId(null);
+        }
+        return;
+      }
 
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
@@ -84,12 +91,14 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
         case 'E': {
           if (event.ctrlKey || event.metaKey || event.altKey) return;
           const { hosts, dataMode } = useFleetStore.getState();
-          if (
-            dataMode === 'real' &&
-            ui.focusedHostId &&
-            hosts.some((h) => h.id === ui.focusedHostId)
-          ) {
+          if (dataMode !== 'real' || !ui.focusedHostId) break;
+          if (hosts.some((h) => h.id === ui.focusedHostId)) {
             ui.setEditHostId(ui.focusedHostId);
+          } else {
+            const resource = useFleetStore
+              .getState()
+              .resources.find((r) => r.id === ui.focusedHostId);
+            if (resource) ui.setEditResourceId(resource.sourceId);
           }
           break;
         }

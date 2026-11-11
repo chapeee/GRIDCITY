@@ -10,6 +10,8 @@ import { CommandPalette } from './ui/CommandPalette';
 import { canOpenTerminal, FocusHud } from './ui/FocusHud';
 import { ResourceHud } from './ui/ResourceHud';
 import { EditHostDialog } from './ui/EditHostDialog';
+import { ConnectResourceDialog } from './ui/ConnectResourceDialog';
+import { EditResourceDialog } from './ui/EditResourceDialog';
 import { HistoryPanel } from './ui/HistoryPanel';
 import { SettingsPanel } from './ui/SettingsPanel';
 import {
@@ -79,6 +81,8 @@ export function App() {
       <HistoryPanel />
       <SettingsPanel />
       <EditHostDialog />
+      <ConnectResourceDialog />
+      <EditResourceDialog />
       <AgentPanel />
       <AddHostDialog />
       <DiveOverlay />

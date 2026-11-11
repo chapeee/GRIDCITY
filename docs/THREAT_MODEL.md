@@ -98,6 +98,7 @@ find a gap.
 | Hostile or huge responses from a database or endpoint | Fixed queries with 5 s timeouts, polls capped at 3 × the interval, bucket listing stops at `maxObjects` (shown as "≥ N"); unexpected values become unknown. | v0.2 ✅ |
 | The credential chain picks the wrong AWS account | RDS and S3 use exactly the SDK's chain or the named `profile`; the HUD shows region and endpoint, so a mismatch is visible. Use a dedicated read-only IAM user (`rds:DescribeDBInstances`, `cloudwatch:GetMetricData`, `s3:ListAllMyBuckets`, `s3:ListBucket`). | v0.2 (documented) |
 
+| A password typed in "Connect a database or bucket" leaks | Used for **Test connection** only: it is handed to the connector under a one-time name inside that request, never written to resources.yaml, logs or the audit log, scrubbed from any error, and dropped with the form. The saved entry only names where the password lives. Tested (HTTP and browser). | v0.2 ✅ |
 | A website edits hosts.yaml or settings | Edit, Remove and Settings are `PATCH`/`DELETE`/`PUT` requests behind the usual token, `SameSite=Strict` cookie and Origin checks; bodies are strict schemas (unknown fields refused, addresses and auth cannot be changed through Edit). Every change is audited (`host_edited`, `host_removed`, `settings_changed`). | v0.2 ✅ |
 | History reveals more than intended | The database keeps averaged metrics and status transitions for the retention you choose (7 days by default), never commands or secrets. Lowering the retention deletes older rows at once. | v0.2 ✅ |
 

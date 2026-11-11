@@ -157,6 +157,29 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
               </Command.Item>
             </>
           )}
+          {useServerLink.getState().source === 'server' && dataMode === 'real' && (
+            <Command.Item
+              value="connect a database or bucket add postgres mysql mongodb redis sql server sqlite rds s3 spaces minio r2"
+              onSelect={() => run(() => useUiStore.getState().setConnectResourceOpen(true))}
+            >
+              <span className="palette-item-title">Connect a database or bucket…</span>
+              <span className="palette-item-meta">
+                Postgres, MySQL, Mongo, Redis, SQL Server, SQLite, RDS, S3
+              </span>
+            </Command.Item>
+          )}
+          {focusedResource && dataMode === 'real' && (
+            <Command.Item
+              value="edit rename resource database bucket district tags remove"
+              onSelect={() =>
+                run(() => useUiStore.getState().setEditResourceId(focusedResource.sourceId))
+              }
+            >
+              <span className="palette-item-title">Edit {focusedResource.name}…</span>
+              <span className="palette-item-meta">name, district, tags, remove</span>
+              <kbd>E</kbd>
+            </Command.Item>
+          )}
           {useServerLink.getState().source === 'server' && (
             <Command.Item
               value="connect a server add host new ssh"
