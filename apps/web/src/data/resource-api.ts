@@ -23,7 +23,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 /** A resources.yaml entry as the dialog builds it. Never contains a secret. */
 export type ResourceDraft = Record<string, unknown> & { kind: string; id: string };
 
-/** Typed once for a test; sent only with that request, never saved. */
+/**
+ * Credentials typed in the dialog. Test uses them once; Add and Edit save them
+ * encrypted on the server (only their ids go into resources.yaml).
+ */
 export interface OneTimeSecrets {
   password?: string;
   accessKeyId?: string;
@@ -48,19 +51,33 @@ export const testResource = (resource: ResourceDraft, secrets: OneTimeSecrets) =
     body: JSON.stringify({ resource, ...secrets }),
   });
 
-export const addResource = (resource: ResourceDraft) =>
+export const addResource = (resource: ResourceDraft, secrets: OneTimeSecrets = {}) =>
   request<{ ok: true; id: string }>('/api/resources', {
     method: 'POST',
-    body: JSON.stringify(resource),
+    body: JSON.stringify({ resource, secrets: nonEmpty(secrets) }),
   });
+
+/** Drops empty fields, so an untouched field never replaces a saved value. */
+function nonEmpty(secrets: OneTimeSecrets): OneTimeSecrets {
+  return Object.fromEntries(
+    Object.entries(secrets).filter(([, value]) => typeof value === 'string' && value !== ''),
+  );
+}
+
+/** Which credentials an entry has saved in the app (never the values themselves). */
+export const fetchCredentials = (id: string) =>
+  request<{ password: boolean; accessKey: boolean }>(
+    `/api/resources/${encodeURIComponent(id)}/credentials`,
+  );
 
 export const editResource = (
   id: string,
   patch: { name?: string; district?: string; tags?: string[] },
+  secrets: OneTimeSecrets = {},
 ) =>
   request<{ ok: true }>(`/api/resources/${encodeURIComponent(id)}`, {
     method: 'PATCH',
-    body: JSON.stringify(patch),
+    body: JSON.stringify({ ...patch, secrets: nonEmpty(secrets) }),
   });
 
 export const removeResource = (id: string) =>

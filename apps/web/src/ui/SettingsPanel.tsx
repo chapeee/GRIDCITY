@@ -1,7 +1,7 @@
 import type { StatusThresholds } from '@app/shared';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
-import { fetchSettings, saveSettings, type SettingsView } from '../data/history-api';
+import { fetchSettings, saveSettings, sendTestAlert, type SettingsView } from '../data/history-api';
 import { useUiStore } from './ui-store';
 import { requestNotificationPermission } from './use-alerts';
 
@@ -89,6 +89,27 @@ export function SettingsPanel() {
       if (granted !== 'granted') return;
     }
     useUiStore.getState().setNotificationsEnabled(enabled);
+  };
+  const [webhookDraft, setWebhookDraft] = useState('');
+  const [webhookStatus, setWebhookStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const saveWebhook = async (url: string | null) => {
+    setWebhookStatus(null);
+    try {
+      setView(await saveSettings({ alerts: { webhookUrl: url } }));
+      setWebhookDraft('');
+      setWebhookStatus({ ok: true, text: url ? 'Saved (encrypted).' : 'Removed.' });
+    } catch (reason) {
+      setWebhookStatus({ ok: false, text: (reason as Error).message });
+    }
+  };
+  const testWebhook = async () => {
+    setWebhookStatus(null);
+    try {
+      await sendTestAlert();
+      setWebhookStatus({ ok: true, text: 'Test message sent. Check your channel.' });
+    } catch (reason) {
+      setWebhookStatus({ ok: false, text: (reason as Error).message });
+    }
   };
 
   useEffect(() => {
@@ -196,9 +217,54 @@ export function SettingsPanel() {
                       : 'when a server or resource goes offline, degraded, or recovers (this browser only)'}
                 </span>
               </label>
-              <p className="settings-help">
-                Webhooks (Slack, Discord, ntfy): set ALERT_WEBHOOK_URL in .env and restart.
-              </p>
+              <label className="settings-field">
+                <span>Webhook</span>
+                <input
+                  type="password"
+                  autoComplete="off"
+                  disabled={!view?.editable}
+                  value={webhookDraft}
+                  onChange={(event) => setWebhookDraft(event.target.value)}
+                  placeholder={
+                    view?.alerts?.webhookConfigured
+                      ? view.alerts.fromEnvironment
+                        ? 'set by ALERT_WEBHOOK_URL · paste to override'
+                        : 'saved · paste a new URL to replace'
+                      : 'https://hooks.slack.com/… · Discord · ntfy'
+                  }
+                />
+                <span className="settings-unit" />
+                <span className="settings-help">
+                  Slack, Discord, Mattermost, ntfy or anything taking JSON. Saved encrypted on this
+                  machine; one message per server per minute.
+                </span>
+              </label>
+              <div className="settings-inline-actions">
+                <button
+                  type="button"
+                  disabled={!view?.editable || webhookDraft.trim() === ''}
+                  onClick={() => void saveWebhook(webhookDraft.trim())}
+                >
+                  Save webhook
+                </button>
+                <button
+                  type="button"
+                  disabled={!view?.editable || !view.alerts?.webhookConfigured}
+                  onClick={() => void testWebhook()}
+                >
+                  Send a test
+                </button>
+                {view?.alerts?.webhookConfigured && !view.alerts.fromEnvironment && (
+                  <button type="button" onClick={() => void saveWebhook(null)}>
+                    Remove
+                  </button>
+                )}
+              </div>
+              {webhookStatus && (
+                <p className={webhookStatus.ok ? 'settings-saved' : 'audit-error'} role="status">
+                  {webhookStatus.text}
+                </p>
+              )}
             </fieldset>
 
             <fieldset disabled={!view?.editable || saving}>

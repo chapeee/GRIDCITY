@@ -2165,3 +2165,34 @@ button:disabled {
 .runbook-stderr {
   color: var(--color-degraded);
 }
+
+/* ---------- Credentials: advanced options, inline settings actions ---------- */
+
+.connect-advanced {
+  margin: 4px 0 12px;
+  border: var(--panel-border);
+  padding: 6px 10px;
+}
+
+.connect-advanced summary {
+  cursor: pointer;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.connect-advanced[open] summary {
+  margin-bottom: 8px;
+}
+
+.connect-advanced fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.settings-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 8px;
+}

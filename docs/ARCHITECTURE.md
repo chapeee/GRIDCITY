@@ -217,13 +217,14 @@ new clients, and swaps the fleet on `hosts.yaml` reload.
 
 ### Storage (SQLite, `better-sqlite3`)
 
-| Table            | Contents                                                                                                                                                                                                                                                                   |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `audit_log`      | Append-only (triggers abort UPDATE/DELETE): server start/stop, connection opened/lost/failed, host key refused, hosts imported; terminal sessions in Phase 4. Transitions only, not every retry.                                                                           |
-| `metric_samples` | 30 s buckets (averages; unknown values skipped), 7-day retention (Settings). For the time scrubber later.                                                                                                                                                                  |
-| `status_events`  | Status transitions per host or resource (online, degraded, offline; `unknown` is not recorded), real mode only. Incidents are the degraded/offline periods between them. Pruned with the retention, keeping each target's newest event so a long incident keeps its start. |
-| `app_settings`   | JSON app settings from the Settings panel (history retention, 1–90 days, default 7). Never secrets.                                                                                                                                                                        |
-| `layout_slots`   | Sticky slot per host, separate for `real` and `demo`.                                                                                                                                                                                                                      |
+| Table            | Contents                                                                                                                                                                                                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `audit_log`      | Append-only (triggers abort UPDATE/DELETE): server start/stop, connection opened/lost/failed, host key refused, hosts imported; terminal sessions in Phase 4. Transitions only, not every retry.                                                                                                                                      |
+| `metric_samples` | 30 s buckets (averages; unknown values skipped), 7-day retention (Settings). For the time scrubber later.                                                                                                                                                                                                                             |
+| `status_events`  | Status transitions per host or resource (online, degraded, offline; `unknown` is not recorded), real mode only. Incidents are the degraded/offline periods between them. Pruned with the retention, keeping each target's newest event so a long incident keeps its start.                                                            |
+| `secrets`        | Credentials pasted in the app (database passwords, access keys, the alert webhook): AES-256-GCM ciphertext, IV and tag per row. The key is `DATA_DIR/vault.key` (created on first start, mode 600) or `SECRETS_KEY`; it is never stored in this database. `resources.yaml` refers to rows by id (`passwordSecret: <entry>.password`). |
+| `app_settings`   | JSON app settings from the Settings panel (history retention, 1–90 days, default 7). Never secrets.                                                                                                                                                                                                                                   |
+| `layout_slots`   | Sticky slot per host, separate for `real` and `demo`.                                                                                                                                                                                                                                                                                 |
 
 No keys, passphrases or passwords are ever stored.
 
@@ -285,33 +286,35 @@ shell instead of faking one.
 
 ## HTTP API
 
-| Route                               | Purpose                                                                                                  |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `GET /api/meta`                     | Project name, version, protocol version                                                                  |
-| `GET /ws/state`                     | Live fleet stream (WebSocket)                                                                            |
-| `GET /ws/terminal/:hostId`          | Interactive shell (WebSocket)                                                                            |
-| `POST /api/hosts`                   | Add one host (draft) to hosts.yaml                                                                       |
-| `POST /api/hosts/test`              | Test a draft connection; saves nothing                                                                   |
-| `POST /api/hosts/import-ssh-config` | Import from `~/.ssh/config` into hosts.yaml                                                              |
-| `GET /api/audit?limit=200`          | Audit log, newest first                                                                                  |
-| `GET /api/ssh/keys`                 | Keys in ssh-agent and the SSH folder (public halves only)                                                |
-| `POST /api/ssh/keys`                | Create a new ed25519 key (409 if the file exists)                                                        |
-| `POST /api/ssh/keys/import`         | Upload a private key (.pem/.ppk/OpenSSH); 422 if unusable, 409 if the name is taken                      |
-| `POST /api/connect/probe`           | Read a server's host key fingerprint, no login                                                           |
-| `POST /api/connect/trust`           | Append a confirmed host key to known_hosts (409 if changed)                                              |
-| `POST /api/connect/install`         | Install a public key with the password once (422 if rejected)                                            |
-| `GET/POST/DELETE /mcp`              | MCP endpoint for AI apps (Bearer token; no Origin needed)                                                |
-| `GET /ws/agent`                     | Approvals and the agent panel (WebSocket)                                                                |
-| `POST /api/resources/test`          | One real poll of a draft resource; a password typed for the test lives in that request only              |
-| `POST /api/resources`               | Add a resource to resources.yaml (comments kept; secrets and duplicate ids refused)                      |
-| `PATCH/DELETE /api/resources/:id`   | Edit name, district, tags of a resources.yaml entry, or remove it                                        |
-| `GET /api/history?target=&days=`    | Incidents and chart points (averaged to ≤ 720) for one host/resource, or every incident without `target` |
-| `GET/PUT /api/settings`             | Retention and file-wide thresholds (PUT writes hosts.yaml; 409 with demo data)                           |
-| `PATCH /api/hosts/:id`              | Edit name, district, tags, own thresholds (hosts.yaml in place; 422 with the problems)                   |
-| `DELETE /api/hosts/:id`             | Remove a host from hosts.yaml (its history ages out)                                                     |
-| `GET /api/runbooks`                 | Built-in and your own runbooks                                                                           |
-| `POST /api/runbooks/run`            | Run a runbook (or a typed command) on chosen servers; one result per server (409 with demo data)         |
-| `GET /api/agent/mcp-setup`          | Ready-to-paste Claude Code command and JSON config (contains the token)                                  |
+| Route                                | Purpose                                                                                                  |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `GET /api/meta`                      | Project name, version, protocol version                                                                  |
+| `GET /ws/state`                      | Live fleet stream (WebSocket)                                                                            |
+| `GET /ws/terminal/:hostId`           | Interactive shell (WebSocket)                                                                            |
+| `POST /api/hosts`                    | Add one host (draft) to hosts.yaml                                                                       |
+| `POST /api/hosts/test`               | Test a draft connection; saves nothing                                                                   |
+| `POST /api/hosts/import-ssh-config`  | Import from `~/.ssh/config` into hosts.yaml                                                              |
+| `GET /api/audit?limit=200`           | Audit log, newest first                                                                                  |
+| `GET /api/ssh/keys`                  | Keys in ssh-agent and the SSH folder (public halves only)                                                |
+| `POST /api/ssh/keys`                 | Create a new ed25519 key (409 if the file exists)                                                        |
+| `POST /api/ssh/keys/import`          | Upload a private key (.pem/.ppk/OpenSSH); 422 if unusable, 409 if the name is taken                      |
+| `POST /api/connect/probe`            | Read a server's host key fingerprint, no login                                                           |
+| `POST /api/connect/trust`            | Append a confirmed host key to known_hosts (409 if changed)                                              |
+| `POST /api/connect/install`          | Install a public key with the password once (422 if rejected)                                            |
+| `GET/POST/DELETE /mcp`               | MCP endpoint for AI apps (Bearer token; no Origin needed)                                                |
+| `GET /ws/agent`                      | Approvals and the agent panel (WebSocket)                                                                |
+| `POST /api/resources/test`           | One real poll of a draft resource; a password typed for the test lives in that request only              |
+| `POST /api/resources`                | `{ resource, secrets }`: credentials go to the vault, the entry (with vault ids) to resources.yaml       |
+| `GET /api/resources/:id/credentials` | Which credentials an entry has saved (`password`, `accessKey`: true/false), never values                 |
+| `POST /api/alerts/test`              | Send one test message to the saved webhook                                                               |
+| `PATCH/DELETE /api/resources/:id`    | Edit name, district, tags of a resources.yaml entry, or remove it                                        |
+| `GET /api/history?target=&days=`     | Incidents and chart points (averaged to ≤ 720) for one host/resource, or every incident without `target` |
+| `GET/PUT /api/settings`              | Retention and file-wide thresholds (PUT writes hosts.yaml; 409 with demo data)                           |
+| `PATCH /api/hosts/:id`               | Edit name, district, tags, own thresholds (hosts.yaml in place; 422 with the problems)                   |
+| `DELETE /api/hosts/:id`              | Remove a host from hosts.yaml (its history ages out)                                                     |
+| `GET /api/runbooks`                  | Built-in and your own runbooks                                                                           |
+| `POST /api/runbooks/run`             | Run a runbook (or a typed command) on chosen servers; one result per server (409 with demo data)         |
+| `GET /api/agent/mcp-setup`           | Ready-to-paste Claude Code command and JSON config (contains the token)                                  |
 
 "Connect a server" (`apps/server/src/ssh/host-key-setup.ts`, `local-keys.ts`, `generate-key.ts`)
 chains these: probe → trust → pick or create a key → test → install if needed → add. Trust
@@ -340,17 +343,18 @@ See [THREAT_MODEL.md](THREAT_MODEL.md).
 
 ## Configuration
 
-| Variable                                                        | Default     | Purpose                                                      |
-| --------------------------------------------------------------- | ----------- | ------------------------------------------------------------ |
-| `PROJECT_NAME`                                                  | (required)  | Display name and config/data directory names.                |
-| `DATA_MODE`                                                     | `real`      | `real` (hosts.yaml over SSH) or `demo` (simulated fleet).    |
-| `SERVER_PORT`                                                   | `4600`      | API/production port.                                         |
-| `WEB_PORT`                                                      | `4601`      | Vite dev server port.                                        |
-| `LOG_LEVEL`                                                     | `info`      | Pino log level.                                              |
-| `HOST`                                                          | `127.0.0.1` | Bind address. Non-loopback is refused.                       |
-| `BIND_INSIDE_CONTAINER`                                         | `false`     | Set by our Docker image only; allows `0.0.0.0` in-container. |
-| `ALERT_WEBHOOK_URL`                                             | (none)      | Webhook that receives status transitions (real mode).        |
-| `CONFIG_DIR`, `DATA_DIR`, `KNOWN_HOSTS_FILE`, `SSH_CONFIG_FILE` | OS defaults | See "Config and files".                                      |
+| Variable                                                        | Default     | Purpose                                                             |
+| --------------------------------------------------------------- | ----------- | ------------------------------------------------------------------- |
+| `PROJECT_NAME`                                                  | (required)  | Display name and config/data directory names.                       |
+| `DATA_MODE`                                                     | `real`      | `real` (hosts.yaml over SSH) or `demo` (simulated fleet).           |
+| `SERVER_PORT`                                                   | `4600`      | API/production port.                                                |
+| `WEB_PORT`                                                      | `4601`      | Vite dev server port.                                               |
+| `LOG_LEVEL`                                                     | `info`      | Pino log level.                                                     |
+| `HOST`                                                          | `127.0.0.1` | Bind address. Non-loopback is refused.                              |
+| `BIND_INSIDE_CONTAINER`                                         | `false`     | Set by our Docker image only; allows `0.0.0.0` in-container.        |
+| `ALERT_WEBHOOK_URL`                                             | (none)      | Webhook fallback; normally pasted in Settings (stored encrypted).   |
+| `SECRETS_KEY`                                                   | (generated) | Base64 32-byte key for the credential vault instead of `vault.key`. |
+| `CONFIG_DIR`, `DATA_DIR`, `KNOWN_HOSTS_FILE`, `SSH_CONFIG_FILE` | OS defaults | See "Config and files".                                             |
 
 Real environment variables win over `.env`, which wins over `.env.example`.
 

@@ -8,7 +8,8 @@ export type AppDatabase = Database.Database;
  * Schema migrations, applied in order. `PRAGMA user_version` records how many
  * have run. Never edit a released migration; append a new one.
  *
- * Nothing secret is ever stored here: no keys, passphrases or passwords.
+ * Credentials typed in the app are stored only encrypted (table `secrets`, see
+ * secret-vault.ts); SSH private keys and passphrases are never stored here.
  */
 const MIGRATIONS: readonly string[] = [
   /* 1: audit log, metric history, layout slots */ `
@@ -60,6 +61,15 @@ const MIGRATIONS: readonly string[] = [
   CREATE TABLE app_settings (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL                  -- JSON, never secrets
+  );
+  `,
+  /* 3: credentials typed in the app, AES-256-GCM encrypted (storage/secret-vault.ts) */ `
+  CREATE TABLE secrets (
+    id         TEXT PRIMARY KEY,         -- e.g. "orders-db.password", "alerts.webhook"
+    iv         BLOB NOT NULL,
+    data       BLOB NOT NULL,            -- ciphertext only; the key is never in this file
+    tag        BLOB NOT NULL,
+    updated_at INTEGER NOT NULL
   );
   `,
 ];

@@ -57,6 +57,8 @@ export interface SettingsView {
   thresholds: StatusThresholds;
   /** False in demo mode: there is no hosts.yaml to write. */
   editable: boolean;
+  /** The alert webhook (its URL is a secret and never comes back). */
+  alerts?: { webhookConfigured: boolean; fromEnvironment: boolean };
   hostsFile?: string;
 }
 
@@ -75,7 +77,12 @@ export async function fetchSettings(): Promise<SettingsView> {
 export const saveSettings = (body: {
   app?: Partial<AppSettings>;
   thresholds?: Partial<StatusThresholds>;
+  alerts?: { webhookUrl: string | null };
 }) => request<SettingsView>('/api/settings', { method: 'PUT', body: JSON.stringify(body) });
+
+/** Sends one test message to the saved webhook. */
+export const sendTestAlert = () =>
+  request<{ ok: true }>('/api/alerts/test', { method: 'POST', body: '{}' });
 
 export interface HostPatch {
   name?: string;

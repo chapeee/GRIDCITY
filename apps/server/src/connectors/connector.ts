@@ -46,6 +46,8 @@ export type PollOutcome =
 
 export interface ConnectorContext {
   env: NodeJS.ProcessEnv;
+  /** Credentials typed in the app (encrypted vault); absent in tests that do not need it. */
+  secrets?: { get(id: string): string | undefined };
   homeDir: string;
   /** Application name sent to databases that record one (pg, mssql). */
   appName: string;
@@ -94,9 +96,16 @@ export function defaultEngine(config: ResourceConfig): string {
  * The value lives only in the caller's memory and the driver's.
  */
 export async function readPassword(
-  config: { passwordEnv?: string; passwordFile?: string },
-  context: Pick<ConnectorContext, 'env' | 'homeDir'>,
+  config: { passwordSecret?: string; passwordEnv?: string; passwordFile?: string },
+  context: Pick<ConnectorContext, 'env' | 'homeDir' | 'secrets'>,
 ): Promise<string | undefined> {
+  if (config.passwordSecret) {
+    const value = context.secrets?.get(config.passwordSecret);
+    if (value === undefined) {
+      throw new Error('the saved password is missing: enter it again with Edit');
+    }
+    return value;
+  }
   if (config.passwordEnv) {
     const value = context.env[config.passwordEnv];
     if (value === undefined || value === '') {
@@ -253,4 +262,31 @@ export async function optional<T>(run: () => Promise<T>): Promise<T | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * AWS keys for S3, RDS and load balancers: a pair typed in the app (vault),
+ * or (S3) a pair named by environment variables; otherwise undefined and the
+ * SDK uses the standard chain (environment, ~/.aws, SSO, instance role).
+ */
+export function awsCredentials(
+  config: {
+    accessKeyIdSecret?: string;
+    secretAccessKeySecret?: string;
+    accessKeyIdEnv?: string;
+    secretAccessKeyEnv?: string;
+  },
+  context: Pick<ConnectorContext, 'env' | 'secrets'>,
+): { accessKeyId: string; secretAccessKey: string } | undefined {
+  if (config.accessKeyIdSecret && config.secretAccessKeySecret) {
+    const accessKeyId = context.secrets?.get(config.accessKeyIdSecret);
+    const secretAccessKey = context.secrets?.get(config.secretAccessKeySecret);
+    if (accessKeyId && secretAccessKey) return { accessKeyId, secretAccessKey };
+    return undefined;
+  }
+  const accessKeyId = config.accessKeyIdEnv ? context.env[config.accessKeyIdEnv] : undefined;
+  const secretAccessKey = config.secretAccessKeyEnv
+    ? context.env[config.secretAccessKeyEnv]
+    : undefined;
+  return accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : undefined;
 }

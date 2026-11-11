@@ -47,7 +47,7 @@ function ConnectResourceForm() {
   const [district, setDistrict] = useState('');
   const [values, setValues] = useState<Record<string, string | boolean>>({});
   const [provider, setProvider] = useState<string>('aws');
-  const [passwordSource, setPasswordSource] = useState<PasswordSource>('env');
+  const [passwordSource, setPasswordSource] = useState<PasswordSource>('typed');
   const [passwordRef, setPasswordRef] = useState('');
   const [secrets, setSecrets] = useState<OneTimeSecrets>({});
   const [result, setResult] = useState<ResourceTestResult | null>(null);
@@ -63,7 +63,7 @@ function ConnectResourceForm() {
         next.fields.filter((f) => f.initial !== undefined).map((f) => [f.key, f.initial!]),
       ),
     );
-    setPasswordSource(next.password ? 'env' : 'none');
+    setPasswordSource(next.password ? 'typed' : 'none');
     setPasswordRef('');
     setSecrets({});
     setResult(null);
@@ -92,6 +92,12 @@ function ConnectResourceForm() {
       provider,
     });
 
+  // A typed password is sent only when the password comes from the field (not env/file).
+  const credentials = (): OneTimeSecrets => ({
+    ...secrets,
+    password: passwordSource === 'typed' ? secrets.password : undefined,
+  });
+
   const run = async (label: string, action: () => Promise<void>) => {
     setBusy(label);
     setError(null);
@@ -106,15 +112,15 @@ function ConnectResourceForm() {
 
   const test = () =>
     run('Testing…', async () => {
-      setResult(await testResource(draft(), secrets));
+      setResult(await testResource(draft(), credentials()));
     });
 
   const add = (event: FormEvent) => {
     event.preventDefault();
     void run('Adding…', async () => {
       const entry = draft();
-      await addResource(entry);
-      // Typed secrets are dropped with the form; nothing else holds them.
+      await addResource(entry, credentials());
+      // Typed credentials are now in the server's encrypted vault; the form forgets them.
       useUiStore
         .getState()
         .showNotice(`Added ${entry.name ?? entry.id}. It appears in the city in a moment.`);
@@ -138,13 +144,15 @@ function ConnectResourceForm() {
       <motion.form
         className="add-host connect-resource"
         role="dialog"
-        aria-label="Connect a database or bucket"
+        aria-label="Connect a database, bucket, probe or load balancer"
         initial={{ y: 12 }}
         animate={{ y: 0 }}
         onSubmit={add}
       >
         <header>
-          <h2>{spec ? `Connect ${spec.label}` : 'Connect a database or bucket'}</h2>
+          <h2>
+            {spec ? `Connect ${spec.label}` : 'Connect a database, bucket, probe or load balancer'}
+          </h2>
           <button type="button" onClick={close}>
             Close <kbd>Esc</kbd>
           </button>
@@ -153,8 +161,8 @@ function ConnectResourceForm() {
         {!spec && (
           <>
             <p className="settings-help">
-              Read-only: the app only reads statistics, never your rows or objects. Passwords are
-              never saved; you choose where they live.
+              Read-only: the app only reads statistics, never your rows or objects. Passwords and
+              keys you type here are saved encrypted on this machine, never in a config file.
             </p>
             <div className="kind-grid">
               {RESOURCE_KINDS.map((kind) => (
@@ -237,37 +245,39 @@ function ConnectResourceForm() {
                 </label>
               )}
 
-              {spec.fields.map((field) =>
-                field.type === 'checkbox' ? (
-                  <label key={field.key} className="settings-field is-check">
-                    <span>{field.label}</span>
-                    <input
-                      type="checkbox"
-                      checked={values[field.key] === true}
-                      onChange={(event) => setValue(field.key, event.target.checked)}
-                    />
-                  </label>
-                ) : (
-                  <label key={field.key} className="settings-field">
-                    <span>{field.label}</span>
-                    <input
-                      type={field.type === 'number' ? 'number' : 'text'}
-                      value={
-                        typeof values[field.key] === 'string' ? (values[field.key] as string) : ''
-                      }
-                      onChange={(event) => setValue(field.key, event.target.value)}
-                      placeholder={
-                        field.key === 'endpoint' && spec.kind === 's3'
-                          ? (S3_PROVIDERS.find((p) => p.id === provider)?.endpoint ??
-                            field.placeholder)
-                          : field.placeholder
-                      }
-                      required={field.required === true}
-                    />
-                    {field.help && <span className="settings-help">{field.help}</span>}
-                  </label>
-                ),
-              )}
+              {spec.fields
+                .filter((field) => !field.advanced)
+                .map((field) =>
+                  field.type === 'checkbox' ? (
+                    <label key={field.key} className="settings-field is-check">
+                      <span>{field.label}</span>
+                      <input
+                        type="checkbox"
+                        checked={values[field.key] === true}
+                        onChange={(event) => setValue(field.key, event.target.checked)}
+                      />
+                    </label>
+                  ) : (
+                    <label key={field.key} className="settings-field">
+                      <span>{field.label}</span>
+                      <input
+                        type={field.type === 'number' ? 'number' : 'text'}
+                        value={
+                          typeof values[field.key] === 'string' ? (values[field.key] as string) : ''
+                        }
+                        onChange={(event) => setValue(field.key, event.target.value)}
+                        placeholder={
+                          field.key === 'endpoint' && spec.kind === 's3'
+                            ? (S3_PROVIDERS.find((p) => p.id === provider)?.endpoint ??
+                              field.placeholder)
+                            : field.placeholder
+                        }
+                        required={field.required === true}
+                      />
+                      {field.help && <span className="settings-help">{field.help}</span>}
+                    </label>
+                  ),
+                )}
               {pointsAtLocalhost(values) && (
                 <p className="settings-help is-warning">
                   If the app runs in Docker, “localhost” is the container itself: use
@@ -279,88 +289,141 @@ function ConnectResourceForm() {
             {spec.password && (
               <fieldset disabled={busy !== null}>
                 <legend>Password</legend>
-                <div className="segmented" role="radiogroup" aria-label="Where the password lives">
-                  {(
-                    [
-                      ['env', 'Environment variable'],
-                      ['file', 'File'],
-                      ['none', 'No password'],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      role="radio"
-                      aria-checked={passwordSource === value}
-                      aria-pressed={passwordSource === value}
-                      onClick={() => setPasswordSource(value)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {passwordSource !== 'none' && (
+                {passwordSource === 'typed' ? (
                   <label className="settings-field">
-                    <span>{passwordSource === 'env' ? 'Variable name' : 'File path'}</span>
-                    <input
-                      value={passwordRef}
-                      onChange={(event) => setPasswordRef(event.target.value)}
-                      placeholder={
-                        passwordSource === 'env'
-                          ? 'ORDERS_DB_PASSWORD'
-                          : '/config/secrets/orders-db'
-                      }
-                    />
-                    <span className="settings-help">
-                      {passwordSource === 'env'
-                        ? 'Set it where the app runs (Docker: add NAME=… to .env, then docker compose up -d).'
-                        : 'First line of the file. In Docker, a file in ./config is /config/… inside.'}
-                    </span>
-                  </label>
-                )}
-                {passwordSource !== 'none' && (
-                  <label className="settings-field">
-                    <span>Password for this test</span>
+                    <span>Password</span>
                     <input
                       type="password"
-                      autoComplete="off"
+                      autoComplete="new-password"
                       value={secrets.password ?? ''}
-                      onChange={(event) =>
-                        setSecrets((s) => ({ ...s, password: event.target.value }))
-                      }
+                      onChange={(event) => {
+                        setSecrets((s) => ({ ...s, password: event.target.value }));
+                        setResult(null);
+                      }}
+                      placeholder="paste it here"
                     />
-                    <span className="settings-help">optional; used for Test only, never saved</span>
+                    <span className="settings-help">
+                      Saved encrypted on this machine. Leave empty if there is none.
+                    </span>
                   </label>
+                ) : (
+                  <p className="settings-help">
+                    Read from {passwordSource === 'env' ? 'an environment variable' : 'a file'}{' '}
+                    (Advanced below).
+                  </p>
                 )}
               </fieldset>
             )}
 
-            {spec.kind === 's3' && (
+            {spec.keys && (
               <fieldset disabled={busy !== null}>
-                <legend>Keys for this test (optional)</legend>
+                <legend>Access keys</legend>
                 <label className="settings-field">
                   <span>Access key</span>
                   <input
                     autoComplete="off"
+                    spellCheck={false}
                     value={secrets.accessKeyId ?? ''}
-                    onChange={(event) =>
-                      setSecrets((s) => ({ ...s, accessKeyId: event.target.value }))
-                    }
+                    onChange={(event) => {
+                      setSecrets((s) => ({ ...s, accessKeyId: event.target.value }));
+                      setResult(null);
+                    }}
+                    placeholder={spec.kind === 's3' ? 'DO00… or AKIA…' : 'AKIA…'}
                   />
                 </label>
                 <label className="settings-field">
                   <span>Secret key</span>
                   <input
                     type="password"
-                    autoComplete="off"
+                    autoComplete="new-password"
                     value={secrets.secretAccessKey ?? ''}
-                    onChange={(event) =>
-                      setSecrets((s) => ({ ...s, secretAccessKey: event.target.value }))
-                    }
+                    onChange={(event) => {
+                      setSecrets((s) => ({ ...s, secretAccessKey: event.target.value }));
+                      setResult(null);
+                    }}
                   />
-                  <span className="settings-help">used for Test only, never saved</span>
+                  <span className="settings-help">
+                    Saved encrypted on this machine. Leave both empty to use this machine&apos;s own
+                    AWS credentials (~/.aws, environment, instance role).
+                  </span>
                 </label>
               </fieldset>
+            )}
+
+            {(spec.password || spec.fields.some((field) => field.advanced)) && (
+              <details className="connect-advanced">
+                <summary>Advanced: environment variables, files, AWS profiles</summary>
+                <fieldset disabled={busy !== null}>
+                  {spec.password && (
+                    <label className="settings-field">
+                      <span>Password from</span>
+                      <select
+                        value={passwordSource}
+                        onChange={(event) =>
+                          setPasswordSource(event.target.value as PasswordSource)
+                        }
+                      >
+                        <option value="typed">the field above (saved encrypted)</option>
+                        <option value="env">an environment variable</option>
+                        <option value="file">a file</option>
+                        <option value="none">no password</option>
+                      </select>
+                    </label>
+                  )}
+                  {spec.password && (passwordSource === 'env' || passwordSource === 'file') && (
+                    <>
+                      <label className="settings-field">
+                        <span>{passwordSource === 'env' ? 'Variable name' : 'File path'}</span>
+                        <input
+                          value={passwordRef}
+                          onChange={(event) => setPasswordRef(event.target.value)}
+                          placeholder={
+                            passwordSource === 'env'
+                              ? 'ORDERS_DB_PASSWORD'
+                              : '/config/secrets/orders-db'
+                          }
+                        />
+                        <span className="settings-help">
+                          For setups that already manage secrets outside the app.
+                        </span>
+                      </label>
+                      <label className="settings-field">
+                        <span>Password for this test</span>
+                        <input
+                          type="password"
+                          autoComplete="off"
+                          value={secrets.password ?? ''}
+                          onChange={(event) =>
+                            setSecrets((s) => ({ ...s, password: event.target.value }))
+                          }
+                        />
+                        <span className="settings-help">optional; used for Test only</span>
+                      </label>
+                    </>
+                  )}
+                  {spec.fields
+                    .filter((field) => field.advanced)
+                    .map((field) => (
+                      <label key={field.key} className="settings-field">
+                        <span>{field.label}</span>
+                        <input
+                          value={
+                            typeof values[field.key] === 'string'
+                              ? (values[field.key] as string)
+                              : ''
+                          }
+                          onChange={(event) => setValue(field.key, event.target.value)}
+                          placeholder={field.placeholder}
+                        />
+                      </label>
+                    ))}
+                  {spec.keys && (
+                    <p className="settings-help">
+                      Keys typed above take precedence over variables and profiles.
+                    </p>
+                  )}
+                </fieldset>
+              </details>
             )}
 
             {spec.grant && (

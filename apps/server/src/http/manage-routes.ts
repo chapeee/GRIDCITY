@@ -18,6 +18,14 @@ const DAY_MS = 86_400_000;
 
 export interface ManageDependencies {
   audit: AuditLog;
+  /** The alert webhook, set in Settings and saved encrypted (optional in tests). */
+  alerts?: {
+    configured(): boolean;
+    /** Set by ALERT_WEBHOOK_URL rather than in the app. */
+    fromEnvironment(): boolean;
+    setWebhook(url: string | null): void;
+    sendTest(): Promise<void>;
+  };
   demoMode: boolean;
   now?: () => number;
   hostsFile?: string;
@@ -44,6 +52,17 @@ const HistoryQuerySchema = z.object({
 const SettingsBodySchema = z.strictObject({
   app: AppSettingsSchema.partial().strict().optional(),
   thresholds: FileThresholdsSchema.optional(),
+  /** A webhook URL (null removes it). Saved encrypted; never sent back. */
+  alerts: z
+    .strictObject({
+      webhookUrl: z
+        .url()
+        .refine((value) => value.startsWith('https://') || value.startsWith('http://'), {
+          message: 'must be an http(s) URL',
+        })
+        .nullable(),
+    })
+    .optional(),
 });
 
 /** History, Settings and Edit. Every write needs the usual token + Origin guards. */
@@ -85,6 +104,10 @@ export function registerManageRoutes(app: FastifyInstance, deps: ManageDependenc
     app: deps.loadSettings(),
     thresholds: deps.currentThresholds(),
     editable: !deps.demoMode,
+    alerts: {
+      webhookConfigured: deps.alerts?.configured() ?? false,
+      fromEnvironment: deps.alerts?.fromEnvironment() ?? false,
+    },
     ...(deps.hostsFile ? { hostsFile: process.env.HOSTS_FILE_HINT ?? deps.hostsFile } : {}),
   });
 
@@ -108,6 +131,14 @@ export function registerManageRoutes(app: FastifyInstance, deps: ManageDependenc
           `history kept ${saved.historyRetentionDays} days`,
         );
       }
+      if (body.data.alerts && deps.alerts) {
+        deps.alerts.setWebhook(body.data.alerts.webhookUrl);
+        deps.audit.append(
+          'settings_changed',
+          null,
+          body.data.alerts.webhookUrl ? 'alert webhook set' : 'alert webhook removed',
+        );
+      }
       if (body.data.thresholds && Object.keys(body.data.thresholds).length > 0) {
         await deps.setThresholds(body.data.thresholds);
         deps.audit.append(
@@ -122,6 +153,18 @@ export function registerManageRoutes(app: FastifyInstance, deps: ManageDependenc
       throw error;
     }
     return settingsView();
+  });
+
+  app.post('/api/alerts/test', async (_request, reply) => {
+    if (deps.demoMode || !deps.alerts) {
+      return reply.code(409).send({ error: 'Demo data: alerts are not sent.' });
+    }
+    try {
+      await deps.alerts.sendTest();
+      return { ok: true };
+    } catch (error) {
+      return reply.code(502).send({ error: (error as Error).message });
+    }
   });
 
   app.patch<{ Params: { id: string } }>('/api/hosts/:id', async (request, reply) => {

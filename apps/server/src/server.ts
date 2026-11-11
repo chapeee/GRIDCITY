@@ -26,7 +26,11 @@ import { editHostInFile, removeHostFromFile, setFileThresholds } from './config/
 import { importSshConfig } from './config/ssh-config-importer';
 import { loadDistrictsFile } from './config/districts-file';
 import { loadRunbooksFile } from './config/runbooks-file';
-import { createWebhookNotifier } from './alerts/webhook';
+import { createWebhookNotifier, sendTestAlert } from './alerts/webhook';
+import { loadVaultKey, SecretVault } from './storage/secret-vault';
+
+/** Vault id of the alert webhook URL (it carries a token, so it is a secret). */
+const WEBHOOK_SECRET_ID = 'alerts.webhook';
 import { registerRunbookRoutes } from './http/runbook-routes';
 import { loadResourcesFile, type ResourcesConfig } from './config/resources-file';
 import { createConnector, type ConnectorContext } from './connectors';
@@ -91,6 +95,12 @@ export async function startServer({
   const audit = new AuditLog(db);
   // History: metric buckets and status transitions, kept for the retention set in Settings.
   const appSettings = new AppSettingsStore(db);
+  // Credentials typed in the app (database passwords, access keys, the alert webhook):
+  // AES-256-GCM in the database, key in DATA_DIR/vault.key (or SECRETS_KEY).
+  const vault = new SecretVault(
+    db,
+    loadVaultKey(join(paths.dataDir, 'vault.key'), process.env.SECRETS_KEY),
+  );
   const retentionMs = () => appSettings.load().historyRetentionDays * DAY_MS;
   const history = new SampleHistory(db, { bucketMs: 30_000, retentionMs: retentionMs() });
   // Demo and real data never mix: demo incidents are generated, never recorded.
@@ -139,6 +149,7 @@ export async function startServer({
   // Databases, RDS and object storage (resources.yaml). Same truth rules as hosts.
   const connectorContext: ConnectorContext = {
     env: process.env,
+    secrets: vault,
     homeDir,
     appName: env.PROJECT_NAME,
     now: Date.now,
@@ -199,14 +210,25 @@ export async function startServer({
   const declarations = await loadDeclarations();
 
   // Alerts: an optional webhook gets every real transition into or out of trouble.
-  const notifier =
-    env.DATA_MODE === 'real' && env.ALERT_WEBHOOK_URL
-      ? createWebhookNotifier({
-          url: env.ALERT_WEBHOOK_URL,
+  // The webhook is set in Settings (saved in the vault); ALERT_WEBHOOK_URL still works.
+  let notifierFor: { url: string; notifier: ReturnType<typeof createWebhookNotifier> } | null =
+    null;
+  const webhookUrl = () => vault.get(WEBHOOK_SECRET_ID) ?? env.ALERT_WEBHOOK_URL ?? null;
+  const currentNotifier = () => {
+    const url = env.DATA_MODE === 'real' ? webhookUrl() : null;
+    if (!url) return null;
+    if (notifierFor?.url !== url) {
+      notifierFor = {
+        url,
+        notifier: createWebhookNotifier({
+          url,
           projectName: env.PROJECT_NAME,
           log: (message) => console.warn(message),
-        })
-      : null;
+        }),
+      };
+    }
+    return notifierFor.notifier;
+  };
 
   const hub = new StateHub({
     provider,
@@ -222,13 +244,11 @@ export async function startServer({
       env.DATA_MODE === 'real'
         ? (hostname) => lookup(hostname, { all: true }).then((all) => all.map((a) => a.address))
         : undefined,
-    onTransition: notifier
-      ? (event) => {
-          if (notifier.notify(event)) {
-            audit.append('alert_sent', event.targetId, `${event.from ?? '?'} → ${event.to}`);
-          }
-        }
-      : undefined,
+    onTransition: (event) => {
+      if (currentNotifier()?.notify(event)) {
+        audit.append('alert_sent', event.targetId, `${event.from ?? '?'} → ${event.to}`);
+      }
+    },
   });
   hub.setConfigErrors(configErrors);
   hub.setResourceConfigErrors(resourceErrors);
@@ -422,6 +442,7 @@ export async function startServer({
       });
       registerResourceRoutes(instance, {
         audit,
+        secrets: vault,
         demoMode: env.DATA_MODE === 'demo',
         resourcesFile: paths.resourcesFile,
         context: connectorContext,
@@ -430,6 +451,17 @@ export async function startServer({
       });
       registerManageRoutes(instance, {
         audit,
+        alerts: {
+          configured: () => webhookUrl() !== null,
+          fromEnvironment: () => !vault.has(WEBHOOK_SECRET_ID) && Boolean(env.ALERT_WEBHOOK_URL),
+          setWebhook: (url) =>
+            url ? vault.set(WEBHOOK_SECRET_ID, url) : vault.delete(WEBHOOK_SECRET_ID),
+          sendTest: async () => {
+            const url = webhookUrl();
+            if (!url) throw new Error('No webhook is set.');
+            await sendTestAlert(url, env.PROJECT_NAME);
+          },
+        },
         demoMode: env.DATA_MODE === 'demo',
         hostsFile: env.DATA_MODE === 'real' ? paths.hostsFile : undefined,
         knownTargets: () =>

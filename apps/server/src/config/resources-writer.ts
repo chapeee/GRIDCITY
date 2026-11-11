@@ -97,6 +97,47 @@ export async function editResourceInFile(
   });
 }
 
+/** Keys that say where credentials come from; replaced together when new ones are typed. */
+const CREDENTIAL_KEYS = [
+  'passwordSecret',
+  'passwordEnv',
+  'passwordFile',
+  'accessKeyIdSecret',
+  'secretAccessKeySecret',
+  'accessKeyIdEnv',
+  'secretAccessKeyEnv',
+  'profile',
+] as const;
+
+/**
+ * Rewrites where an entry's credentials come from (Edit → new password or
+ * keys). `change` gets the parsed entry and returns it with new references;
+ * only credential keys are touched, comments and everything else stay.
+ * Returns false when nothing changed.
+ */
+export async function updateSecretRefsInFile(
+  file: string,
+  id: string,
+  change: (config: ResourceConfig) => ResourceConfig,
+): Promise<boolean> {
+  let changed = false;
+  await writeEdited(file, (document, current) => {
+    const config = current.resources.find((entry) => entry.id === id);
+    if (!config) throw new ResourceValidationError([`no resource "${id}" in resources.yaml`]);
+    const next = change(config) as Record<string, unknown>;
+    const item = findEntry(document, id);
+    for (const key of CREDENTIAL_KEYS) {
+      const before = (config as Record<string, unknown>)[key];
+      const after = next[key];
+      if (before === after) continue;
+      changed = true;
+      if (after === undefined) item.delete(key);
+      else item.set(key, after);
+    }
+  });
+  return changed;
+}
+
 export async function removeResourceFromFile(file: string, id: string): Promise<void> {
   await writeEdited(file, (document) => {
     const list = document.get('resources');

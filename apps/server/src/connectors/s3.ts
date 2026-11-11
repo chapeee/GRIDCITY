@@ -8,6 +8,7 @@ import {
 import type { Resource } from '@app/shared';
 import type { ResourceConfigOf } from '../config/resources-file';
 import {
+  awsCredentials,
   errorMessage,
   healthSample,
   metric,
@@ -148,18 +149,15 @@ export function createS3Connector(
 }
 
 function clientConfig(config: ResourceConfigOf<'s3'>, context: ConnectorContext): S3ClientConfig {
-  const accessKeyId = config.accessKeyIdEnv ? context.env[config.accessKeyIdEnv] : undefined;
-  const secretAccessKey = config.secretAccessKeyEnv
-    ? context.env[config.secretAccessKeyEnv]
-    : undefined;
+  const credentials = awsCredentials(config, context);
   const region = config.provider === 'r2' && config.region === 'us-east-1' ? 'auto' : config.region;
   return {
     region,
     ...(config.endpoint ? { endpoint: config.endpoint } : {}),
     forcePathStyle: config.forcePathStyle ?? config.provider === 'minio',
     ...(config.profile ? { profile: config.profile } : {}),
-    // Keys named by environment variables; otherwise the standard AWS chain.
-    ...(accessKeyId && secretAccessKey ? { credentials: { accessKeyId, secretAccessKey } } : {}),
+    // Keys typed in the app or named by environment variables; otherwise the standard AWS chain.
+    ...(credentials ? { credentials } : {}),
     maxAttempts: 2,
     requestChecksumCalculation: 'WHEN_REQUIRED',
     responseChecksumValidation: 'WHEN_REQUIRED',

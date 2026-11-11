@@ -12,8 +12,10 @@ S3-compatible buckets join the city as buildings of their own.
   faked. See [docs/VISUAL_LANGUAGE.md](docs/VISUAL_LANGUAGE.md).
 - **Local first.** Runs on your machine, listens on `127.0.0.1` only, connects outward to your
   servers. No cloud, no account, no telemetry, no CDNs.
-- **Your secrets stay yours.** Uses your ssh-agent or a key file path. Keys, passphrases and
-  passwords are never stored. Unknown or changed host keys are refused, never auto-accepted.
+- **Your secrets stay yours.** SSH uses your ssh-agent or a key file path; private keys and
+  passphrases are never stored. Database passwords, access keys and the alert webhook you paste
+  in the app are saved encrypted on your machine only (never in a config file, never in logs).
+  Unknown or changed host keys are refused, never auto-accepted.
 - **The world is a map, never a gate.** Everything you can do with the mouse works from the
   keyboard (Ctrl/Cmd+K).
 
@@ -114,11 +116,13 @@ docker compose -f compose.yaml -f compose.ssh.yaml up --build
 
 ## Databases, RDS and object storage
 
-**In the app:** Ctrl+K → **Connect a database or bucket…**. Pick the kind, fill a short form,
-press **Test connection** (one real read-only poll shows what it can see, or why it can't), then
-**Add to the city**. Passwords are never saved: you say where the password lives (an environment
-variable or a file), and can type it once just for the test. A focused database has **Edit**
-(name, district, tags) and **Remove**.
+**In the app (no config files needed):** Ctrl+K → **Connect a database, bucket, probe or
+balancer…**. Pick the kind, fill a short form, **paste the password or access keys**, press **Test
+connection** (one real read-only poll shows what it can see, or why it can't), then **Add to the
+city**. Credentials are saved encrypted on this machine (see below); `resources.yaml` only gets a
+reference such as `passwordSecret: orders-db.password`. A focused resource has **Edit** (name,
+district, tags, a new password or keys) and **Remove** (which also deletes its saved credentials).
+Prefer environment variables or files? They are under **Advanced** in the same form.
 
 **Or by hand:** add them to `resources.yaml`, next to `hosts.yaml` (created with a commented example on first
 start, reloaded live). Each kind is watched by one connector built on the standard open-source
@@ -141,7 +145,12 @@ resources:
     id: orders-db
     host: db.internal
     user: monitor # GRANT pg_monitor TO monitor;
-    passwordEnv: ORDERS_DB_PASSWORD # the password itself is never written here
+    passwordSecret: orders-db.password # pasted in the app, stored encrypted, never here
+  - kind: postgres
+    id: reports-db
+    host: db.internal
+    user: monitor
+    passwordEnv: REPORTS_DB_PASSWORD # or: read it from an environment variable
   - kind: redis
     id: cache
     host: 10.0.0.7
@@ -227,8 +236,9 @@ runbooks:
 
 **Alerts.** Settings → **Desktop notifications** tells this browser when a server or resource goes
 offline, degraded, or recovers (real data only). For Slack, Discord, ntfy or anything that takes
-JSON, set `ALERT_WEBHOOK_URL` in `.env`: the server posts each transition, with a quiet minute per
-target so a flapping host does not flood the channel. AI agents see the same picture:
+JSON, paste its URL in Settings → **Webhook** (saved encrypted; **Send a test** checks it): the
+server posts each transition, with a quiet minute per target so a flapping host does not flood the
+channel. (`ALERT_WEBHOOK_URL` in `.env` still works for scripted setups.) AI agents see the same picture:
 `list_servers` now includes the discovered services, and `list_resources` the probes and balancers.
 
 ## Let an AI work on your servers
@@ -362,10 +372,16 @@ STATUS`, MongoDB's `serverStatus`, Redis `INFO`, SQL Server DMVs (`ApplicationIn
   SQLite opened read-only, `DescribeDBInstances` and `GetMetricData`, and for buckets
   `ListBuckets`, `HeadBucket` and `ListObjectsV2`. It never reads your rows or objects, and never
   writes. Use a read-only monitoring user anyway; `resources.yaml` shows the grants for each.
-- **Passwords are never stored.** `resources.yaml` names an environment variable or a file; a
-  `password:` key or a password inside a URL is refused. AWS uses your normal credential chain
-  (env, `~/.aws`, SSO, instance role) or a named `profile`. Error messages are scrubbed of secrets
-  before they are logged or shown.
+- **Credentials you paste are stored encrypted, on this machine only.** AES-256-GCM in the local
+  database; the key is a random 32-byte `vault.key` in the data folder (in Docker: the `/data`
+  volume), or your own `SECRETS_KEY`. `resources.yaml` holds only references, and still refuses a
+  `password:` key or a password inside a URL. Values are never logged, audited, sent back to the
+  browser or shown to an AI. Honest limit: anyone who can read your data folder as you can read
+  the key too, like a browser's saved passwords. Back up `vault.key` with the data folder; without
+  it, saved credentials must be typed again.
+- You can still use references instead: `passwordEnv` / `passwordFile`, `accessKeyIdEnv` /
+  `secretAccessKeyEnv`, or an AWS `profile` (or the standard AWS chain when no keys are given).
+  Error messages are scrubbed of secrets before they are logged or shown.
 - Reachability changes are written to the audit log (reachable / unreachable, never every retry).
 
 ## Development

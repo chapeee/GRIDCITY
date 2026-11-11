@@ -37,12 +37,24 @@ const baseFields = {
   dependsOn: z.array(z.string().min(1)).default([]),
 };
 
-/** Password by reference only. */
+/**
+ * Where the password comes from. Typed in the app, it is stored encrypted in
+ * the app's vault and only its id is written here (`passwordSecret`). People
+ * who prefer can name an environment variable or a file instead.
+ */
 const secretFields = {
+  /** Id of a password typed in the app (stored encrypted, never in this file). */
+  passwordSecret: z.string().min(1).optional(),
   /** Name of an environment variable holding the password. */
   passwordEnv: envNameSchema.optional(),
   /** Path of a file holding the password (first line). */
   passwordFile: z.string().min(1).optional(),
+};
+
+/** An access key pair typed in the app (vault ids); otherwise the standard AWS chain or a profile. */
+const awsKeyFields = {
+  accessKeyIdSecret: z.string().min(1).optional(),
+  secretAccessKeySecret: z.string().min(1).optional(),
 };
 
 const hostPort = (defaultPort: number) => ({
@@ -117,6 +129,7 @@ const SqliteSchema = z.strictObject({
 const RdsSchema = z.strictObject({
   kind: z.literal('rds'),
   ...baseFields,
+  ...awsKeyFields,
   region: z.string().min(1),
   /** Named profile from ~/.aws; otherwise the standard AWS credential chain. */
   profile: z.string().min(1).optional(),
@@ -131,6 +144,7 @@ export const S3_PROVIDERS = ['aws', 'spaces', 'minio', 'r2', 'other'] as const;
 const S3Schema = z.strictObject({
   kind: z.literal('s3'),
   ...baseFields,
+  ...awsKeyFields,
   provider: z.enum(S3_PROVIDERS).default('aws'),
   /** Custom endpoint for Spaces, MinIO, R2 or any S3-compatible service. */
   endpoint: z.url().optional(),
@@ -184,6 +198,7 @@ export const LOAD_BALANCER_PROVIDERS = ['aws'] as const;
 const LoadBalancerSchema = z.strictObject({
   kind: z.literal('loadbalancer'),
   ...baseFields,
+  ...awsKeyFields,
   provider: z.enum(LOAD_BALANCER_PROVIDERS).default('aws'),
   region: z.string().min(1),
   profile: z.string().min(1).optional(),

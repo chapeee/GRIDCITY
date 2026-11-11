@@ -14,6 +14,7 @@ import {
 import type { Resource } from '@app/shared';
 import type { ResourceConfigOf } from '../config/resources-file';
 import {
+  awsCredentials,
   errorMessage,
   healthSample,
   metric,
@@ -69,7 +70,7 @@ const FRESH_DATAPOINT_MS = 5 * 60_000;
 export function createLoadBalancerConnector(
   config: ResourceConfigOf<'loadbalancer'>,
   context: ConnectorContext,
-  clients: LoadBalancerClients = createLoadBalancerClients(config),
+  clients: LoadBalancerClients = createLoadBalancerClients(config, context),
 ): Connector {
   let known: Resource[] = [];
   let peers: ResourcePeer[] = [];
@@ -261,8 +262,11 @@ export function createLoadBalancerConnector(
 
 export function createLoadBalancerClients(
   config: ResourceConfigOf<'loadbalancer'>,
+  context?: Pick<ConnectorContext, 'env' | 'secrets'>,
 ): LoadBalancerClients {
+  const credentials = context ? awsCredentials(config, context) : undefined;
   const common = {
+    ...(credentials ? { credentials } : {}),
     region: config.region,
     ...(config.profile ? { profile: config.profile } : {}),
     ...(config.endpoint ? { endpoint: config.endpoint } : {}),

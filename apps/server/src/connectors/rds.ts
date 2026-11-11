@@ -7,6 +7,7 @@ import { paginateDescribeDBInstances, RDSClient, type DBInstance } from '@aws-sd
 import type { Resource } from '@app/shared';
 import type { ResourceConfigOf } from '../config/resources-file';
 import {
+  awsCredentials,
   errorMessage,
   healthSample,
   metric,
@@ -69,7 +70,7 @@ export interface RdsClients {
 export function createRdsConnector(
   config: ResourceConfigOf<'rds'>,
   context: ConnectorContext,
-  clients: RdsClients = createRdsClients(config),
+  clients: RdsClients = createRdsClients(config, context),
 ): Connector {
   let known: Resource[] = [];
   let instances = new Map<string, DBInstance>();
@@ -203,8 +204,13 @@ export function createRdsConnector(
   };
 }
 
-export function createRdsClients(config: ResourceConfigOf<'rds'>): RdsClients {
+export function createRdsClients(
+  config: ResourceConfigOf<'rds'>,
+  context?: Pick<ConnectorContext, 'env' | 'secrets'>,
+): RdsClients {
+  const credentials = context ? awsCredentials(config, context) : undefined;
   const common = {
+    ...(credentials ? { credentials } : {}),
     region: config.region,
     ...(config.profile ? { profile: config.profile } : {}),
     ...(config.endpoint ? { endpoint: config.endpoint } : {}),

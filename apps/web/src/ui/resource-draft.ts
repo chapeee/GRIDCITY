@@ -17,6 +17,8 @@ export interface FieldSpec {
   initial?: string | boolean;
   required?: boolean;
   help?: string;
+  /** Shown under "Advanced" (environment variables, profiles): most people never need it. */
+  advanced?: boolean;
 }
 
 export interface KindSpec {
@@ -25,8 +27,10 @@ export interface KindSpec {
   /** Short line under the tile. */
   blurb: string;
   fields: FieldSpec[];
-  /** Asks where the password lives (env var / file), plus a test-only password. */
+  /** Asks for a password (saved encrypted; env var or file under Advanced). */
   password: boolean;
+  /** Asks for an access key pair (S3, RDS, load balancers), saved encrypted. */
+  keys?: boolean;
   /** Read-only grant to recommend. */
   grant?: string;
 }
@@ -149,7 +153,8 @@ export const RESOURCE_KINDS: KindSpec[] = [
         key: 'profile',
         label: 'AWS profile',
         type: 'text',
-        placeholder: 'optional; default credentials otherwise',
+        placeholder: 'from ~/.aws on this machine',
+        advanced: true,
       },
       {
         key: 'instances',
@@ -159,6 +164,7 @@ export const RESOURCE_KINDS: KindSpec[] = [
       },
     ],
     password: false,
+    keys: true,
     grant: 'IAM: rds:DescribeDBInstances, cloudwatch:GetMetricData',
   },
   {
@@ -184,16 +190,25 @@ export const RESOURCE_KINDS: KindSpec[] = [
         label: 'Access key variable',
         type: 'text',
         placeholder: 'SPACES_KEY',
+        advanced: true,
       },
       {
         key: 'secretAccessKeyEnv',
         label: 'Secret key variable',
         type: 'text',
         placeholder: 'SPACES_SECRET',
+        advanced: true,
       },
-      { key: 'profile', label: 'or AWS profile', type: 'text', placeholder: 'optional' },
+      {
+        key: 'profile',
+        label: 'AWS profile',
+        type: 'text',
+        placeholder: 'from ~/.aws on this machine',
+        advanced: true,
+      },
     ],
     password: false,
+    keys: true,
     grant: 'List-only keys: s3:ListAllMyBuckets, s3:ListBucket',
   },
 
@@ -239,7 +254,13 @@ export const RESOURCE_KINDS: KindSpec[] = [
     blurb: 'ALB / NLB state, target health and CloudWatch traffic',
     fields: [
       { key: 'region', label: 'Region', type: 'text', placeholder: 'ap-south-1', required: true },
-      { key: 'profile', label: 'AWS profile', type: 'text', placeholder: 'optional' },
+      {
+        key: 'profile',
+        label: 'AWS profile',
+        type: 'text',
+        placeholder: 'from ~/.aws on this machine',
+        advanced: true,
+      },
       {
         key: 'names',
         label: 'Only these names',
@@ -254,6 +275,7 @@ export const RESOURCE_KINDS: KindSpec[] = [
       },
     ],
     password: false,
+    keys: true,
     grant: 'IAM: elasticloadbalancing:Describe*, cloudwatch:GetMetricData',
   },
 ];
@@ -271,7 +293,8 @@ export const S3_PROVIDERS = [
   { id: 'other', label: 'Other S3-compatible', endpoint: 'https://…' },
 ] as const;
 
-export type PasswordSource = 'none' | 'env' | 'file';
+/** `typed`: the password field in the dialog (saved encrypted). env/file: Advanced. */
+export type PasswordSource = 'typed' | 'none' | 'env' | 'file';
 
 export interface DraftInput {
   kind: ResourceKind;

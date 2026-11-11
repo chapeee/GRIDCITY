@@ -106,3 +106,19 @@ export function describe(event: AlertEvent, projectName: string): string {
       return `${ICONS.unknown} ${projectName}: ${what} is ${event.to}`;
   }
 }
+
+/** "Send a test" in Settings: one message, errors reported to the caller. */
+export async function sendTestAlert(
+  url: string,
+  projectName: string,
+  send: typeof fetch = globalThis.fetch,
+): Promise<void> {
+  const text = `✅ ${projectName}: alerts are connected. You will hear here when something goes offline, degraded, or recovers.`;
+  const response = await send(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text, content: text, project: projectName, test: true }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) throw new Error(`the webhook answered ${response.status}`);
+}

@@ -54,6 +54,14 @@ because the name lives only in `PROJECT_NAME`.
     Alerts: desktop notifications and an optional webhook. UI polish is deliberately deferred in
     favour of these capabilities.
 
+13. **Credentials in the app (decided 2026-11-11):** the project ships as open source for people
+    who run it with Docker or npm and should never have to edit `.env` or files to connect
+    something. Database passwords, access keys and the alert webhook are pasted in the app and
+    stored encrypted (AES-256-GCM, local key in the data folder or `SECRETS_KEY`). This replaces
+    principle 4 for these credentials: they are stored, but only encrypted, only locally, and never
+    logged, echoed, sent to the browser or to an AI. SSH private keys and passphrases are still
+    never stored. Environment variables and files remain available under "Advanced".
+
 ---
 
 # Project: <project name> (working codename)

@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { parseResourcesYaml } from '../config/resources-file';
 import { AuditLog } from '../storage/audit-log';
 import { openDatabase } from '../storage/database';
+import { SecretVault } from '../storage/secret-vault';
 import { registerResourceRoutes } from './resource-routes';
 
 function setup(options: { demoMode?: boolean } = {}) {
@@ -19,16 +20,18 @@ function setup(options: { demoMode?: boolean } = {}) {
   db.close();
   const app = Fastify();
   const audit = new AuditLog(openDatabase(':memory:'));
+  const secrets = new SecretVault(openDatabase(':memory:'), Buffer.alloc(32, 1));
   const reload = vi.fn(async () => undefined);
   registerResourceRoutes(app, {
     audit,
     demoMode: options.demoMode ?? false,
     resourcesFile,
-    context: { env: {}, homeDir: dir, appName: 'test', now: Date.now },
+    secrets,
+    context: { env: {}, homeDir: dir, appName: 'test', now: Date.now, secrets },
     hostIds: () => new Set(['web-01']),
     reload,
   });
-  return { app, audit, reload, resourcesFile, sqliteFile, dir };
+  return { app, audit, reload, resourcesFile, sqliteFile, dir, secrets };
 }
 
 describe('connect a database or bucket', () => {
@@ -98,6 +101,66 @@ describe('connect a database or bucket', () => {
       detail: 'postgres db.internal:5432',
     });
     expect(reload).toHaveBeenCalled();
+  });
+
+  it('saves a pasted password encrypted and writes only its id to the file', async () => {
+    const { app, audit, resourcesFile, secrets } = setup();
+    const added = await app.inject({
+      method: 'POST',
+      url: '/api/resources',
+      payload: {
+        resource: { kind: 'postgres', id: 'orders-db', host: 'db.internal', user: 'monitor' },
+        secrets: { password: 'pasted-secret-456' },
+      },
+    });
+    expect(added.statusCode).toBe(200);
+    const text = readFileSync(resourcesFile, 'utf8');
+    expect(text).toContain('passwordSecret: orders-db.password');
+    expect(text).not.toContain('pasted-secret-456');
+    expect(secrets.get('orders-db.password')).toBe('pasted-secret-456');
+    expect(JSON.stringify(audit.recent())).not.toContain('pasted-secret-456');
+    expect(audit.recent()[0]?.detail).toContain('credentials saved encrypted');
+
+    // Edit replaces it; the file keeps pointing at the same id.
+    const edited = await app.inject({
+      method: 'PATCH',
+      url: '/api/resources/orders-db',
+      payload: { secrets: { password: 'rotated-789' } },
+    });
+    expect(edited.statusCode).toBe(200);
+    expect(secrets.get('orders-db.password')).toBe('rotated-789');
+    const flags = await app.inject({ method: 'GET', url: '/api/resources/orders-db/credentials' });
+    expect(flags.json()).toEqual({ password: true, accessKey: false });
+
+    // Removing the entry removes its credentials.
+    await app.inject({ method: 'DELETE', url: '/api/resources/orders-db' });
+    expect(secrets.has('orders-db.password')).toBe(false);
+  });
+
+  it('saves pasted S3 keys in place of env names and profiles', async () => {
+    const { app, resourcesFile, secrets } = setup();
+    const added = await app.inject({
+      method: 'POST',
+      url: '/api/resources',
+      payload: {
+        resource: {
+          kind: 's3',
+          id: 'media',
+          provider: 'spaces',
+          endpoint: 'https://blr1.digitaloceanspaces.com',
+          accessKeyIdEnv: 'OLD_KEY',
+          secretAccessKeyEnv: 'OLD_SECRET',
+        },
+        secrets: { accessKeyId: 'DO00KEY', secretAccessKey: 'very-secret-key' },
+      },
+    });
+    expect(added.statusCode).toBe(200);
+    const text = readFileSync(resourcesFile, 'utf8');
+    expect(text).toContain('accessKeyIdSecret: media.accessKeyId');
+    expect(text).toContain('secretAccessKeySecret: media.secretAccessKey');
+    expect(text).not.toContain('OLD_KEY');
+    expect(text).not.toContain('very-secret-key');
+    expect(secrets.get('media.secretAccessKey')).toBe('very-secret-key');
   });
 
   it('refuses secrets, duplicate ids and ids used by servers', async () => {
