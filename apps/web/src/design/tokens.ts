@@ -195,6 +195,8 @@ export const camera = {
   maxPolarAngle: 1.38,
   /** Orbit speed in ambient mode (OrbitControls autoRotate units; 2 = 30 s per turn). */
   ambientOrbitSpeed: 0.35,
+  /** Pixels per arrow-key press (OrbitControls units). */
+  keyPanSpeed: 28,
 } as const;
 
 /** Post-processing. Disabled entirely in lite mode. */

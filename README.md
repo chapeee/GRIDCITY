@@ -311,18 +311,20 @@ Every encoding, and the reasoning behind it: [docs/VISUAL_LANGUAGE.md](docs/VISU
 
 ## Controls
 
-| Key                 | Action                                                              |
-| ------------------- | ------------------------------------------------------------------- |
-| Click a tower       | Fly there and open its HUD                                          |
-| **Ctrl/Cmd+K**      | Command palette: search hosts, every action                         |
-| **Tab / Shift+Tab** | Jump to the next / previous host                                    |
-| **Enter**           | Jack in: a real terminal on the focused host                        |
-| **Ctrl+Shift+X**    | Leave the terminal (Esc and Ctrl+K belong to the shell in there)    |
-| **Esc**             | Close panels, stop ambient mode, back to the overview               |
-| **A**               | Ambient mode: tour hosts that need attention (for a second monitor) |
-| **H**               | History of the focused server (or every incident in the fleet)      |
-| **E**               | Edit the focused server: name, district, tags, its own warnings     |
-| **`** (backtick)    | Performance overlay                                                 |
+| Key                 | Action                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| Click a tower       | Fly there and open its HUD                                                           |
+| **Drag**            | Move across the city at the same zoom (right-drag or two fingers orbit, wheel zooms) |
+| **Arrow keys**      | Pan the city                                                                         |
+| **Ctrl/Cmd+K**      | Command palette: search hosts, every action                                          |
+| **Tab / Shift+Tab** | Jump to the next / previous host                                                     |
+| **Enter**           | Jack in: a real terminal on the focused host                                         |
+| **Ctrl+Shift+X**    | Leave the terminal (Esc and Ctrl+K belong to the shell in there)                     |
+| **Esc**             | Close panels, stop ambient mode, back to the overview                                |
+| **A**               | Ambient mode: tour hosts that need attention (for a second monitor)                  |
+| **H**               | History of the focused server (or every incident in the fleet)                       |
+| **E**               | Edit the focused server: name, district, tags, its own warnings                      |
+| **`** (backtick)    | Performance overlay                                                                  |
 
 Also in the palette: lite mode (no bloom or particles, for weak GPUs, suggested automatically when
 frames are slow), the audit log, importing from `~/.ssh/config`, and replaying the intro.
