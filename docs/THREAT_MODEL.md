@@ -104,6 +104,11 @@ find a gap.
 | A website edits hosts.yaml or settings | Edit, Remove and Settings are `PATCH`/`DELETE`/`PUT` requests behind the usual token, `SameSite=Strict` cookie and Origin checks; bodies are strict schemas (unknown fields refused, addresses and auth cannot be changed through Edit). Every change is audited (`host_edited`, `host_removed`, `settings_changed`). | v0.2 ✅ |
 | History reveals more than intended | The database keeps averaged metrics and status transitions for the retention you choose (7 days by default), never commands or secrets. Lowering the retention deletes older rows at once. | v0.2 ✅ |
 
+| `/healthz` reachable without the token | It answers `{"ok":true}` only: no version, no data, no hosts. The Host header check (localhost only) still applies. | v0.2 ✅ |
+| The Doctor changes a setting by itself | It only proposes; a patch is applied only on the user's click, re-proven against the real target right before writing, limited to an allow-list of connection settings, and audited. Lower-security patches (skip certificate verification) need a second, explicit click with a warning. | v0.2 ✅ |
+| The Doctor's attempts look like an attack | At most 6 read-only connection attempts per diagnosis, each one normal login like the app's own poll. | v0.2 ✅ |
+| An npm install reads another project's `.env` | The packaged command sets `GRIDCITY_PACKAGED=1`, and the app then ignores `.env` files in the working folder. | v0.2 ✅ |
+
 ## Explicit non-goals and honest limits
 
 - **Keystroke-level command auditing is not claimed.** The audit log records terminal session

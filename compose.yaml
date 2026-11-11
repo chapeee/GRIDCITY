@@ -39,6 +39,10 @@ services:
       - app-data:/data
     ports:
       - '127.0.0.1:${SERVER_PORT:-4600}:${SERVER_PORT:-4600}'
+    # Docker gives your computer this name; Linux needs it mapped explicitly.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    init: true
     restart: unless-stopped
 
 volumes:

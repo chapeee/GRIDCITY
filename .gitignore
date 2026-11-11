@@ -20,3 +20,6 @@ Thumbs.db
 # Docker: hosts.yaml and personal compose overrides
 /config/
 compose.ssh.yaml
+
+# Release artifacts (npm package assembled by scripts/build-npm.mjs)
+/release/

@@ -67,6 +67,8 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
     new Set(options.programPaths ?? []),
   );
 
+  app.get('/healthz', async () => ({ ok: true }));
+
   app.get('/api/meta', async () => ({
     projectName: options.projectName,
     version: options.version,
@@ -134,6 +136,8 @@ function registerSecurityGuard(
     if (!isAllowedHostHeader(request.headers.host)) {
       return reply.code(421).send({ error: 'This server only answers to localhost.' });
     }
+    // Liveness for Docker and process managers: says nothing but "up".
+    if (request.method === 'GET' && request.url === '/healthz') return;
 
     const query = request.query as Record<string, unknown> | undefined;
     const queryToken = query?.[TOKEN_QUERY_PARAM];

@@ -38,12 +38,24 @@ RUN npm run build
 
 # ---------------------------------------------------------------------------
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
+ARG VERSION=dev
+LABEL org.opencontainers.image.title="GRIDCITY" \
+  org.opencontainers.image.description="Your servers, databases and probes as a living 3D city, with a Doctor that proves fixes, time travel and MCP tools for AI agents." \
+  org.opencontainers.image.source="https://github.com/chapeee/GRIDCITY" \
+  org.opencontainers.image.licenses="MIT" \
+  org.opencontainers.image.version="${VERSION}"
 ENV NODE_ENV=production \
   # The container's loopback is unreachable from the host, so bind all
-  # interfaces *inside* the container. compose.yaml publishes the port on the
-  # host's 127.0.0.1 only. The server refuses 0.0.0.0 without this flag.
+  # interfaces *inside* the container. Publish the port on the host's
+  # 127.0.0.1 only. The server refuses 0.0.0.0 without this flag.
   HOST=0.0.0.0 \
-  BIND_INSIDE_CONTAINER=true
+  BIND_INSIDE_CONTAINER=true \
+  # So a plain `docker run` works without any env file or extra flags.
+  PROJECT_NAME=GRIDCITY \
+  CONFIG_DIR=/config \
+  DATA_DIR=/data \
+  SSH_DIR=/data/ssh \
+  LOG_LEVEL=warn
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -61,4 +73,8 @@ COPY --from=build /repo/apps/web/dist apps/web/dist
 RUN mkdir -p /config /data && chown node:node /config /data
 USER node
 EXPOSE 4600
+VOLUME ["/config", "/data"]
+# Liveness without the session token: /healthz answers only "ok".
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.SERVER_PORT||4600)+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 CMD ["node", "--enable-source-maps", "apps/server/dist/index.js"]

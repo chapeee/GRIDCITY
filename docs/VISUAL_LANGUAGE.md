@@ -191,6 +191,23 @@ These show _what the user is doing_, never host health.
 | Audit log panel              | palette                                                | Append-only server trail; refusals and lost connections in the alert accent. States that keystrokes are not recorded.                                                                                                                                                    |
 | "DEMO DATA" badge            | `hello.dataMode === 'demo'`                            | Permanent while in demo mode. Covers demo hosts and demo resources alike.                                                                                                                                                                                                |
 
+## Time travel (replay)
+
+While the timeline is open, the whole city shows one recorded moment instead of live data: same
+encodings, fed from the stored 30-second buckets (CPU pulse, memory bands from memory %, one disk
+arc for the fullest disk, particles from total traffic) and recorded status transitions. Hosts not
+measured at that moment are unknown (faint outline). The timeline is framed in the degraded accent
+with a **REPLAY** badge, incidents are marked on its track (amber degraded, red offline), and the
+live root-cause banner is hidden. Nothing live and nothing replayed are ever shown together.
+
+## Doctor and blast radius (2D)
+
+The HUD of an offline building shows the Doctor's hint in a degraded-accent frame, and a muted
+"Blast radius" line: how many buildings depend on it. When two or more failures cascade, a banner
+framed in the alert accent names the likely root cause. In the Doctor, the ladder marks each rung
+with a left rule: cyan worked, amber warning, red failed, muted skipped. Proven fixes have a cyan
+rule, lower-security ones amber.
+
 ## Decided (Phase 1 defaults, open to change)
 
 - An offline host with a connection error has **no** 3D marker: the tower stays dark (truth

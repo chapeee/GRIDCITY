@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, types, tests, package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - name: Assemble the npm package
+        run: npm run pack:npm
+      - name: The packed CLI installs and starts
+        run: |
+          cd release/npm && npm pack
+          npm install -g ./gridcity-*.tgz --no-audit --no-fund
+          gridcity --version
+          gridcity doctor --help
+          DATA_DIR=$RUNNER_TEMP/data CONFIG_DIR=$RUNNER_TEMP/config gridcity demo --port 4620 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4620/healthz && break; sleep 1; done
+          curl -sf http://127.0.0.1:4620/healthz
+
+  connectors:
+    name: Connectors and Doctor against real databases
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run test:connectors -- --down
+
+  docker:
+    name: Docker image builds and is healthy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runtime
+          load: true
+          tags: gridcity:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Starts and passes its health check
+        run: |
+          docker run -d --name gc -p 127.0.0.1:4600:4600 gridcity:ci node apps/server/dist/index.js --demo
+          for i in $(seq 1 40); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' gc)" = healthy ] && break
+            sleep 2
+          done
+          docker inspect -f '{{.State.Health.Status}}' gc | grep -q healthy
+          docker logs gc | grep -q 'is running'

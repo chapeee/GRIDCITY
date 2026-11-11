@@ -1,0 +1,28 @@
+# GRIDCITY from the published image: no clone, no build.
+#
+#   curl -O https://raw.githubusercontent.com/chapeee/GRIDCITY/main/compose.image.yaml
+#   docker compose -f compose.image.yaml up -d
+#   docker compose -f compose.image.yaml logs app     # the link with your session token
+#
+# Everything (servers, databases, keys, alerts) is set up in the app. Data, saved
+# credentials (encrypted) and keys live in the gridcity-data volume; config files
+# (hosts.yaml, resources.yaml, runbooks.yaml) in gridcity-config.
+# Try it without any setup: add `command: ["node", "apps/server/dist/index.js", "--demo"]`.
+
+services:
+  app:
+    image: ghcr.io/chapeee/gridcity:latest
+    ports:
+      # 127.0.0.1 only: nothing else on your network can reach it.
+      - '127.0.0.1:4600:4600'
+    volumes:
+      - gridcity-config:/config
+      - gridcity-data:/data
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    init: true
+    restart: unless-stopped
+
+volumes:
+  gridcity-config:
+  gridcity-data:

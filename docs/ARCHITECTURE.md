@@ -1,6 +1,6 @@
 # Architecture
 
-Status: **v0.1** (all phases of the brief delivered). Sections marked _(Phase N)_ describe planned work.
+Status: **v0.2** (published on npm and Docker). Sections marked _(Phase N)_ describe planned work.
 
 ## Overview
 
@@ -190,6 +190,57 @@ travels in `HostState` (null while offline), the rest feeds the topology. Fixtur
   minute (offline always), fire and forget; the hub's `onTransition` is the only caller.
   Audit: `alert_sent`.
 
+### The Doctor (`doctor/`)
+
+Turns a failed connection into a root cause and proven fixes. Shared by the connect dialog
+(`POST /api/resources/test` adds `doctor` when not ok), the Doctor panel, the HUD hints, the
+`diagnose` and `incident_report` MCP tools, and `gridcity doctor`.
+
+- **Ladder** (`ladder.ts`): DNS lookup (addresses and their scope: loopback, private, public),
+  TCP connect with timing, and a TLS handshake for protocols that start with TLS (HTTPS, Redis/
+  Mongo with TLS, TLS probes). MySQL and Postgres negotiate TLS inside the protocol, so that rung
+  is skipped and checked at login. No data is sent.
+- **Rules** (`rules.ts`): about 30 pure rules written from the real messages of mysql2, pg,
+  ioredis, mongodb, tedious, the AWS SDK and Node (TLS required or unsupported, untrusted CA,
+  hostname mismatch, expired certificate, DNS, refused, firewall timeout, localhost inside a
+  container, rejected login, host not allowed, unknown database or role, too many connections,
+  Redis auth, Mongo authSource, AWS credentials, region, path-style, clock skew, IAM, HTTP status).
+  Each yields a diagnosis (title, explanation, confidence, evidence) with **patch** fixes
+  (allow-listed settings: `tls`, `tlsVerify`, `port`, `host`, `authSource`, `database`,
+  `region`, `forcePathStyle`, `encrypt`, `trustServerCertificate`, `insecure`,
+  `followRedirects`, `expectStatus`, password references) and **manual** fixes (commands, steps).
+- **Providers** (`packages/shared/src/diagnosis.ts`): hostnames of managed services (DigitalOcean,
+  RDS, Azure, Supabase, Neon, PlanetScale, Upstash, ElastiCache, Redis Cloud, Atlas, Aiven) with
+  what they require (TLS, port, private CA). The form applies them before the first attempt.
+- **Verification** (`doctor.ts`): each patch is applied to a copy of the config and tested with a
+  real read-only poll (at most 6 attempts). A patch that fails with a new error is matched again
+  and the follow-up patch tried on top (depth 2), so "TLS required" on a private CA ends at the
+  combination that connects. `lower-security` fixes are flagged and need a second click.
+- **Applying** (`POST /api/doctor/resource/:id/apply`) re-proves the patch, then writes only
+  allow-listed keys to resources.yaml (comments kept) and audits it.
+- **SSH** (`ssh.ts`): ladder, SSH banner check, the fleet's exact connection test, mapped to the
+  connect flow's platform-specific steps. Never trusts a host key on its own.
+- **Environment** (`environment.ts`): Node version, writable data folder, disk space, ssh-agent
+  and its keys, known_hosts, config file errors, localhost targets inside a container.
+- **Hints**: offline resources and hosts carry `hint` (the top rule from the error alone, no
+  network) in their live state.
+
+### Time travel (`GET /api/replay?at=`)
+
+`SampleHistory.frameAt(at)` returns each host's latest 30-second bucket at or before `at`
+(within 2 minutes); `StatusEvents.statusAt(at)` each target's last transition at or before it.
+The client (`replay-store.ts`) swaps the whole city for `replayHostState` /
+`replayResourceState` frames (`packages/shared/src/replay.ts`): percentages become 0..100
+ratios, the fullest disk one disk, total traffic one interface; targets not recorded at that
+moment are unknown. Demo mode generates frames from the same incidents as its history panel.
+
+### Topology analysis
+
+`blastRadius(links, id)` walks links backwards (everything that depends on `id`, with
+distance). `rootCauses(links, failing)` keeps failing buildings whose own dependencies are
+healthy and lists the failures each explains. Used by the HUDs, the incident banner, the Doctor
+panel and `incident_report`.
+
 ### State
 
 `HostRuntime` (pure functions) turns connection phases and polls into a `HostState` using the
@@ -357,6 +408,29 @@ See [THREAT_MODEL.md](THREAT_MODEL.md).
 | `CONFIG_DIR`, `DATA_DIR`, `KNOWN_HOSTS_FILE`, `SSH_CONFIG_FILE` | OS defaults | See "Config and files".                                             |
 
 Real environment variables win over `.env`, which wins over `.env.example`.
+
+## Distribution
+
+| Channel | Built by                                     | What users run                                   |
+| ------- | -------------------------------------------- | ------------------------------------------------ |
+| npm     | `npm run pack:npm` → `release/npm`           | `npx gridcity`, `npm i -g gridcity`              |
+| Docker  | `Dockerfile` target `runtime`                | `ghcr.io/chapeee/gridcity`, `compose.image.yaml` |
+| Source  | `npm run dev` / `npm run build && npm start` | a clone                                          |
+
+- **npm package** (`scripts/build-npm.mjs`): the esbuild server bundle (workspace code bundled
+  in; entries `index`, `doctor`, `mcp-setup`, `add-host`, `import-ssh-config`), the built web
+  app, `packaging/npm/gridcity.js` as the `gridcity` command, and the server's third-party
+  runtime dependencies. `better-sqlite3` ships prebuilt binaries (Linux, macOS, Windows; x64 and
+  arm64), so no install script or compiler is needed. The command sets `GRIDCITY_PACKAGED=1`
+  (the app then never reads a `.env` from the folder it was started in), `PROJECT_NAME=GRIDCITY`
+  and `LOG_LEVEL=warn`.
+- **Docker image**: Node 24 on Debian slim, non-root `node` user, volumes `/config` and
+  `/data`, `HEALTHCHECK` on `/healthz` (the only route without the token; it answers
+  `{"ok":true}` and nothing else), OCI labels. Built for linux/amd64 and linux/arm64.
+- **Release** (`.github/workflows/release.yml`): a `v*` tag matching package.json runs the
+  checks, publishes to npm with provenance, pushes the multi-arch image to GHCR, and creates a
+  GitHub release from CHANGELOG.md. CI (`ci.yml`) also installs the packed CLI, starts it, runs the
+  connector and Doctor tests against real databases, and checks the image becomes healthy.
 
 ## Running
 

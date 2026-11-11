@@ -15,6 +15,8 @@ await build({
     index: 'src/index.ts',
     'import-ssh-config': 'src/cli/import-ssh-config.ts',
     'add-host': 'src/cli/add-host.ts',
+    doctor: 'src/cli/doctor.ts',
+    'mcp-setup': 'src/cli/mcp-setup.ts',
   },
   outdir: 'dist',
   bundle: true,

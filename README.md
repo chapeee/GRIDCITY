@@ -1,15 +1,52 @@
 # GRIDCITY
 
-**Your servers as a living city of light.** A local-first infrastructure tool: every SSH host
-becomes a tower whose light tells the truth about it, and you can dive into any tower for a real
-terminal. Databases (PostgreSQL, MySQL/MariaDB, MongoDB, Redis, SQL Server, SQLite), AWS RDS and
-S3-compatible buckets join the city as buildings of their own.
+**Your servers as a living city of light, with a Doctor that proves its fixes.** Every SSH server,
+database, bucket, load balancer and endpoint becomes a building whose light tells the truth about
+it. Dive into any server for a real terminal, rewind the whole city to last night's outage, and let
+your AI agent ask "what is the root cause?" in one call. Local-first: nothing leaves your machine.
 
 ![Flying through the city, focusing a degraded host, and jacking in](docs/media/demo.gif)
 
+```bash
+npx gridcity demo            # a simulated city, no setup at all
+npx gridcity                 # your own servers (set up in the app)
+```
+
+or with Docker, no Node needed:
+
+```bash
+docker run -d --name gridcity -p 127.0.0.1:4600:4600 \
+  -v gridcity-config:/config -v gridcity-data:/data ghcr.io/chapeee/gridcity
+docker logs gridcity          # the link with your session token
+```
+
+## What makes it different
+
+- **The Doctor proves fixes before it suggests them.** "Could not connect" becomes "stops at
+  LOGIN: the server requires TLS". The Doctor climbs DNS → port → TLS → login, matches the real
+  error against 30 rules, recognises managed providers, then **tries each candidate fix with a real
+  read-only connection**. You get "Turn on TLS: proven, connected with this change" and one click to
+  apply it. Also headless: `gridcity doctor --json` in CI, or as a tool for your AI agent.
+- **Time travel.** Press T and drag: every tower shows its load, memory, disks and traffic as they
+  were at that moment, every building its status. Press Play to watch last night's incident unfold,
+  or jump between incidents on the timeline.
+- **Root cause and blast radius.** The city knows who talks to whom (what you declare, connections
+  it sees on your servers, load balancer targets). When ten things go red, a banner names the one
+  that explains the others; every panel shows what goes down with it.
+- **Built for AI agents.** Connect Claude Code (`gridcity mcp` prints the command). Your agent gets
+  `incident_report`, `diagnose`, `get_topology`, `list_runbooks` and `run_command`, and every command
+  waits for your click in the city.
+- **Districts that hold anything.** A district is a VPC, an account, a rack: EC2 next to its RDS,
+  bucket and ALB, a home lab next to its probes.
+- **Everything in the app.** Connect servers (paste or upload a key, trust the fingerprint),
+  databases, buckets, probes and load balancers in forms; passwords and keys are stored encrypted
+  on your machine. No `.env` editing.
+
+## Principles
+
 - **Truth first.** Every light maps to exactly one metric. An offline server is dark and still;
-  data that stopped arriving freezes and greys out with a "last seen" label. Nothing is ever
-  faked. See [docs/VISUAL_LANGUAGE.md](docs/VISUAL_LANGUAGE.md).
+  data that stopped arriving freezes and greys out with a "last seen" label. Replay is labelled
+  REPLAY. Nothing is ever faked. See [docs/VISUAL_LANGUAGE.md](docs/VISUAL_LANGUAGE.md).
 - **Local first.** Runs on your machine, listens on `127.0.0.1` only, connects outward to your
   servers. No cloud, no account, no telemetry, no CDNs.
 - **Your secrets stay yours.** SSH uses your ssh-agent or a key file path; private keys and
@@ -19,27 +56,39 @@ S3-compatible buckets join the city as buildings of their own.
 - **The world is a map, never a gate.** Everything you can do with the mouse works from the
   keyboard (Ctrl/Cmd+K).
 
-> **Status: v0.1 complete.** Live SSH metrics, the 3D city, real terminals, intro, ambient mode
-> and audit log. Remote hosts must be Linux. See the [brief](docs/BRIEF.md) for the vision.
+## Install
 
-## Try it in one command
+| How                 | Command                                         | Needs          |
+| ------------------- | ----------------------------------------------- | -------------- |
+| Try it              | `npx gridcity demo`                             | Node.js 22.12+ |
+| Install the command | `npm i -g gridcity`, then `gridcity`            | Node.js 22.12+ |
+| Docker              | the `docker run` above, or `compose.image.yaml` | Docker         |
+| From source         | `git clone`, `npm install`, `npm run dev`       | Node.js 22.12+ |
 
-Requires **Node.js 22.12+** (24 recommended) or **Docker**.
+```text
+gridcity                      start with your servers, then open the printed link
+gridcity demo                 start with a simulated city
+gridcity doctor [--json]      check this machine and every server, database, bucket and probe
+gridcity mcp                  connect Claude Code or any MCP app
+gridcity add-host user@host   test and add one SSH server
+gridcity import-ssh-config    add every host from ~/.ssh/config
+  --port <n>  --open  --new-token
+```
+
+The link printed at start contains a session token; it stays the same across restarts (bookmark
+it). Remote servers must be Linux.
+
+## Try it from source
 
 ```bash
 npm install
 npm run demo
 ```
 
-Open the URL printed in the console (it contains the session token, and stays the same across
-restarts, so you can bookmark it; `--new-token` replaces it). This serves a
-**simulated fleet** (always labelled DEMO DATA) so you can explore without any SSH setup.
-It behaves like a real one: load rises and falls through the day, and every so often a server
-runs a busy job (turns degraded, then recovers), gets a traffic surge, leaks memory until its
-service restarts, or reboots (offline for a few seconds, then back with fresh uptime). To watch it
-at four times the speed, open the in-browser demo with `?source=demo&poll=500`.
-
-With Docker instead: set `DATA_MODE=demo` in `.env`, then `docker compose up --build`.
+The demo is a **simulated fleet** (always labelled DEMO DATA). It behaves like a real one: load
+rises and falls through the day, and every so often a server runs a busy job, gets a traffic surge,
+leaks memory until its service restarts, or reboots. To watch it at four times the speed, open the
+in-browser demo with `?source=demo&poll=500`.
 
 ## Use it with your servers
 
@@ -334,6 +383,9 @@ Every encoding, and the reasoning behind it: [docs/VISUAL_LANGUAGE.md](docs/VISU
 | **A**               | Ambient mode: tour hosts that need attention (for a second monitor)                  |
 | **H**               | History of the focused server (or every incident in the fleet)                       |
 | **E**               | Edit the focused server: name, district, tags, its own warnings                      |
+| **D**               | The Doctor: diagnose the focused building, or check everything                       |
+| **T**               | Time travel: rewind the city and play it back                                        |
+| **R**               | Runbooks: run saved or typed commands on one server or many                          |
 | **`** (backtick)    | Performance overlay                                                                  |
 
 Also in the palette: lite mode (no bloom or particles, for weak GPUs, suggested automatically when

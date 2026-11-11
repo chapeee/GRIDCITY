@@ -49,6 +49,9 @@ export function applyMissingEnv(target: NodeJS.ProcessEnv, values: Record<string
 
 /** Loads `.env.example` then `.env` (if found) into `process.env`. */
 export function loadEnvFiles(startDir: string = process.cwd()): void {
+  // Installed from npm, the app must not read whatever .env sits in the folder it was
+  // started from (another project's). Everything is set in the app, or by flags.
+  if (process.env.GRIDCITY_PACKAGED === '1') return;
   const dir = findEnvDir(startDir);
   if (!dir) return;
   const read = (name: string) => {
