@@ -143,9 +143,11 @@ test('the audit log explains it lives on the server in browser-demo mode', async
   await page.keyboard.press('Control+k');
   await page.keyboard.type('open audit log');
   await page.keyboard.press('Enter');
-  await expect(page.getByLabel('Audit log')).toContainText('lives on the server');
+  await expect(page.getByRole('region', { name: 'Audit log' })).toContainText(
+    'lives on the server',
+  );
   await page.keyboard.press('Escape');
-  await expect(page.getByLabel('Audit log')).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Audit log' })).toHaveCount(0);
 });
 
 test('lite mode turns off post-processing and particles', async ({ page }) => {
