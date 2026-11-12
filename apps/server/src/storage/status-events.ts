@@ -35,6 +35,24 @@ export class StatusEvents {
     for (const row of rows) this.last.set(row.targetId, row.status);
   }
 
+  /** Every recorded transition within a time range, oldest first. */
+  between(
+    since: number,
+    until: number,
+  ): { targetId: string; at: number; status: HostStatus; reason: string | null }[] {
+    return this.db
+      .prepare(
+        `SELECT target_id AS targetId, at, status, reason FROM status_events
+         WHERE at BETWEEN ? AND ? ORDER BY at LIMIT 2000`,
+      )
+      .all(since, until) as {
+      targetId: string;
+      at: number;
+      status: HostStatus;
+      reason: string | null;
+    }[];
+  }
+
   /** Records a transition if the status really changed. Returns true when written. */
   record(targetId: string, status: HostStatus, reason: string | null, at = this.now()): boolean {
     if (status === 'unknown' || this.last.get(targetId) === status) return false;

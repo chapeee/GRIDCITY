@@ -13,6 +13,7 @@ import {
   type ServerMessage,
   type SlotAssignments,
   type StatusThresholds,
+  type ThreatFinding,
 } from '@app/shared';
 
 /** One point of history per successful poll, for the HUD sparklines. */
@@ -53,6 +54,8 @@ export interface FleetSnapshot {
   /** Topology: who uses whom (protocol v3). */
   links: Link[];
   runbooks: Runbook[];
+  /** Open attack and exposure findings (protocol v4). */
+  threats: ThreatFinding[];
   lastError: string | null;
 }
 
@@ -81,6 +84,7 @@ export const EMPTY_FLEET: FleetSnapshot = {
   districts: [],
   links: [],
   runbooks: [],
+  threats: [],
   lastError: null,
 };
 
@@ -121,8 +125,12 @@ export function reduceFleet(fleet: FleetSnapshot, message: ServerMessage): Fleet
         districts: message.districts,
         links: message.links,
         runbooks: message.runbooks,
+        threats: message.threats,
       };
     }
+
+    case 'threats':
+      return { ...fleet, threats: message.findings };
 
     case 'links':
       return { ...fleet, links: message.links };

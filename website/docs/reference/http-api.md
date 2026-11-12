@@ -32,8 +32,16 @@ Origin, except `/mcp` called by a local program with a Bearer token.
 | `POST /api/doctor/host/:id`                           | full Doctor report for a server                                            |
 | `GET /api/replay?at=<ms>`                             | the city at a past moment                                                  |
 | `GET /api/history?target=&days=`                      | incidents and chart points                                                 |
-| `GET/PUT /api/settings`                               | retention, thresholds, webhook (never returned)                            |
-| `POST /api/alerts/test`                               | send a test message to the webhook                                         |
+| `GET/PUT /api/settings`                               | retention and thresholds                                                   |
+| `GET /api/alerts`                                     | alert channels (secrets never returned) and Web Push devices               |
+| `POST /api/alerts/channels`, `PUT/DELETE …/:id`       | add, edit (empty secrets keep the saved ones) or remove a channel          |
+| `POST /api/alerts/test`                               | `{ id }` or `{ input, id? }`: test a saved channel or an unsaved form      |
+| `POST /api/alerts/push`, `DELETE …/push/:id`          | subscribe or remove a browser for Web Push                                 |
+| `GET /api/threats`                                    | attack and exposure findings, worst first, and what each check could read  |
+| `GET /api/threats/timeline?since=&until=`             | findings active in a time range (time travel)                              |
+| `POST /api/threats/:id/acknowledge`                   | mark a finding as expected (a new account, port or login is learned)       |
+| `POST /api/threats/check`                             | run every security check now                                               |
+| `POST /api/alerts/push/:id/test`                      | send a test push to one browser                                            |
 | `GET /api/runbooks`, `POST /api/runbooks/run`         | list runbooks; run one (or a command) on chosen servers                    |
 | `GET /api/audit?limit=`                               | audit log, newest first                                                    |
 | `GET /api/agent/mcp-setup`                            | the Claude Code command and JSON config                                    |

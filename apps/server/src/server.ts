@@ -29,16 +29,28 @@ import { editHostInFile, removeHostFromFile, setFileThresholds } from './config/
 import { importSshConfig } from './config/ssh-config-importer';
 import { loadDistrictsFile } from './config/districts-file';
 import { loadRunbooksFile } from './config/runbooks-file';
-import { createWebhookNotifier, sendTestAlert } from './alerts/webhook';
+import { AlertCenter } from './alerts/alert-center';
 import { loadVaultKey, SecretVault } from './storage/secret-vault';
 
-/** Vault id of the alert webhook URL (it carries a token, so it is a secret). */
-const WEBHOOK_SECRET_ID = 'alerts.webhook';
 import { registerRunbookRoutes } from './http/runbook-routes';
 import { registerDoctorRoutes } from './http/doctor-routes';
 import { diagnoseResource } from './doctor/doctor';
 import { diagnoseHost } from './doctor/ssh';
+import { registerAlertRoutes } from './http/alert-routes';
 import { registerExploreRoutes } from './http/explore-routes';
+import { registerThreatRoutes } from './http/threat-routes';
+import { defaultProbes } from './threats/exposure';
+import { ThreatHub } from './threats/threat-hub';
+import { applyFix, fixesFor } from './threats/fixes';
+import { backupStore, createBackupProducer } from './insights/backups';
+import { createDiskForecastProducer } from './insights/disk-forecast';
+import { createExpiryProducer } from './insights/expiry';
+import { createPackagesProducer } from './insights/packages';
+import { createContainersProducer } from './insights/containers';
+import { buildIncidentTimeline } from './insights/incident';
+import { searchLogs } from './insights/log-search';
+import { readCertificate } from './connectors/tls-info';
+import { ThreatStore } from './threats/threat-store';
 import { registerResourceRoutes, testResource } from './http/resource-routes';
 import { ExploreHub } from './explore/hub';
 import { runningInContainer } from './doctor/ladder';
@@ -221,27 +233,20 @@ export async function startServer({
   };
   const declarations = await loadDeclarations();
 
-  // Alerts: an optional webhook gets every real transition into or out of trouble.
-  // The webhook is set in Settings (saved in the vault); ALERT_WEBHOOK_URL still works.
-  let notifierFor: { url: string; notifier: ReturnType<typeof createWebhookNotifier> } | null =
-    null;
-  const webhookUrl = () => vault.get(WEBHOOK_SECRET_ID) ?? env.ALERT_WEBHOOK_URL ?? null;
-  const currentNotifier = () => {
-    const url = env.DATA_MODE === 'real' ? webhookUrl() : null;
-    if (!url) return null;
-    if (notifierFor?.url !== url) {
-      notifierFor = {
-        url,
-        notifier: createWebhookNotifier({
-          url,
-          projectName: env.PROJECT_NAME,
-          log: (message) => console.warn(message),
-        }),
-      };
-    }
-    return notifierFor.notifier;
-  };
+  // Alerts: email, chat, push services and subscribed browsers hear about every real
+  // transition into or out of trouble, from the server, whether or not the app is open.
+  // Channels are set in Settings (saved in the vault); ALERT_WEBHOOK_URL still works.
+  const alerts = new AlertCenter({
+    vault,
+    projectName: env.PROJECT_NAME,
+    environmentWebhook: env.ALERT_WEBHOOK_URL,
+    log: (message) => console.warn(message),
+  });
 
+  // Attack and exposure findings (real data only); created once the hub exists.
+  let threatHub: ThreatHub | null = null;
+  let backups: ReturnType<typeof backupStore> | undefined;
+  let containers: ReturnType<typeof createContainersProducer> | undefined;
   const hub = new StateHub({
     provider,
     resources: resourceProvider,
@@ -256,9 +261,16 @@ export async function startServer({
       env.DATA_MODE === 'real'
         ? (hostname) => lookup(hostname, { all: true }).then((all) => all.map((a) => a.address))
         : undefined,
+    threats: () => threatHub?.openFindings() ?? [],
     onTransition: (event) => {
-      if (currentNotifier()?.notify(event)) {
-        audit.append('alert_sent', event.targetId, `${event.from ?? '?'} → ${event.to}`);
+      if (env.DATA_MODE !== 'real') return;
+      const sentTo = alerts.notify(event);
+      if (sentTo.length > 0) {
+        audit.append(
+          'alert_sent',
+          event.targetId,
+          `${event.from ?? '?'} → ${event.to} · ${sentTo.join(', ')}`,
+        );
       }
     },
   });
@@ -266,6 +278,72 @@ export async function startServer({
   hub.setResourceConfigErrors(resourceErrors);
   hub.setOtherConfigErrors(declarations.errors);
   hub.start();
+
+  if (env.DATA_MODE === 'real') {
+    const threatStore = new ThreatStore(db);
+    backups = backupStore(threatStore);
+    const sshRunner = (hostId: string) => {
+      const fleet = hub.currentProvider;
+      const connection = fleet instanceof RealFleet ? fleet.connectionFor(hostId) : undefined;
+      return connection?.phase === 'connected' ? connection : undefined;
+    };
+    const loadResourceConfigs = async () => {
+      const loaded = await loadResourcesFile(paths.resourcesFile);
+      return new Map(loaded.ok ? loaded.config.resources.map((entry) => [entry.id, entry]) : []);
+    };
+    threatHub = new ThreatHub({
+      store: threatStore,
+      producers: [
+        (containers = createContainersProducer({
+          hosts: () => hub.currentProvider.hosts,
+          runnerFor: (hostId) => sshRunner(hostId),
+        })),
+        createPackagesProducer({
+          hosts: () => hub.currentProvider.hosts,
+          runnerFor: sshRunner,
+          cache: threatStore,
+        }),
+        createBackupProducer({
+          load: () => backups?.load() ?? [],
+          hosts: () => hub.currentProvider.hosts,
+          resources: () => hub.currentResources.resources(),
+          configs: loadResourceConfigs,
+          runnerFor: sshRunner,
+          context: connectorContext,
+        }),
+        createExpiryProducer({
+          resources: () => hub.currentResources.resources(),
+          states: () => hub.currentResources.currentStates(Date.now()),
+          configs: loadResourceConfigs,
+          cache: threatStore,
+          readCertificate: (host, port) => readCertificate(host, port, { timeoutMs: 10_000 }),
+        }),
+        createDiskForecastProducer({
+          hosts: () => hub.currentProvider.hosts,
+          states: () => hub.currentProvider.currentStates(Date.now()),
+          samples: (hostId, since) => {
+            history.writeOpen();
+            return history.query(hostId, since);
+          },
+        }),
+      ],
+      audit,
+      alerts,
+      hosts: () => hub.currentProvider.hosts,
+      runnerFor: (hostId) => {
+        const fleet = hub.currentProvider;
+        const connection = fleet instanceof RealFleet ? fleet.connectionFor(hostId) : undefined;
+        return connection?.phase === 'connected' ? connection : undefined;
+      },
+      resources: () => hub.currentResources.resources(),
+      resourceConfigs: loadResourceConfigs,
+      probes: defaultProbes(connectorContext),
+      onChange: (open) => hub.publishThreats(open),
+      retentionDays: () => appSettings.load().historyRetentionDays,
+      log: (message) => console.warn(message),
+    });
+    threatHub.start();
+  }
 
   let lastResourcesMtime = existsSync(paths.resourcesFile)
     ? statSync(paths.resourcesFile).mtimeMs
@@ -362,6 +440,7 @@ export async function startServer({
     });
   };
   const fleetAccess: FleetAccess = {
+    threats: () => threatHub?.view() ?? { findings: [], coverage: [], upcoming: [], demo: true },
     hosts: () => hub.currentProvider.hosts,
     states: () => hub.currentProvider.currentStates(Date.now()),
     isConnected: (hostId) => realFleet()?.connectionFor(hostId)?.phase === 'connected',
@@ -580,6 +659,102 @@ export async function startServer({
         hostIds: () => new Set(hub.currentProvider.hosts.map((host) => host.id)),
         reload: reloadResources, // the new building appears at once
       });
+      registerAlertRoutes(instance, { center: alerts, audit, demoMode: env.DATA_MODE === 'demo' });
+      registerThreatRoutes(instance, {
+        hub: threatHub,
+        backups,
+        audit,
+        containers: (hostId) => containers?.snapshot(hostId) ?? null,
+        searchLogs: threatHub
+          ? (search) =>
+              searchLogs(search, hub.currentProvider.hosts, (hostId) => {
+                const fleet = hub.currentProvider;
+                const connection =
+                  fleet instanceof RealFleet ? fleet.connectionFor(hostId) : undefined;
+                return connection?.phase === 'connected' ? connection : undefined;
+              })
+          : undefined,
+        incident: (since, until, targetId) =>
+          buildIncidentTimeline({
+            since,
+            until,
+            targetId,
+            statuses: statusEvents?.between(since, until) ?? [],
+            findings: threatHub?.between(since, until) ?? [],
+            audit: audit.between(since, until),
+          }),
+        fixes: threatHub
+          ? {
+              optionsFor: (findingId) => {
+                const finding = threatHub?.view().findings.find((f) => f.id === findingId);
+                if (!finding) return [];
+                const isHost = hub.currentProvider.hosts.some((h) => h.id === finding.targetId);
+                const resource = hub.currentResources
+                  .resources()
+                  .find((r) => r.id === finding.targetId);
+                return fixesFor(
+                  finding,
+                  isHost,
+                  resource?.kind === 's3' && resource.id !== resource.sourceId,
+                );
+              },
+              apply: async (findingId, fixId) => {
+                const finding = threatHub?.view().findings.find((f) => f.id === findingId);
+                if (!finding || !threatHub) return null;
+                const host = hub.currentProvider.hosts.find((h) => h.id === finding.targetId);
+                const resource = hub.currentResources
+                  .resources()
+                  .find((r) => r.id === finding.targetId);
+                const option = fixesFor(finding, Boolean(host), resource?.kind === 's3').find(
+                  (o) => o.id === fixId,
+                );
+                if (!option) return null;
+                const configs = await (async () => {
+                  const loaded = await loadResourcesFile(paths.resourcesFile);
+                  return loaded.ok ? loaded.config.resources : [];
+                })();
+                const config = resource
+                  ? configs.find((c) => c.id === resource.sourceId)
+                  : undefined;
+                const outcome = await applyFix(
+                  option,
+                  {
+                    hostId: host?.id,
+                    bucket:
+                      resource && config?.kind === 's3'
+                        ? { config, name: resource.name }
+                        : undefined,
+                  },
+                  {
+                    context: connectorContext,
+                    exec: async (hostId, script) => {
+                      const fleet = hub.currentProvider;
+                      const connection =
+                        fleet instanceof RealFleet ? fleet.connectionFor(hostId) : undefined;
+                      if (!connection || connection.phase !== 'connected') {
+                        return {
+                          stdout: '',
+                          stderr: 'the server is not connected',
+                          exitCode: null,
+                        };
+                      }
+                      return connection.exec('sh -s', script, 30_000);
+                    },
+                  },
+                );
+                audit.append(
+                  'threat_fixed',
+                  finding.targetId,
+                  `${option.label}: ${outcome.ok ? 'done' : 'failed'} (${finding.title})`,
+                );
+                // Look again right away, so the city shows the result.
+                if (host) await threatHub.sweepHost(host);
+                else await threatHub.checkExposure();
+                return outcome;
+              },
+            }
+          : undefined,
+      });
       registerManageRoutes(instance, {
         audit,
         replayOldest: () => (env.DATA_MODE === 'demo' ? null : history.oldest()),
@@ -614,17 +789,6 @@ export async function startServer({
             if (status) resources[id] = status;
           }
           return { at, hosts, resources };
-        },
-        alerts: {
-          configured: () => webhookUrl() !== null,
-          fromEnvironment: () => !vault.has(WEBHOOK_SECRET_ID) && Boolean(env.ALERT_WEBHOOK_URL),
-          setWebhook: (url) =>
-            url ? vault.set(WEBHOOK_SECRET_ID, url) : vault.delete(WEBHOOK_SECRET_ID),
-          sendTest: async () => {
-            const url = webhookUrl();
-            if (!url) throw new Error('No webhook is set.');
-            await sendTestAlert(url, env.PROJECT_NAME);
-          },
         },
         demoMode: env.DATA_MODE === 'demo',
         hostsFile: env.DATA_MODE === 'real' ? paths.hostsFile : undefined,
@@ -684,6 +848,7 @@ export async function startServer({
       unwatchFile(paths.districtsFile);
       unwatchFile(paths.runbooksFile);
       agentHub.close();
+      threatHub?.stop();
       await exploreHub.close();
       hub.stop();
       await app.close();

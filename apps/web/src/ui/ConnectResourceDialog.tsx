@@ -228,14 +228,16 @@ function ConnectResourceForm() {
       <motion.form
         className="add-host connect-resource"
         role="dialog"
-        aria-label="Connect a database, bucket, probe or load balancer"
+        aria-label="Connect a server, database, bucket, probe or load balancer"
         initial={{ y: 12 }}
         animate={{ y: 0 }}
         onSubmit={add}
       >
         <header>
           <h2>
-            {spec ? `Connect ${spec.label}` : 'Connect a database, bucket, probe or load balancer'}
+            {spec
+              ? `Connect ${spec.label}`
+              : 'Connect a server, database, bucket, probe or load balancer'}
           </h2>
           <button type="button" onClick={close}>
             Close <kbd>Esc</kbd>
@@ -249,6 +251,20 @@ function ConnectResourceForm() {
               keys you type here are saved encrypted on this machine, never in a config file.
             </p>
             <div className="kind-grid">
+              <button
+                type="button"
+                className="kind-tile is-ssh"
+                onClick={() => {
+                  // Servers have their own guided setup (key, host key check, test).
+                  close();
+                  useUiStore.getState().setAddHostOpen(true);
+                }}
+              >
+                <span className="kind-tile-title">SSH server</span>
+                <span className="kind-tile-blurb">
+                  Linux server or VM: CPU, memory, disks, services, terminal and security checks
+                </span>
+              </button>
               {RESOURCE_KINDS.map((kind) => (
                 <button
                   key={kind.kind}

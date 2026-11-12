@@ -2,6 +2,62 @@
 
 ## Unreleased
 
+### Security: see who is attacking what
+
+- **Attacks and exposures on the buildings**: a pulsing red ring around anything under a high or
+  critical attack, an amber ring for medium ones, a shield in the toolbar with the count, and a
+  Security panel (**S**) with every finding worst first: what was seen, the attacker's address, how
+  many times, whether it is blocked, and what to do. A security section in each building's HUD,
+  attack bars in time travel, and `security_findings` for AI agents.
+- **Readable from across the city**: an attack strikes down the building from the roof and a ring
+  spreads from its base; "Show building" flies there and lights the building up for a moment.
+- **SSH server** is the first choice in the Connect dialog.
+- **Built-in checks over the existing SSH connection, read-only and with nothing to install**: SSH
+  brute force, a login right after failed attempts (a guessed password), logins from new addresses,
+  a second root account, new accounts, new open ports and refused sudo. The first check learns what
+  is normal; **Mark as expected** teaches it more.
+- **CrowdSec and Fail2ban**: what they caught appears on the building; the same attacker seen by
+  several detectors is one finding, "blocked" only when something enforces it (a CrowdSec ban
+  without a bouncer is reported as not blocked). Reading them through `sudo -n` for just those
+  two commands.
+- **Exposures**: public buckets (policy or ACL), buckets without a public access block, RDS
+  databases open to the internet (public and a security group open to 0.0.0.0/0), Redis and
+  MongoDB that need no password.
+- **Alerts**: high and critical findings go to every channel with "Attacks" on, and an "Over:"
+  message follows when they end, even across restarts. Every channel now retries a delivery that
+  failed for a moment (server error, rate limit, timeout).
+- **Attack lab** (`compose.security-lab.yaml`, `node scripts/security-lab.mjs`): a Debian SSH
+  server with CrowdSec and Fail2ban and two attackers on a private network, running real brute
+  force, password guessing, backdoor accounts and a new port, plus exposures on LocalStack and Moto.
+- Licensing: CrowdSec, Fail2ban and the rest are used only through their own commands and APIs; no
+  code of theirs is included.
+
+### Alerts that reach you with the app closed
+
+- **Browser notifications by Web Push**: turn them on once per browser and alerts arrive as
+  Windows, macOS or Android notifications even with the GRIDCITY tab closed. Offline alerts stay on
+  screen; clicking one opens the city.
+- **Alert channels**: email over any SMTP server, Slack, Discord, Mattermost, Google Chat,
+  Telegram, Microsoft Teams, ntfy, Pushover, Gotify, and Apprise for 100+ more. Each channel picks
+  offline, degraded and recovered, can be tested before saving, paused or removed, and shows when it
+  last delivered and its last error. Settings are encrypted in the vault; secrets never come back.
+- The old single webhook moves into the channel list; `ALERT_WEBHOOK_URL` shows as a read-only
+  channel.
+- Fix: a "back online" alert that came within a minute of the offline alert was dropped, leaving
+  people to believe the service was still down. A recovery now always closes a sent alert.
+- The app has an icon (browser tab and notifications).
+
+### Easier to find your way
+
+- A toolbar at the top right opens Connect, the Doctor, time travel, history, runbooks, the audit
+  log, the AI agent and Settings with one click (the keys still work), with tooltips naming each
+  shortcut. Opening a panel there closes the other side panels instead of stacking them.
+- A bell shows whether alerts reach anyone while the app is closed; an amber dot means none do.
+- Next to the project name, a fleet pulse counts what is online, degraded, offline and unknown;
+  click it to open the Doctor.
+- Building names stay readable in crowded districts: outlined, never hidden behind the building in
+  front, and long names shortened in the middle.
+
 ### Manage: every database, Redis and bucket becomes a workspace
 
 - Focus a building and press **M** (or **Ctrl+K → Manage …**). Read-only until you click

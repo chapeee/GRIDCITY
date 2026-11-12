@@ -31,6 +31,7 @@ const sidebars: SidebarsConfig = {
         'guides/terminal',
         'guides/ai-agents',
         'guides/alerts',
+        'guides/security',
         'guides/history-and-settings',
         'guides/docker',
       ],

@@ -33,7 +33,7 @@ built to be boring about it.
 
 - Connectors **only read statistics** (`pg_stat_*` in a read-only session, `SHOW STATUS`, `INFO`,
   `serverStatus`, DMVs, `DescribeDBInstances`, `ListObjectsV2`…), never your rows or objects.
-- Passwords, access keys and the alert webhook you paste are stored **encrypted** with AES-256-GCM
+- Passwords, access keys and alert channel settings you paste are stored **encrypted** with AES-256-GCM
   in the local database. The key is a random 32 bytes in `vault.key` next to it (mode 600), or your
   own `SECRETS_KEY`. Config files hold only references (`passwordSecret: orders-db.password`) and
   refuse a `password:` key or a password inside a URL.

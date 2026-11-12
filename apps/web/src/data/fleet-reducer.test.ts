@@ -1,6 +1,7 @@
 import {
   createUnknownHostState,
   DEFAULT_STATUS_THRESHOLDS,
+  PROTOCOL_VERSION,
   type Host,
   type HostState,
   type ServerMessage,
@@ -28,7 +29,7 @@ const polled = (id: string, lastSeenAt: number): HostState => ({
   network: [{ iface: 'eth0', rxBytesPerSec: 100, txBytesPerSec: 50 }],
 });
 
-const hello = (dataMode: 'real' | 'demo', protocolVersion = 3): ServerMessage => ({
+const hello = (dataMode: 'real' | 'demo', protocolVersion = PROTOCOL_VERSION): ServerMessage => ({
   type: 'hello',
   protocolVersion,
   dataMode,
@@ -60,6 +61,7 @@ describe('reduceFleet', () => {
         districts: [],
         links: [],
         runbooks: [],
+        threats: [],
         layoutSlots: {},
         hosts: [host('a')],
         states: [polled('a', 1000)],
@@ -80,6 +82,7 @@ describe('reduceFleet', () => {
         districts: [],
         links: [],
         runbooks: [],
+        threats: [],
         layoutSlots: {},
         hosts: [host('a')],
         states: [createUnknownHostState('a')],
@@ -113,6 +116,7 @@ describe('reduceFleet', () => {
         districts: [],
         links: [],
         runbooks: [],
+        threats: [],
         layoutSlots: {},
         hosts: [host('a'), host('b')],
         states: [polled('a', 1), polled('b', 1)],

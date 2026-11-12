@@ -49,6 +49,7 @@ export function createDemoDataSource(options: DemoOptions, projectName: string):
         districts: DEMO_DISTRICTS,
         links: createDemoLinks(Date.now()),
         runbooks: BUILTIN_RUNBOOKS,
+        threats: [],
       });
 
       const poll = () => {

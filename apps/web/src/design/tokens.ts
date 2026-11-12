@@ -39,7 +39,7 @@ export const accents = {
   online: '#8fe3ff',
   /** Over a threshold; needs attention. */
   degraded: '#ffc22d',
-  /** Errors and refusals (host key, failed connect). Used in 2D UI only. */
+  /** Errors and refusals (host key, failed connect) in 2D UI; in 3D only the attack ring (AttackRings). */
   alert: '#ff3b30',
 } as const;
 

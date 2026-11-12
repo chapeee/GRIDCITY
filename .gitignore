@@ -23,3 +23,6 @@ compose.ssh.yaml
 
 # Release artifacts (npm package assembled by scripts/build-npm.mjs)
 /release/
+
+# Attack lab keys (scripts/security-lab.mjs)
+/scripts/security-lab/.keys/

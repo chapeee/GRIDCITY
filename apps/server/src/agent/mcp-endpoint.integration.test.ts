@@ -49,6 +49,36 @@ beforeEach(async () => {
     resources: () => [],
     resourceStates: () => [],
     demoMode: () => false,
+    threats: () => ({
+      demo: false,
+      upcoming: [],
+      findings: [
+        {
+          id: 'web-1:brute-force:203.0.113.9',
+          targetId: 'web-1',
+          source: 'builtin',
+          severity: 'high',
+          category: 'brute-force',
+          title: 'SSH brute force from 203.0.113.9',
+          detail: '150 failed SSH logins in the last hour.',
+          advice: 'Use SSH keys only.',
+          attackerIp: '203.0.113.9',
+          count: 150,
+          firstSeen: 0,
+          lastSeen: 1000,
+          blocked: null,
+          status: 'open',
+          resolvedAt: null,
+        },
+      ],
+      coverage: [
+        {
+          targetId: 'web-1',
+          checkedAt: 0,
+          checks: [{ name: 'CrowdSec', ok: false, note: 'not installed' }],
+        },
+      ],
+    }),
   };
   const tools = new FleetTools({ fleet, gate, audit });
   app = await createApp({
@@ -106,6 +136,7 @@ describe('MCP endpoint', () => {
       'list_runbooks',
       'list_servers',
       'run_command',
+      'security_findings',
       'wait_for_command',
     ]);
 
@@ -119,6 +150,23 @@ describe('MCP endpoint', () => {
         connected: true,
       }),
     ]);
+    await client.close();
+  });
+
+  it('reports attacks with the target name and the checks that could not run', async () => {
+    const client = await connectClient();
+    const result = JSON.parse(
+      textOf(await client.callTool({ name: 'security_findings', arguments: {} })),
+    );
+    expect(result.open).toEqual([
+      expect.objectContaining({
+        target: 'web-1',
+        severity: 'high',
+        attackerIp: '203.0.113.9',
+        events: 150,
+      }),
+    ]);
+    expect(result.gaps).toEqual([{ target: 'web-1', check: 'CrowdSec', why: 'not installed' }]);
     await client.close();
   });
 

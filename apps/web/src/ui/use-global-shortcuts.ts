@@ -71,10 +71,34 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
           else if (ui.auditLogOpen) ui.setAuditLogOpen(false);
           else if (ui.historyTarget !== undefined) ui.openHistory(undefined);
           else if (ui.settingsOpen) ui.setSettingsOpen(false);
+          else if (ui.incident) ui.openIncident(null);
+          else if (ui.securityOpen) ui.setSecurityOpen(false);
+          else if (ui.upcomingOpen) ui.setUpcomingOpen(false);
+          else if (ui.logsOpen) ui.setLogsOpen(false);
           else if (ui.agentPanelOpen) ui.setAgentPanelOpen(false);
           else if (ui.ambientMode) ui.setAmbientMode(false);
           else if (ui.focusedHostId) ui.focusHost(null);
           else if (ui.focusedDistrict) ui.focusDistrict(null);
+          break;
+        case 'l':
+        case 'L':
+          // Search the logs of every server.
+          if (event.ctrlKey || event.metaKey || event.altKey) return;
+          event.preventDefault();
+          ui.setLogsOpen(!ui.logsOpen);
+          break;
+        case 'u':
+        case 'U':
+          // Upcoming: expiring certificates and domains, disks filling up, backups.
+          if (event.ctrlKey || event.metaKey || event.altKey) return;
+          ui.setUpcomingOpen(!ui.upcomingOpen);
+          break;
+        case 's':
+        case 'S':
+          // Security of the focused building, or of the whole city.
+          if (event.ctrlKey || event.metaKey || event.altKey) return;
+          if (ui.securityOpen) ui.setSecurityOpen(false);
+          else ui.setSecurityOpen(true, ui.focusedHostId);
           break;
         case 'a':
         case 'A':

@@ -10,8 +10,9 @@ import {
   type Runbook,
   type ServerMessage,
   type SlotAssignments,
+  type ThreatFinding,
 } from '@app/shared';
-import type { AlertEvent } from '../alerts/webhook';
+import type { AlertEvent } from '../alerts/alert-event';
 import type { LayoutStore } from '../storage/layout-store';
 import type { SampleHistory } from '../storage/sample-history';
 import type { StatusEvents } from '../storage/status-events';
@@ -37,6 +38,8 @@ export interface StateHubOptions {
   fixedLinks?: (now: number) => Link[];
   /** Resolves a hostname to IPs for matching connections; never called when absent. */
   resolve?: (hostname: string) => Promise<string[]>;
+  /** Open attack and exposure findings, sent in every snapshot. */
+  threats?: () => ThreatFinding[];
   /** Called on every real status transition (webhook alerts). */
   onTransition?: (event: AlertEvent) => void;
   now?: () => number;
@@ -197,6 +200,11 @@ export class StateHub {
     for (const sink of this.sinks) this.sendConfigErrors(sink);
   }
 
+  /** Open findings changed: every client gets the new list. */
+  publishThreats(findings: ThreatFinding[]): void {
+    this.broadcast({ type: 'threats', findings });
+  }
+
   /** Registers a client and sends it the full picture. Returns an unsubscribe function. */
   subscribe(sink: MessageSink): () => void {
     this.sendWelcome(sink);
@@ -217,6 +225,7 @@ export class StateHub {
       districts: this.currentDistricts,
       links: this.links,
       runbooks: [...this.runbooks],
+      threats: this.options.threats?.() ?? [],
     });
     for (const refusal of this.refusals.values()) sink(refusal);
   }

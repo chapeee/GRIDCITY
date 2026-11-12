@@ -44,7 +44,7 @@ async function palette(query: string): Promise<void> {
 
 test('connect a SQLite database: test shows what it read, add puts it in the city', async () => {
   await palette('connect a database');
-  const dialog = page.getByRole('dialog', { name: 'Connect a database or bucket' });
+  const dialog = page.getByRole('dialog', { name: /Connect a server, database/ });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: /PostgreSQL/ })).toBeVisible();
   await expect(dialog.getByRole('button', { name: /S3 \/ Spaces \/ MinIO \/ R2/ })).toBeVisible();
@@ -69,7 +69,7 @@ test('connect a SQLite database: test shows what it read, add puts it in the cit
 
 test('a failing test explains why, and secrets are refused', async () => {
   await palette('connect a database');
-  const dialog = page.getByRole('dialog', { name: 'Connect a database or bucket' });
+  const dialog = page.getByRole('dialog', { name: /Connect a server, database/ });
   await dialog.getByRole('button', { name: /PostgreSQL/ }).click();
   await dialog.getByLabel('Name', { exact: true }).fill('nowhere');
   await dialog.getByLabel('Host').fill('127.0.0.1');

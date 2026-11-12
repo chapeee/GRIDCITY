@@ -188,6 +188,21 @@ export function buildMcpServer(options: McpEndpointOptions, client: string): Mcp
   );
 
   server.registerTool(
+    'security_findings',
+    {
+      title: 'Attacks and exposures',
+      description:
+        'Security findings across the city: SSH brute force and logins after failed attempts, new accounts, ' +
+        'new open ports, public buckets, databases open to the internet, Redis/MongoDB without a password, and ' +
+        'what CrowdSec or Fail2ban caught. Each finding has the attacker address, event count, whether it is ' +
+        'blocked, and what to do. "gaps" lists checks that could not run: never call a server safe if its checks have gaps.',
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => json(options.tools.securityFindings()),
+  );
+
+  server.registerTool(
     'diagnose',
     {
       title: 'Run the Doctor on a server or resource',

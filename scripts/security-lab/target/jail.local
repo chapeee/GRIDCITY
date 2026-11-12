@@ -1,0 +1,13 @@
+[DEFAULT]
+banaction = iptables-multiport
+# The Docker gateway: GRIDCITY connects through it with a key and must never be banned.
+ignoreip = 127.0.0.1/8 ::1 172.31.250.1
+
+[sshd]
+enabled = true
+backend = auto
+logpath = /var/log/auth.log
+# High enough that GRIDCITY's own brute force rule (10 attempts) also sees the attack.
+maxretry = 15
+findtime = 10m
+bantime = 1h

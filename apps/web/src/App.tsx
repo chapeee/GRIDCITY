@@ -19,7 +19,12 @@ import { ConnectResourceDialog } from './ui/ConnectResourceDialog';
 import { ManagePanel } from './ui/manage/ManagePanel';
 import { EditResourceDialog } from './ui/EditResourceDialog';
 import { HistoryPanel } from './ui/HistoryPanel';
+import { TopToolbar } from './ui/TopToolbar';
 import { SettingsPanel } from './ui/SettingsPanel';
+import { SecurityPanel } from './ui/SecurityPanel';
+import { UpcomingPanel } from './ui/UpcomingPanel';
+import { IncidentPanel } from './ui/IncidentPanel';
+import { LogsPanel } from './ui/LogsPanel';
 import {
   LiteModeSuggestion,
   NoticeToast,
@@ -75,6 +80,7 @@ export function App() {
     <div className="app">
       <WorldScene model={model} />
       <TopBar />
+      <TopToolbar />
       <StatusBanners />
       <IncidentBanner />
       <EmptyFleet />
@@ -89,6 +95,10 @@ export function App() {
       <AuditLogPanel />
       <HistoryPanel />
       <SettingsPanel />
+      <SecurityPanel />
+      <UpcomingPanel />
+      <IncidentPanel />
+      <LogsPanel />
       <RunbookPanel />
       <DoctorPanel />
       <TimelineBar />

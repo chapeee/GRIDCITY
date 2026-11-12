@@ -135,4 +135,40 @@ export const BUILTIN_RUNBOOKS: Runbook[] = [
     command:
       'for f in /etc/letsencrypt/live/*/fullchain.pem /etc/ssl/certs/*.pem /etc/nginx/ssl/*.crt; do [ -f "$f" ] || continue; printf "%s  " "$f"; openssl x509 -enddate -noout -in "$f" 2>/dev/null; done | head -n 40',
   },
+  {
+    id: 'recent-logins',
+    name: 'Recent logins and failures',
+    description: 'Who logged in lately, from where, and the latest failed SSH attempts.',
+    command:
+      'last -a -n 25 2>/dev/null | head -n 26; echo; echo "--- failed SSH logins ---"; (grep -hE "Failed password|Invalid user|authentication failure" /var/log/auth.log /var/log/secure 2>/dev/null || journalctl -u ssh -u sshd --no-pager -n 400 2>/dev/null | grep -E "Failed|Invalid") | tail -n 30',
+  },
+  {
+    id: 'accounts',
+    name: 'Accounts with power',
+    description: 'Accounts that can log in, accounts with uid 0, and who may use sudo.',
+    command:
+      'echo "--- can log in ---"; getent passwd | awk -F: \'$7 !~ /(nologin|false|sync|halt|shutdown)$/ {print $1" (uid "$3", "$7")"}\'; echo; echo "--- uid 0 ---"; getent passwd | awk -F: \'$3 == 0 {print $1}\'; echo; echo "--- sudo/wheel/admin groups ---"; getent group sudo wheel admin 2>/dev/null',
+  },
+  {
+    id: 'blocking-status',
+    name: 'CrowdSec and Fail2ban status',
+    description:
+      'What CrowdSec and Fail2ban caught and who they block right now (needs sudo -n for them).',
+    command:
+      '(sudo -n cscli alerts list -l 15 2>/dev/null || cscli alerts list -l 15 2>/dev/null || echo "CrowdSec: not installed or not readable"); echo; (sudo -n cscli decisions list 2>/dev/null || true); echo; (sudo -n fail2ban-client status sshd 2>/dev/null || fail2ban-client status sshd 2>/dev/null || echo "Fail2ban: not installed or not readable")',
+  },
 ].map((runbook) => RunbookSchema.parse({ ...runbook, readOnly: true, builtin: true }));
+
+/** Built-in runbooks that help look into a kind of finding (servers only). */
+export const RUNBOOKS_FOR_FINDING: Record<string, string[]> = {
+  'brute-force': ['recent-logins', 'blocking-status', 'who-is-connected'],
+  'suspicious-login': ['recent-logins', 'who-is-connected', 'accounts'],
+  'new-user': ['accounts', 'recent-logins'],
+  privilege: ['accounts', 'recent-logins'],
+  'new-port': ['listening-ports', 'top-processes'],
+  'vulnerable-package': ['pending-updates'],
+  'disk-forecast': ['disk-usage'],
+  container: ['containers', 'recent-errors'],
+  certificate: ['certificates'],
+  backup: ['disk-usage', 'recent-errors'],
+};

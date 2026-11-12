@@ -1,9 +1,10 @@
-import type { HistoryIncident } from '@app/shared';
+import { SEVERITY_RANK, type HistoryIncident, type ThreatFinding } from '@app/shared';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useState } from 'react';
 import { useFleetStore } from '../data/fleet-store';
 import { fetchHistory } from '../data/history-api';
 import { PLAY_SPEEDS, useReplayStore } from '../data/replay-store';
+import { threatsApi } from '../data/threats-api';
 import { useUiStore } from './ui-store';
 
 const formatWhen = (at: number) =>
@@ -31,12 +32,22 @@ function TimelineBody() {
   const hosts = useFleetStore((store) => store.hosts);
   const resources = useFleetStore((store) => store.resources);
   const [incidents, setIncidents] = useState<HistoryIncident[]>([]);
+  const [threats, setThreats] = useState<ThreatFinding[]>([]);
 
   useEffect(() => {
     const days = Math.max(1, Math.ceil((until - since) / 86_400_000));
     fetchHistory(null, Math.min(days, 90))
       .then((history) => setIncidents(history.incidents))
       .catch(() => setIncidents([]));
+    threatsApi
+      .timeline(since, until)
+      .then((result) =>
+        // Medium and up: low findings would only add noise to the track.
+        setThreats(
+          result.findings.filter((f) => SEVERITY_RANK[f.severity] >= SEVERITY_RANK.medium),
+        ),
+      )
+      .catch(() => setThreats([]));
   }, [since, until]);
 
   // Playback: advance the clock in small steps; stop at the present.
@@ -70,6 +81,7 @@ function TimelineBody() {
     if (target) seek(target.startedAt + 30_000);
   };
   const happening = sorted.filter((i) => at >= i.startedAt && at <= (i.endedAt ?? until));
+  const attacked = threats.filter((f) => at >= f.firstSeen && at <= (f.resolvedAt ?? until));
   const measured = frame ? Object.keys(frame.hosts).length : 0;
 
   return (
@@ -108,6 +120,16 @@ function TimelineBody() {
           >
             {PLAY_SPEEDS[speed]!.label}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              const ui = useUiStore.getState();
+              ui.openIncident({ at, targetId: ui.focusedHostId });
+            }}
+            title="Everything recorded around this moment"
+          >
+            What happened
+          </button>
           <button type="button" onClick={close}>
             Back to live <kbd>T</kbd>
           </button>
@@ -127,6 +149,22 @@ function TimelineBody() {
               className={`timeline-incident is-${incident.status}`}
               style={{ left: `${Math.max(0, left)}%`, width: `${width}%` }}
               title={`${nameOf(incident.targetId)} ${incident.status}: ${incident.reason ?? ''} · ${formatWhen(incident.startedAt)}`}
+            />
+          );
+        })}
+        {threats.map((finding) => {
+          const left = ((finding.firstSeen - since) / span) * 100;
+          const width = Math.max(
+            0.3,
+            (((finding.resolvedAt ?? until) - finding.firstSeen) / span) * 100,
+          );
+          if (left > 100 || left + width < 0) return null;
+          return (
+            <span
+              key={`threat-${finding.id}-${finding.firstSeen}`}
+              className={`timeline-threat is-${finding.severity}`}
+              style={{ left: `${Math.max(0, left)}%`, width: `${width}%` }}
+              title={`${nameOf(finding.targetId)}: ${finding.title} · ${formatWhen(finding.firstSeen)}`}
             />
           );
         })}
@@ -165,6 +203,22 @@ function TimelineBody() {
         )}
         <span>now</span>
       </div>
+      {attacked.length > 0 && (
+        <p className="timeline-attacks">
+          <span>Under attack then</span>
+          {attacked.slice(0, 3).map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className="hud-link"
+              onClick={() => useUiStore.getState().showBuilding(f.targetId)}
+            >
+              {nameOf(f.targetId)}: {f.title}
+            </button>
+          ))}
+          {attacked.length > 3 ? ` +${attacked.length - 3}` : ''}
+        </p>
+      )}
     </motion.section>
   );
 }

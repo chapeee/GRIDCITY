@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { FleetPulse } from './TopToolbar';
 import { useFleetStore } from '../data/fleet-store';
 import { performanceBudget } from '../design/tokens';
 import { usePerfStore } from './perf-store';
@@ -16,6 +17,7 @@ export function TopBar() {
   return (
     <header className="top-bar">
       <span className="project-name">{__PROJECT_NAME__}</span>
+      <FleetPulse />
       {dataMode === 'demo' && (
         <span className="demo-badge" role="status">
           DEMO DATA <small>simulated fleet · not real servers</small>

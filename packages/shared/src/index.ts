@@ -21,3 +21,5 @@ export * from './demo/demo-topology';
 export * from './diagnosis';
 export * from './replay';
 export * from './explore';
+export * from './alerts';
+export * from './threats';

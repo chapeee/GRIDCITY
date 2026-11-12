@@ -18,7 +18,7 @@ exist for scripted setups and Docker.
 | `KNOWN_HOSTS_FILE`                                      | `SSH_DIR/known_hosts`         | the `known_hosts` file the app trusts and writes to                   |
 | `SSH_CONFIG_FILE`                                       | `SSH_DIR/config`              | read by the importer                                                  |
 | `SECRETS_KEY`                                           | generated `vault.key`         | base64 32-byte key for stored credentials (`openssl rand -base64 32`) |
-| `ALERT_WEBHOOK_URL`                                     | none                          | webhook fallback; a webhook saved in Settings takes precedence        |
+| `ALERT_WEBHOOK_URL`                                     | none                          | adds a read-only webhook alert channel                                |
 | `LOG_LEVEL`                                             | `warn` (npm), `info` (source) | `fatal` … `trace`                                                     |
 | `PROJECT_NAME`                                          | `GRIDCITY`                    | display name and folder names                                         |
 | `HOST`                                                  | `127.0.0.1`                   | bind address; anything but loopback is refused (outside Docker)       |

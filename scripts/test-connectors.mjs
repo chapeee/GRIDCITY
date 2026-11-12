@@ -29,6 +29,7 @@ if (status === 0) {
       'apps/server/src/connectors',
       'apps/server/src/doctor',
       'apps/server/src/explore',
+      'apps/server/src/threats',
     ],
     {
       CONNECTOR_TESTS: '1',

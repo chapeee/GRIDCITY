@@ -23,8 +23,8 @@ To see the whole city at one of those moments, use [time travel](./time-travel.m
 | Setting               | Default          | Meaning                                        |
 | --------------------- | ---------------- | ---------------------------------------------- |
 | Keep history for      | 7 days (1–90)    | metrics and incidents; older rows are deleted  |
-| Desktop notifications | off              | [alerts](./alerts.md) in this browser          |
-| Webhook               | none             | [alerts](./alerts.md) to Slack, Discord, ntfy… |
+| Browser notifications | off              | [alerts](./alerts.md) by Web Push, tab closed  |
+| Alert channels        | none             | [alerts](./alerts.md): email, Slack, Telegram… |
 | CPU warning           | 90 % for 3 polls | a server turns amber                           |
 | Memory warning        | 90 %             |                                                |
 | Disk warning          | 90 % (any disk)  |                                                |

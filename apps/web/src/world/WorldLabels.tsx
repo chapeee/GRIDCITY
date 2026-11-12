@@ -35,6 +35,21 @@ const NAME_OFFSET = 1.5;
 const DISTRICT_LABEL_HEIGHT = 0.9;
 const DISTRICT_LABEL_FRONT_OFFSET = 5;
 
+/**
+ * Names stay readable where buildings stand close together: a dark outline
+ * separates them from glowing edges, and they are drawn after the city
+ * without depth testing, so a building in front never hides the name of the
+ * one behind it.
+ */
+const READABLE = {
+  outlineWidth: '9%',
+  outlineColor: neutrals.base,
+  outlineOpacity: 0.9,
+  renderOrder: 10,
+  'material-depthTest': false,
+  'material-depthWrite': false,
+} as const;
+
 /** Host names, status captions and floating district names (troika text). */
 export function WorldLabels({
   towers,
@@ -61,17 +76,19 @@ export function WorldLabels({
                 font={labelFontUrl}
                 fontSize={0.62}
                 color={NAME_COLOR[tone]}
+                {...READABLE}
                 anchorX="center"
                 anchorY="bottom"
                 raycast={() => null}
               >
-                {tower.label ?? tower.hostId}
+                {shortLabel(tower.label ?? tower.hostId)}
               </Text>
               {caption && (
                 <Text
                   font={labelFontUrl}
                   fontSize={0.4}
                   color={busy ? accents.online : CAPTION_COLOR[tone]}
+                  {...READABLE}
                   anchorX="center"
                   anchorY="top"
                   position={[0, -0.12, 0]}
@@ -115,4 +132,18 @@ export function WorldLabels({
       ))}
     </group>
   );
+}
+
+/** Longest name drawn in full; neighbours stand about this far apart. */
+const MAX_LABEL_CHARS = 16;
+
+/**
+ * Long names ("media-1794434186338") would run into the next building's
+ * name. They keep their start and end ("media-1794…86338"); the HUD shows
+ * the full name when the building is focused.
+ */
+export function shortLabel(name: string): string {
+  if (name.length <= MAX_LABEL_CHARS) return name;
+  const tail = 5;
+  return `${name.slice(0, MAX_LABEL_CHARS - tail - 1)}…${name.slice(-tail)}`;
 }

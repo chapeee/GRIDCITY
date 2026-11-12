@@ -41,7 +41,14 @@ export type AuditKind =
   | 'runbook_run'
   | 'fleet_command_run'
   // Alerts sent to the webhook (what, never the URL).
-  | 'alert_sent';
+  | 'alert_sent'
+  // Attacks and exposures found, ended, or marked as expected by the user.
+  | 'threat_opened'
+  | 'threat_resolved'
+  | 'threat_acknowledged'
+  | 'threat_fixed'
+  // Log searches across servers (the query, never the results).
+  | 'logs_searched';
 
 export interface AuditEntry {
   id: number;
@@ -55,6 +62,7 @@ export interface AuditEntry {
 export class AuditLog {
   private readonly insert;
   private readonly selectRecent;
+  private readonly selectBetween;
 
   constructor(
     db: AppDatabase,
@@ -66,11 +74,19 @@ export class AuditLog {
     this.selectRecent = db.prepare(
       'SELECT id, at, kind, host_id AS hostId, detail FROM audit_log ORDER BY id DESC LIMIT ?',
     );
+    this.selectBetween = db.prepare(
+      'SELECT id, at, kind, host_id AS hostId, detail FROM audit_log WHERE at BETWEEN ? AND ? ORDER BY at LIMIT ?',
+    );
   }
 
   /** Never pass secrets in `detail`. */
   append(kind: AuditKind, hostId: string | null = null, detail: string | null = null): void {
     this.insert.run(this.now(), kind, hostId, detail);
+  }
+
+  /** Oldest first, within a time range (the incident timeline). */
+  between(since: number, until: number, limit = 1000): AuditEntry[] {
+    return this.selectBetween.all(since, until, Math.max(1, Math.min(limit, 5000))) as AuditEntry[];
   }
 
   /** Newest first. */

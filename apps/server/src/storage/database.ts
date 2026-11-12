@@ -72,6 +72,36 @@ const MIGRATIONS: readonly string[] = [
     updated_at INTEGER NOT NULL
   );
   `,
+  /* 4: attack and exposure findings (threats/threat-store.ts) */ `
+  CREATE TABLE threat_findings (
+    id              TEXT PRIMARY KEY,    -- "<target>:<key>", stable for the same attack
+    target_id       TEXT NOT NULL,
+    scope           TEXT NOT NULL,       -- the checks that report it, "auth+fail2ban"
+    source          TEXT NOT NULL,
+    severity        TEXT NOT NULL,
+    category        TEXT NOT NULL,
+    title           TEXT NOT NULL,
+    detail          TEXT NOT NULL,
+    advice          TEXT NOT NULL,
+    attacker_ip     TEXT,
+    count           INTEGER NOT NULL,
+    first_seen      INTEGER NOT NULL,
+    last_seen       INTEGER NOT NULL,
+    blocked         INTEGER,             -- 1, 0 or NULL (nothing says)
+    status          TEXT NOT NULL,       -- open | resolved
+    resolved_at     INTEGER,
+    acknowledged_at INTEGER,             -- marked as expected by the user
+    alerted         INTEGER NOT NULL DEFAULT 0  -- an alert went out, so its end is reported too
+  );
+  CREATE INDEX threat_findings_target ON threat_findings (target_id, status);
+  CREATE INDEX threat_findings_seen ON threat_findings (last_seen);
+
+  CREATE TABLE threat_baselines (
+    target_id  TEXT PRIMARY KEY,
+    data       TEXT NOT NULL,            -- JSON: accounts, ports and login addresses seen
+    updated_at INTEGER NOT NULL
+  );
+  `,
 ];
 
 /** Opens (creating if needed) and migrates the database. Use ':memory:' in tests. */

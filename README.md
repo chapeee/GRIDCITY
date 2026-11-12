@@ -1,17 +1,35 @@
+<div align="center">
+
 # GRIDCITY
 
-**Your servers as a living city of light, with a Doctor that proves its fixes.** Every SSH server,
-database, bucket, load balancer and endpoint becomes a building whose light tells the truth about
-it. Dive into any server for a real terminal, rewind the whole city to last night's outage, and let
-your AI agent ask "what is the root cause?" in one call. Local-first: nothing leaves your machine.
+**Your servers as a living 3D city of light, with an MCP server that lets your AI agent find the root cause and a Doctor that proves its fixes.**
+
+[![npm](https://img.shields.io/npm/v/gridcity?color=00e5ff&label=npm)](https://www.npmjs.com/package/gridcity)
+[![CI](https://github.com/chapeee/GRIDCITY/actions/workflows/ci.yml/badge.svg)](https://github.com/chapeee/GRIDCITY/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-chapeee.github.io%2FGRIDCITY-00e5ff)](https://chapeee.github.io/GRIDCITY/)
+[![MCP](https://img.shields.io/badge/MCP-server-8a5cff)](#mcp-server-for-ai-agents)
+[![Node](https://img.shields.io/badge/node-%E2%89%A522.12-3c873a)](https://nodejs.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ![Flying through the city, focusing a degraded host, and jacking in](docs/media/demo.gif)
 
-**[Documentation](https://chapeee.github.io/GRIDCITY/)** · [Quick start](https://chapeee.github.io/GRIDCITY/docs/getting-started/quick-start/) · [The Doctor](https://chapeee.github.io/GRIDCITY/docs/guides/doctor/) · [AI agents](https://chapeee.github.io/GRIDCITY/docs/guides/ai-agents/) · [Changelog](CHANGELOG.md)
+**[Documentation](https://chapeee.github.io/GRIDCITY/)** · [Quick start](https://chapeee.github.io/GRIDCITY/docs/getting-started/quick-start/) · [MCP tools](https://chapeee.github.io/GRIDCITY/docs/reference/mcp-tools/) · [The Doctor](https://chapeee.github.io/GRIDCITY/docs/guides/doctor/) · [Changelog](CHANGELOG.md)
+
+</div>
+
+GRIDCITY is a local-first infrastructure monitor and **MCP server** for SSH servers, databases,
+buckets, load balancers and HTTP/TCP endpoints. Every one of them becomes a building whose light
+tells the truth about it. Dive into any server for a real terminal, rewind the whole city to last
+night's outage, and let Claude Code, Cursor or any MCP client ask "what is the root cause?" in one
+call, with **every command your AI wants to run waiting for your click**. Nothing leaves your
+machine: no cloud, no account, no telemetry.
+
+## Quick start
 
 ```bash
 npx gridcity demo            # a simulated city, no setup at all
-npx gridcity                 # your own servers (set up in the app)
+npx gridcity                 # your own servers (connect them in the app)
+npx gridcity mcp             # connect Claude Code, Cursor or any MCP app
 ```
 
 or with Docker, no Node needed:
@@ -21,6 +39,109 @@ docker run -d --name gridcity -p 127.0.0.1:4600:4600 \
   -v gridcity-config:/config -v gridcity-data:/data ghcr.io/chapeee/gridcity
 docker logs gridcity          # the link with your session token
 ```
+
+<details>
+<summary><b>Contents</b></summary>
+
+- [MCP server for AI agents](#mcp-server-for-ai-agents)
+- [What makes it different](#what-makes-it-different)
+- [Install](#install)
+- [Use it with your servers](#use-it-with-your-servers)
+- [Databases, RDS and object storage](#databases-rds-and-object-storage)
+- [Districts, probes, load balancers and services](#districts-probes-load-balancers-and-what-runs-on-your-servers)
+- [Codex and Gemini inside the app (ACP)](#codex-and-gemini-inside-the-app-acp)
+- [Reading the city](#reading-the-city) · [Controls](#controls)
+- [Security: SSH](#what-this-does-with-your-ssh-access) · [Security: databases and cloud](#what-this-does-with-your-database-and-cloud-access)
+- [Development](#development) · [Environment variables](#environment-variables)
+
+</details>
+
+## MCP server for AI agents
+
+GRIDCITY is an [MCP](https://modelcontextprotocol.io) server (Streamable HTTP) for your whole
+fleet. Your AI agent gets the same picture you see in the city: what is broken, why, what else goes
+down with it, and a proven fix. It can run commands on your servers **only after you approve each
+one** on a card in the city.
+
+**1. Start GRIDCITY** (it must be running while the AI uses it):
+
+```bash
+npx gridcity                 # or: npx gridcity demo, to try the tools on a simulated fleet
+```
+
+**2. Connect your AI app.** `gridcity mcp` prints the exact command and JSON with your token
+filled in (also in the app: Ctrl+K → **Ask an AI agent…** → **Copy command**).
+
+<details open>
+<summary><b>Claude Code</b></summary>
+
+```bash
+claude mcp add --transport http gridcity http://127.0.0.1:4600/mcp \
+  --header "Authorization: Bearer <token>" --header "X-Agent-Client: Claude Code"
+```
+
+</details>
+
+<details>
+<summary><b>Cursor, Windsurf, VS Code, Claude Desktop and other MCP apps</b></summary>
+
+`gridcity mcp --json` prints this config. Put it in your app's MCP config (Cursor:
+`~/.cursor/mcp.json`; VS Code: `.vscode/mcp.json`, under `"servers"`):
+
+```json
+{
+  "mcpServers": {
+    "gridcity": {
+      "type": "http",
+      "url": "http://127.0.0.1:4600/mcp",
+      "headers": {
+        "Authorization": "Bearer <token>",
+        "X-Agent-Client": "Cursor"
+      }
+    }
+  }
+}
+```
+
+Apps that only speak stdio can reach it through a bridge such as
+`npx mcp-remote http://127.0.0.1:4600/mcp --header "Authorization: Bearer <token>"`.
+
+</details>
+
+**3. Ask in plain words:**
+
+- "Why is the site down?"
+- "Which server is running out of disk, and what is filling it?"
+- "What breaks if orders-db goes offline?"
+- "The new database won't connect. Diagnose it and tell me the fix."
+- "Update the packages on the staging servers."
+
+### Tools
+
+| Tool               | What the AI gets                                                                                   | Read-only |
+| ------------------ | -------------------------------------------------------------------------------------------------- | --------- |
+| `incident_report`  | everything not healthy, grouped by likely **root cause**, with what each explains and puts at risk | yes       |
+| `diagnose`         | the Doctor for one target: DNS → port → TLS → login, with fixes **proven** by a real connection    | yes       |
+| `get_topology`     | districts and links (declared, observed, load balancer targets), and a target's blast radius       | yes       |
+| `list_servers`     | servers: status, OS, CPU, memory, disks, uptime, listening ports, containers, failed units         | yes       |
+| `list_resources`   | databases, buckets, probes and load balancers with their metrics                                   | yes       |
+| `list_runbooks`    | saved diagnostic and maintenance commands and where they apply                                     | yes       |
+| `run_command`      | runs a shell command on one server **after you approve it**                                        | no        |
+| `wait_for_command` | collects the result of a command that was still waiting for your approval                          | yes       |
+
+### You stay in charge
+
+- **Every command is an approval card** in the city, on top of everything (even an open terminal):
+  the exact command, the server, the client and the AI's reason. **Allow**, **Allow all on this
+  server** (until restart; destructive commands still ask) or **Deny** with a note for the AI.
+- **Secrets never reach the AI.** When a command needs a `sudo` password or a token on stdin, the
+  card asks _you_; it goes to the command only, never to the AI or the log.
+- **Everything is audited:** every command that runs, and every one you deny, with who asked and
+  who allowed.
+- **Local only.** The endpoint listens on `127.0.0.1` and requires the session token.
+
+Full reference: [MCP tools](https://chapeee.github.io/GRIDCITY/docs/reference/mcp-tools/) ·
+[AI agents guide](https://chapeee.github.io/GRIDCITY/docs/guides/ai-agents/).
 
 ## What makes it different
 
@@ -292,27 +413,9 @@ server posts each transition, with a quiet minute per target so a flapping host 
 channel. (`ALERT_WEBHOOK_URL` in `.env` still works for scripted setups.) AI agents see the same picture:
 `list_servers` now includes the discovered services, and `list_resources` the probes and balancers.
 
-## Let an AI work on your servers
+## Codex and Gemini inside the app (ACP)
 
-Use the AI you already have. Nothing is wired to one vendor's API, and **every command an AI
-wants to run pops up for you to approve first**, showing the exact command, the server and the
-AI's reason: **Allow**, **Allow all on this server** (until restart) or **Deny**. Every command
-that runs, and every one you deny, goes in the audit log.
-
-**Claude Code, with your Claude subscription (MCP).** Press Ctrl+K → **Ask an AI agent…** →
-_Use Claude Code with your Claude subscription_ → **Copy command**, and run it once. It looks
-like this (the copied one already contains your token):
-
-```bash
-claude mcp add --transport http gridcity http://127.0.0.1:4600/mcp --header "Authorization: Bearer <token>" --header "X-Agent-Client: Claude Code"
-```
-
-Then ask Claude Code things like "which of my servers is running out of disk?". It sees the
-city's servers (`list_servers`) and runs commands (`run_command`) that you approve in the city.
-Any other MCP app (Cursor, Codex CLI, Claude Desktop through a bridge) can use the same URL and
-header.
-
-**Codex or Gemini CLI, inside the app (ACP).** In the same panel, pick an agent and press
+Prefer an agent inside the app? In Ctrl+K → **Ask an AI agent…**, pick an agent and press
 **Start**. The app runs the vendor's open-source adapter through the
 [Agent Client Protocol](https://agentclientprotocol.com) (the standard the Zed editor uses), and
 you sign in with your own account:

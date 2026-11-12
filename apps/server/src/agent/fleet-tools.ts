@@ -5,6 +5,7 @@ import {
   type DoctorReport,
   type Link,
   type Runbook,
+  type ThreatsView,
 } from '@app/shared';
 import type {
   AgentActivity,
@@ -39,6 +40,8 @@ export interface FleetAccess {
   runbooks?(): readonly Runbook[];
   /** Runs the Doctor on a server or resource id (real mode). */
   diagnose?(id: string): Promise<DoctorReport | null>;
+  /** Attack and exposure findings (real mode). */
+  threats?(): ThreatsView;
 }
 
 export interface FleetToolsOptions {
@@ -236,6 +239,60 @@ export class FleetTools {
    * a failing building whose own dependencies are healthy explains the
    * failures downstream of it. One call answers "why is everything red?".
    */
+  /**
+   * Attacks and exposures: open findings worst first with who, what and
+   * whether they are blocked, recently ended ones, and which checks could not
+   * run (so an empty list is never mistaken for "safe").
+   */
+  securityFindings() {
+    const view = this.options.fleet.threats?.();
+    if (!view || view.demo) {
+      return {
+        note: 'Demo data: security checks run only on real servers and resources.',
+        open: [],
+        ended: [],
+        gaps: [],
+      };
+    }
+    const names = new Map<string, string>([
+      ...this.options.fleet.hosts().map((h) => [h.id, h.name] as [string, string]),
+      ...this.options.fleet.resources().map((r) => [r.id, r.name] as [string, string]),
+    ]);
+    const describe = (f: ThreatsView['findings'][number]) => ({
+      target: names.get(f.targetId) ?? f.targetId,
+      targetId: f.targetId,
+      severity: f.severity,
+      category: f.category,
+      title: f.title,
+      detail: f.detail,
+      advice: f.advice,
+      attackerIp: f.attackerIp,
+      events: f.count,
+      blocked: f.blocked,
+      detectedBy: f.source,
+      firstSeen: new Date(f.firstSeen).toISOString(),
+      lastSeen: new Date(f.lastSeen).toISOString(),
+      ...(f.resolvedAt ? { ended: new Date(f.resolvedAt).toISOString() } : {}),
+    });
+    return {
+      note: 'Detection covers known patterns (failed logins, new accounts and ports, public buckets, open databases, and what CrowdSec/Fail2ban report). It is not proof that nothing else happened.',
+      open: view.findings.filter((f) => f.status === 'open').map(describe),
+      ended: view.findings
+        .filter((f) => f.status === 'resolved')
+        .slice(0, 20)
+        .map(describe),
+      gaps: view.coverage.flatMap((c) =>
+        c.checks
+          .filter((check) => !check.ok)
+          .map((check) => ({
+            target: names.get(c.targetId) ?? c.targetId,
+            check: check.name,
+            why: check.note,
+          })),
+      ),
+    };
+  }
+
   incidentReport() {
     const servers = this.listServers();
     const resources = this.listResources();

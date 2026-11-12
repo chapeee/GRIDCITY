@@ -1,9 +1,9 @@
 import type { StatusThresholds } from '@app/shared';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
-import { fetchSettings, saveSettings, sendTestAlert, type SettingsView } from '../data/history-api';
+import { fetchSettings, saveSettings, type SettingsView } from '../data/history-api';
+import { AlertsSettings } from './AlertsSettings';
 import { useUiStore } from './ui-store';
-import { requestNotificationPermission } from './use-alerts';
 
 type ThresholdKey = keyof StatusThresholds;
 
@@ -78,40 +78,6 @@ export function SettingsPanel() {
   const [values, setValues] = useState<Partial<Record<ThresholdKey, number>>>({});
   const [status, setStatus] = useState<{ kind: 'error' | 'saved'; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
-  const notificationsEnabled = useUiStore((store) => store.notificationsEnabled);
-  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(() =>
-    typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
-  );
-  const toggleNotifications = async (enabled: boolean) => {
-    if (enabled) {
-      const granted = await requestNotificationPermission();
-      setPermission(granted);
-      if (granted !== 'granted') return;
-    }
-    useUiStore.getState().setNotificationsEnabled(enabled);
-  };
-  const [webhookDraft, setWebhookDraft] = useState('');
-  const [webhookStatus, setWebhookStatus] = useState<{ ok: boolean; text: string } | null>(null);
-  const saveWebhook = async (url: string | null) => {
-    setWebhookStatus(null);
-    try {
-      setView(await saveSettings({ alerts: { webhookUrl: url } }));
-      setWebhookDraft('');
-      setWebhookStatus({ ok: true, text: url ? 'Saved (encrypted).' : 'Removed.' });
-    } catch (reason) {
-      setWebhookStatus({ ok: false, text: (reason as Error).message });
-    }
-  };
-  const testWebhook = async () => {
-    setWebhookStatus(null);
-    try {
-      await sendTestAlert();
-      setWebhookStatus({ ok: true, text: 'Test message sent. Check your channel.' });
-    } catch (reason) {
-      setWebhookStatus({ ok: false, text: (reason as Error).message });
-    }
-  };
-
   useEffect(() => {
     if (!open) return;
     fetchSettings()
@@ -173,6 +139,8 @@ export function SettingsPanel() {
             <p className="audit-note">DEMO DATA: settings are shown but cannot be saved.</p>
           )}
 
+          <AlertsSettings />
+
           <form
             className="settings-form"
             onSubmit={(event) => {
@@ -196,75 +164,6 @@ export function SettingsPanel() {
                   metrics and incidents; older data is deleted (1–90)
                 </span>
               </label>
-            </fieldset>
-
-            <fieldset>
-              <legend>Alerts</legend>
-              <label className="settings-field">
-                <span>Desktop notifications</span>
-                <input
-                  type="checkbox"
-                  checked={notificationsEnabled}
-                  disabled={permission === 'unsupported' || permission === 'denied'}
-                  onChange={(event) => void toggleNotifications(event.target.checked)}
-                />
-                <span className="settings-unit" />
-                <span className="settings-help">
-                  {permission === 'unsupported'
-                    ? 'this browser has no notifications'
-                    : permission === 'denied'
-                      ? 'blocked by the browser; allow notifications for this site first'
-                      : 'when a server or resource goes offline, degraded, or recovers (this browser only)'}
-                </span>
-              </label>
-              <label className="settings-field">
-                <span>Webhook</span>
-                <input
-                  type="password"
-                  autoComplete="off"
-                  disabled={!view?.editable}
-                  value={webhookDraft}
-                  onChange={(event) => setWebhookDraft(event.target.value)}
-                  placeholder={
-                    view?.alerts?.webhookConfigured
-                      ? view.alerts.fromEnvironment
-                        ? 'set by ALERT_WEBHOOK_URL · paste to override'
-                        : 'saved · paste a new URL to replace'
-                      : 'https://hooks.slack.com/… · Discord · ntfy'
-                  }
-                />
-                <span className="settings-unit" />
-                <span className="settings-help">
-                  Slack, Discord, Mattermost, ntfy or anything taking JSON. Saved encrypted on this
-                  machine; one message per server per minute.
-                </span>
-              </label>
-              <div className="settings-inline-actions">
-                <button
-                  type="button"
-                  disabled={!view?.editable || webhookDraft.trim() === ''}
-                  onClick={() => void saveWebhook(webhookDraft.trim())}
-                >
-                  Save webhook
-                </button>
-                <button
-                  type="button"
-                  disabled={!view?.editable || !view.alerts?.webhookConfigured}
-                  onClick={() => void testWebhook()}
-                >
-                  Send a test
-                </button>
-                {view?.alerts?.webhookConfigured && !view.alerts.fromEnvironment && (
-                  <button type="button" onClick={() => void saveWebhook(null)}>
-                    Remove
-                  </button>
-                )}
-              </div>
-              {webhookStatus && (
-                <p className={webhookStatus.ok ? 'settings-saved' : 'audit-error'} role="status">
-                  {webhookStatus.text}
-                </p>
-              )}
             </fieldset>
 
             <fieldset disabled={!view?.editable || saving}>

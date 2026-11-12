@@ -44,6 +44,16 @@ interface UiStore {
   /** History panel: undefined = closed, null = whole fleet, otherwise one host or resource. */
   historyTarget: string | null | undefined;
   settingsOpen: boolean;
+  /** The Security panel (attacks and exposures). */
+  securityOpen: boolean;
+  /** The building the Security panel shows, or null for every server and resource. */
+  securityTarget: string | null;
+  /** The Upcoming panel (expiry dates, disk forecasts, backups). */
+  upcomingOpen: boolean;
+  /** Log search across servers. */
+  logsOpen: boolean;
+  /** The incident timeline: what happened around a moment (optionally for one building). */
+  incident: { at: number; targetId: string | null } | null;
   /** The host being edited (rename, district, thresholds), or null. */
   editHostId: string | null;
   /** "Connect a database or bucket" dialog. */
@@ -62,6 +72,9 @@ interface UiStore {
   doctorTarget: string | null | undefined;
 
   focusHost(hostId: string | null): void;
+  /** A short highlight on a building ("Show building"), so it is obvious which one is meant. */
+  highlight: { id: string; at: number } | null;
+  showBuilding(id: string): void;
   setPaletteOpen(open: boolean): void;
   setLiteMode(enabled: boolean): void;
   togglePerfOverlay(): void;
@@ -87,6 +100,11 @@ interface UiStore {
   setAgentPanelOpen(open: boolean): void;
   openHistory(target: string | null | undefined): void;
   setSettingsOpen(open: boolean): void;
+  /** Opens Security for one building (targetId) or for the whole city (null, the default). */
+  setSecurityOpen(open: boolean, targetId?: string | null): void;
+  setUpcomingOpen(open: boolean): void;
+  setLogsOpen(open: boolean): void;
+  openIncident(incident: { at: number; targetId: string | null } | null): void;
   setEditHostId(hostId: string | null): void;
   setConnectResourceOpen(open: boolean): void;
   setEditResourceId(sourceId: string | null): void;
@@ -130,6 +148,11 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   agentPanelOpen: false,
   historyTarget: undefined,
   settingsOpen: false,
+  securityOpen: false,
+  securityTarget: null,
+  upcomingOpen: false,
+  logsOpen: false,
+  incident: null,
   editHostId: null,
   connectResourceOpen: false,
   editResourceId: null,
@@ -141,6 +164,14 @@ export const useUiStore = create<UiStore>()((set, get) => ({
 
   // Any manual navigation takes the camera back from ambient mode.
   focusHost: (hostId) => set({ focusedHostId: hostId, ambientMode: false, focusedDistrict: null }),
+  highlight: null,
+  showBuilding: (id) =>
+    set({
+      focusedHostId: id,
+      ambientMode: false,
+      focusedDistrict: null,
+      highlight: { id, at: performance.now() },
+    }),
   setPaletteOpen: (open) => set({ paletteOpen: open }),
   setLiteMode: (enabled) => {
     writeStoredJson(LITE_MODE_KEY, enabled);
@@ -178,6 +209,16 @@ export const useUiStore = create<UiStore>()((set, get) => ({
       target === undefined
         ? { historyTarget: undefined }
         : { historyTarget: target, paletteOpen: false, settingsOpen: false },
+    ),
+  setSecurityOpen: (open, targetId = null) =>
+    set({ securityOpen: open, securityTarget: open ? targetId : null, paletteOpen: false }),
+  setUpcomingOpen: (open) => set({ upcomingOpen: open, paletteOpen: false }),
+  setLogsOpen: (open) => set({ logsOpen: open, paletteOpen: false }),
+  openIncident: (incident) =>
+    set(
+      incident
+        ? { incident, paletteOpen: false, securityOpen: false, upcomingOpen: false }
+        : { incident: null },
     ),
   setSettingsOpen: (open) =>
     set(

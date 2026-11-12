@@ -17,6 +17,7 @@ import { StatusDot } from './StatusDot';
 import { useNow } from './use-now';
 import { useUiStore } from './ui-store';
 import { BlastRadiusLine, DoctorHintLine } from './DoctorHintLine';
+import { HudThreats } from './HudThreats';
 
 /**
  * Focus panel for databases, RDS instances and buckets. It lists whatever
@@ -103,6 +104,7 @@ export function ResourceHud() {
           )}
 
           <DoctorHintLine hint={state?.hint} targetId={resource.id} />
+          <HudThreats targetId={resource.id} />
           <BlastRadiusLine targetId={resource.id} />
 
           <dl className="hud-metrics">

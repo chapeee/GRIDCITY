@@ -6,12 +6,13 @@ import { LinkSchema } from './link';
 import { ResourceSchema, ResourceStateSchema } from './resource';
 import { RunbookSchema } from './runbook';
 import { StatusThresholdsSchema } from './thresholds';
+import { ThreatFindingSchema } from './threats';
 
 /**
  * Version of the WebSocket protocol below. Bump on any breaking change so a
  * stale browser tab can tell the user to reload instead of misreading data.
  */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /**
  * Where the data comes from. Real and demo data are never mixed in one
@@ -51,6 +52,13 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     links: z.array(LinkSchema).default([]),
     /** Runbooks the user can run from the palette (v3). */
     runbooks: z.array(RunbookSchema).default([]),
+    /** Open attack and exposure findings (v4). */
+    threats: z.array(ThreatFindingSchema).default([]),
+  }),
+  /** Open findings changed (an attack started, ended or grew): the whole list, it is small. */
+  z.object({
+    type: z.literal('threats'),
+    findings: z.array(ThreatFindingSchema),
   }),
   /** Diff at resource granularity: only resources whose state changed. */
   z.object({

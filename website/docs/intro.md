@@ -18,16 +18,17 @@ traffic. An offline server is dark and still. Data that stopped arriving freezes
 
 ## What you can do
 
-| You want to…                                    | In GRIDCITY                                             |
-| ----------------------------------------------- | ------------------------------------------------------- |
-| See every server, database and endpoint at once | The city, grouped in [districts](./guides/districts.md) |
-| Know why something cannot connect, and fix it   | [The Doctor](./guides/doctor.md) (press **D**)          |
-| See what happened at 3 a.m.                     | [Time travel](./guides/time-travel.md) (press **T**)    |
-| Find the real cause when many things fail       | [Root cause and blast radius](./guides/topology.md)     |
-| Open a shell on a server                        | [Jack in](./guides/terminal.md) (press **Enter**)       |
-| Run a command on twenty servers                 | [Runbooks](./guides/runbooks.md) (press **R**)          |
-| Let Claude Code investigate, with your approval | [AI agents](./guides/ai-agents.md) over MCP             |
-| Be told when something breaks                   | [Alerts](./guides/alerts.md): desktop and webhook       |
+| You want to…                                    | In GRIDCITY                                              |
+| ----------------------------------------------- | -------------------------------------------------------- |
+| See every server, database and endpoint at once | The city, grouped in [districts](./guides/districts.md)  |
+| Know why something cannot connect, and fix it   | [The Doctor](./guides/doctor.md) (press **D**)           |
+| See what happened at 3 a.m.                     | [Time travel](./guides/time-travel.md) (press **T**)     |
+| Find the real cause when many things fail       | [Root cause and blast radius](./guides/topology.md)      |
+| Open a shell on a server                        | [Jack in](./guides/terminal.md) (press **Enter**)        |
+| Run a command on twenty servers                 | [Runbooks](./guides/runbooks.md) (press **R**)           |
+| Let Claude Code investigate, with your approval | [AI agents](./guides/ai-agents.md) over MCP              |
+| See who is attacking what                       | [Security](./guides/security.md): brute force, exposures |
+| Be told when something breaks                   | [Alerts](./guides/alerts.md): push, email, chat, phone   |
 
 ## Try it in ten seconds
 

@@ -31,6 +31,11 @@ import type { CityModel } from './use-city-model';
 import { useWorldTuning } from './use-world-tuning';
 import { WorldLabels } from './WorldLabels';
 import { useAgentStore } from '../data/agent-store';
+import { worstOpenSeverity } from '@app/shared';
+import { useFleetStore } from '../data/fleet-store';
+import { useReplayStore } from '../data/replay-store';
+import { AttackRings } from './AttackRings';
+import { BuildingHighlight } from './BuildingHighlight';
 
 interface WorldSceneProps {
   model: CityModel;
@@ -43,6 +48,13 @@ interface WorldSceneProps {
  */
 export function WorldScene({ model }: WorldSceneProps) {
   const liteMode = useUiStore((store) => store.liteMode);
+  const threats = useFleetStore((store) => store.threats);
+  const replaying = useReplayStore((store) => store.active);
+  // Live findings only: time travel shows the past, never today's attacks.
+  const attackSeverities = useMemo(
+    () => (replaying ? new Map() : worstOpenSeverity(threats)),
+    [threats, replaying],
+  );
   const focusedHostId = useUiStore((store) => store.focusedHostId);
   const focusHost = useUiStore((store) => store.focusHost);
   const focusDistrict = useUiStore((store) => store.focusDistrict);
@@ -73,6 +85,7 @@ export function WorldScene({ model }: WorldSceneProps) {
       <CityAtmosphere stars={!liteMode} />
       <CityFloor districts={layout.districts} tones={model.districtTones} reflections={!liteMode} />
       <TroubleBeacons towers={layout.towers} statuses={model.statuses} visuals={visuals} />
+      <AttackRings towers={layout.towers} severities={attackSeverities} animate={!liteMode} />
       {BUILDING_SHAPES.map((shape) => (
         <TowerField
           key={shape}
@@ -92,6 +105,7 @@ export function WorldScene({ model }: WorldSceneProps) {
         animate={!liteMode}
       />
       <DiskRings towers={layout.towers} visuals={visuals} glowScale={tuning.glowScale} />
+      <BuildingHighlight towers={layout.towers} />
       <FocusMarker tower={layout.towers.find((tower) => tower.hostId === focusedHostId)} />
       {!liteMode && (
         <NetworkParticles

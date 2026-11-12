@@ -8,7 +8,8 @@ import {
   type HostState,
 } from '@app/shared';
 import { AnimatePresence, motion } from 'motion/react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useServerLink } from '../data/server-link';
 import { useFleetStore } from '../data/fleet-store';
 import { accents, durations, neutrals, statusGlowColor } from '../design/tokens';
 import {
@@ -24,6 +25,7 @@ import { StatusDot } from './StatusDot';
 import { useNow } from './use-now';
 import { useUiStore } from './ui-store';
 import { BlastRadiusLine, DoctorHintLine } from './DoctorHintLine';
+import { HudThreats } from './HudThreats';
 
 const PERCENT_RANGE: [number, number] = [0, 100];
 
@@ -140,6 +142,7 @@ export function FocusHud({ onJackIn }: { onJackIn(hostId: string): void }) {
           )}
 
           <DoctorHintLine hint={state?.hint} targetId={host.id} />
+          <HudThreats targetId={host.id} />
           <BlastRadiusLine targetId={host.id} />
 
           <dl className="hud-metrics">
@@ -355,7 +358,45 @@ function LinkButton({ id, label }: { id: string; label: string }) {
 }
 
 /** What runs on the host, from the discovery poll: ports, containers, failed units, updates. */
+interface ContainerSnapshot {
+  kubernetes: 'ok' | 'missing' | 'denied';
+  containers: {
+    name: string;
+    state: string;
+    restarts: number;
+    cpuPercent: number | null;
+    memory: string | null;
+  }[];
+  pods: { total: number; problems: { pod: string; reason: string }[] };
+}
+
+/** Live container stats and pods from the container checks (every 30 s while the HUD is open). */
+function useContainerSnapshot(hostId: string | undefined): ContainerSnapshot | null {
+  const [snapshot, setSnapshot] = useState<ContainerSnapshot | null>(null);
+  useEffect(() => {
+    if (!hostId || useServerLink.getState().source !== 'server') return;
+    let cancelled = false;
+    const load = () =>
+      fetch(`/api/containers/${encodeURIComponent(hostId)}`, { credentials: 'same-origin' })
+        .then((response) =>
+          response.ok ? (response.json() as Promise<{ snapshot: ContainerSnapshot | null }>) : null,
+        )
+        .then((body) => {
+          if (!cancelled) setSnapshot(body?.snapshot ?? null);
+        })
+        .catch(() => undefined);
+    void load();
+    const timer = setInterval(() => void load(), 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [hostId]);
+  return snapshot;
+}
+
 function ServicesSection({ state }: { state: HostState | undefined }) {
+  const snapshot = useContainerSnapshot(state?.hostId);
   const services = state?.services ?? null;
   if (!services) {
     return (
@@ -399,16 +440,47 @@ function ServicesSection({ state }: { state: HostState | undefined }) {
       )}
       {services.containers && services.containers.length > 0 && (
         <ul className="hud-containers">
-          {services.containers.map((container) => (
-            <li key={container.name} className={unhealthy(container) ? 'is-warning' : undefined}>
-              <span className="hud-container-name">{container.name}</span>
-              <small>{container.status}</small>
-            </li>
-          ))}
+          {services.containers.map((container) => {
+            const live = snapshot?.containers.find((c) => c.name === container.name);
+            return (
+              <li
+                key={container.name}
+                className={
+                  unhealthy(container) || (live && live.restarts > 0 && live.state === 'restarting')
+                    ? 'is-warning'
+                    : undefined
+                }
+              >
+                <span className="hud-container-name">{container.name}</span>
+                <small>
+                  {container.status}
+                  {live &&
+                    live.state === 'running' &&
+                    live.cpuPercent !== null &&
+                    ` · CPU ${live.cpuPercent.toFixed(1)} %`}
+                  {live?.memory && live.state === 'running' && ` · ${live.memory.split(' / ')[0]}`}
+                  {live &&
+                    live.restarts > 0 &&
+                    ` · ${live.restarts} restart${live.restarts === 1 ? '' : 's'}`}
+                </small>
+              </li>
+            );
+          })}
         </ul>
       )}
       {services.containers && services.containers.length === 0 && (
         <p className="hud-muted">Docker: no containers.</p>
+      )}
+      {snapshot?.kubernetes === 'ok' && (
+        <p className={snapshot.pods.problems.length > 0 ? 'hud-warning' : 'hud-muted'}>
+          Kubernetes: {snapshot.pods.total} pods
+          {snapshot.pods.problems.length > 0
+            ? `, ${snapshot.pods.problems.length} in trouble (${snapshot.pods.problems
+                .slice(0, 3)
+                .map((p) => `${p.pod} ${p.reason}`)
+                .join(', ')})`
+            : ', all fine'}
+        </p>
       )}
       {services.pendingUpdates !== null && warnings.every((w) => !w.includes('updates')) && (
         <p className="hud-muted">
