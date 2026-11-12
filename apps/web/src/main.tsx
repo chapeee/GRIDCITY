@@ -5,10 +5,12 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { establishSession } from './data/server-api';
+import { installStaticDemoApi } from './data/static-demo-api';
 import { applyDesignTokensToCss } from './design/css-variables';
 import './styles.css';
 
 applyDesignTokensToCss();
+if (__STATIC_DEMO__) installStaticDemoApi();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Missing #root element in index.html');

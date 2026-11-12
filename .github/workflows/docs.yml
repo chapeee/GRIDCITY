@@ -1,17 +1,22 @@
 name: Docs
 
-# Builds website/ (Docusaurus) and deploys it to GitHub Pages:
-#   https://chapeee.github.io/GRIDCITY/
+# Builds website/ (Docusaurus) and the in-browser demo, and deploys both to GitHub Pages:
+#   https://chapeee.github.io/GRIDCITY/       docs
+#   https://chapeee.github.io/GRIDCITY/demo/  live demo (apps/web with STATIC_DEMO=true, no server)
 # Enable it once: Settings → Pages → Source: GitHub Actions.
-# For a custom domain, set DOCS_URL (https://docs.example.com) and DOCS_BASE_URL (/) below
-# and add website/static/CNAME.
+# For a custom domain, set DOCS_URL (https://docs.example.com), DOCS_BASE_URL (/) and
+# WEB_BASE (/demo/) below and add website/static/CNAME.
 
 on:
   push:
     branches: [main]
-    paths: ['website/**', '.github/workflows/docs.yml']
+    paths:
+      - 'website/**'
+      - 'apps/web/**'
+      - 'packages/shared/**'
+      - '.github/workflows/docs.yml'
   pull_request:
-    paths: ['website/**']
+    paths: ['website/**', 'apps/web/**', 'packages/shared/**']
   workflow_dispatch:
 
 permissions:
@@ -26,23 +31,36 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: website
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # "Last updated on" dates come from git history
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
-          cache-dependency-path: website/package-lock.json
-      - run: npm ci --no-audit --no-fund
-      - run: npm run build
+          cache-dependency-path: |
+            package-lock.json
+            website/package-lock.json
+
+      - name: Build docs
+        working-directory: website
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
         env:
           DOCS_URL: https://chapeee.github.io
           DOCS_BASE_URL: /GRIDCITY/
+
+      - name: Build live demo into docs/demo
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build:demo -w @app/web
+          cp -r apps/web/dist-demo website/build/demo
+        env:
+          STATIC_DEMO: 'true'
+          WEB_BASE: /GRIDCITY/demo/
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: website/build

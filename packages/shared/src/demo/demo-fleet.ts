@@ -48,7 +48,15 @@ interface DemoHostSpec {
   networkBytesPerSec: number;
 }
 
-const DISTRICTS = ['AWS Mumbai', 'DigitalOcean', 'Home lab', 'Hetzner'] as const;
+const DISTRICTS = [
+  'AWS Mumbai',
+  'DigitalOcean',
+  'Home lab',
+  'Hetzner',
+  'GCP Frankfurt',
+  'Azure London',
+  'Oracle Hyderabad',
+] as const;
 
 const UBUNTU = 'Ubuntu 24.04.1 LTS · 6.8.0-45-generic';
 const DEBIAN = 'Debian GNU/Linux 12 · 6.1.0-26-amd64';
@@ -323,7 +331,123 @@ const DEMO_HOST_SPECS: DemoHostSpec[] = [
     disks: [root(80, 0.61)],
     networkBytesPerSec: 3e5,
   },
+  // GCP Frankfurt: analytics pipeline
+  ...(['gke-node-a', 'gke-node-b', 'gke-node-c'] as const).map((id, index): DemoHostSpec => ({
+    id,
+    district: 'GCP Frankfurt',
+    behavior: 'steady',
+    address: `10.60.1.${11 + index}`,
+    os: 'Container-Optimized OS 117 · 6.1.100+',
+    cpuCores: 4,
+    memoryGiB: 16,
+    disks: [root(100, 0.38 + index * 0.07)],
+    networkBytesPerSec: 3e6,
+  })),
+  {
+    id: 'etl-worker',
+    district: 'GCP Frankfurt',
+    behavior: 'steady',
+    address: '10.60.1.30',
+    os: DEBIAN,
+    cpuCores: 8,
+    memoryGiB: 32,
+    disks: [root(60, 0.29), { mount: '/scratch', sizeGiB: 500, usedRatio: 0.66 }],
+    networkBytesPerSec: 8e6,
+  },
+  {
+    id: 'metabase',
+    district: 'GCP Frankfurt',
+    behavior: 'steady',
+    address: '10.60.1.40',
+    os: UBUNTU,
+    cpuCores: 2,
+    memoryGiB: 8,
+    disks: [root(40, 0.44)],
+    networkBytesPerSec: 4e5,
+  },
+  // Azure London: client portals
+  ...(['portal-web-1', 'portal-web-2'] as const).map((id, index): DemoHostSpec => ({
+    id,
+    district: 'Azure London',
+    behavior: 'steady',
+    address: `10.70.0.${11 + index}`,
+    os: UBUNTU,
+    cpuCores: 2,
+    memoryGiB: 4,
+    disks: [root(64, 0.35 + index * 0.05)],
+    networkBytesPerSec: 2.5e6,
+  })),
+  {
+    id: 'portal-api',
+    district: 'Azure London',
+    behavior: 'steady',
+    address: '10.70.0.20',
+    os: UBUNTU,
+    cpuCores: 4,
+    memoryGiB: 8,
+    disks: [root(64, 0.42)],
+    networkBytesPerSec: 3e6,
+  },
+  {
+    id: 'portal-jobs',
+    district: 'Azure London',
+    behavior: 'steady',
+    address: '10.70.0.30',
+    os: UBUNTU,
+    cpuCores: 2,
+    memoryGiB: 4,
+    disks: [root(64, 0.51)],
+    networkBytesPerSec: 3e5,
+  },
+  // Oracle Hyderabad: free-tier utilities
+  {
+    id: 'ci-runner-arm',
+    district: 'Oracle Hyderabad',
+    behavior: 'steady',
+    address: '10.80.0.11',
+    os: 'Oracle Linux 9.4 · 5.15.0-206.153.7.el9uek.aarch64',
+    cpuCores: 4,
+    memoryGiB: 24,
+    disks: [root(200, 0.58)],
+    networkBytesPerSec: 1.5e6,
+  },
+  {
+    id: 'wireguard-exit',
+    district: 'Oracle Hyderabad',
+    behavior: 'steady',
+    address: '198.51.100.70',
+    os: UBUNTU,
+    cpuCores: 1,
+    memoryGiB: 1,
+    disks: [root(47, 0.22)],
+    networkBytesPerSec: 7e5,
+  },
+  {
+    id: 'minio-mirror',
+    district: 'Oracle Hyderabad',
+    behavior: 'steady',
+    address: '10.80.0.30',
+    os: UBUNTU,
+    cpuCores: 2,
+    memoryGiB: 12,
+    disks: [root(40, 0.3), { mount: '/data', sizeGiB: 150, usedRatio: 0.71 }],
+    networkBytesPerSec: 1.1e6,
+  },
+  {
+    id: 'uptime-bot',
+    district: 'Oracle Hyderabad',
+    behavior: 'steady',
+    address: '10.80.0.40',
+    os: ALPINE,
+    cpuCores: 1,
+    memoryGiB: 1,
+    disks: [root(20, 0.18)],
+    networkBytesPerSec: 3e4,
+  },
 ];
+
+/** How many hand-written hosts the demo fleet has (the default size). */
+export const DEMO_HOST_COUNT = DEMO_HOST_SPECS.length;
 
 const GiB = 1024 ** 3;
 
@@ -712,6 +836,19 @@ const DEMO_HOST_TAGS: Record<string, string[]> = {
   'whatson-db': ['db'],
   'formtest-cron': ['worker'],
   'yuruper-staging': ['staging', 'docker'],
+  'gke-node-a': ['k8s', 'prod'],
+  'gke-node-b': ['k8s', 'prod'],
+  'gke-node-c': ['k8s', 'prod'],
+  'etl-worker': ['worker', 'docker'],
+  metabase: ['web'],
+  'portal-web-1': ['web', 'prod'],
+  'portal-web-2': ['web', 'prod'],
+  'portal-api': ['api', 'prod', 'docker'],
+  'portal-jobs': ['worker'],
+  'ci-runner-arm': ['ci', 'docker'],
+  'wireguard-exit': ['vpn', 'edge'],
+  'minio-mirror': ['storage', 'backup'],
+  'uptime-bot': ['worker'],
 };
 
 /** Declared topology (what hosts.yaml `dependsOn` would say for this fleet). */
@@ -727,6 +864,14 @@ const DEMO_DEPENDS_ON: Record<string, string[]> = {
   'bizmail-api': ['shop-mysql'],
   'formtest-cron': ['bizmail-api'],
   jellyfin: ['home-nas'],
+  'etl-worker': ['analytics-pg', 'events-redis'],
+  metabase: ['analytics-pg'],
+  'portal-web-1': ['portal-api'],
+  'portal-web-2': ['portal-api'],
+  'portal-api': ['portal-sql'],
+  'portal-jobs': ['portal-sql'],
+  'ci-runner-arm': ['artifact-store'],
+  'minio-mirror': ['backups-bucket'],
 };
 
 interface DemoServiceSpec {

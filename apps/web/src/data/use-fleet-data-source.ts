@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { createDemoDataSource } from './demo-source';
-import { parseDemoOptions } from './demo-options';
+import { parseDemoOptions, STATIC_DEMO_HOST_COUNT } from './demo-options';
 import { useFleetStore } from './fleet-store';
 import { useServerLink } from './server-link';
 import { createWebSocketSource } from './websocket-source';
@@ -10,7 +10,8 @@ import { createWebSocketSource } from './websocket-source';
  * - default: the local server over WebSocket (the server decides real or demo
  *   data and says so in `hello`);
  * - `?source=demo`: the demo fleet simulated in the browser, for working on
- *   the world without a server (always badged DEMO DATA).
+ *   the world without a server (always badged DEMO DATA). The static build
+ *   hosted on GitHub Pages always does this.
  */
 export function useFleetDataSource(): void {
   useEffect(() => {
@@ -18,12 +19,12 @@ export function useFleetDataSource(): void {
     const link = useServerLink.getState();
     const receive = useFleetStore.getState().receive;
 
-    if (params.get('source') === 'demo') {
+    if (__STATIC_DEMO__ || params.get('source') === 'demo') {
       link.setSource('browser-demo');
       link.setState('open');
-      return createDemoDataSource(parseDemoOptions(window.location.search), __PROJECT_NAME__).start(
-        receive,
-      );
+      const options = parseDemoOptions(window.location.search);
+      if (__STATIC_DEMO__ && !params.has('hosts')) options.hostCount = STATIC_DEMO_HOST_COUNT;
+      return createDemoDataSource(options, __PROJECT_NAME__).start(receive);
     }
 
     link.setSource('server');

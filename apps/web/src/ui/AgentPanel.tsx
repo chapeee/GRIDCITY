@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { useAgentStore } from '../data/agent-store';
 import { fetchMcpSetup, type McpSetup } from '../data/server-api';
+import { useServerLink } from '../data/server-link';
 import { useUiStore } from './ui-store';
 import { useSpeechInput } from './use-speech-input';
 
@@ -153,6 +154,7 @@ export function AgentPanel() {
 function AgentPanelBody() {
   const state = useAgentStore((store) => store.state);
   const connected = useAgentStore((store) => store.connected);
+  const browserDemo = useServerLink((store) => store.source === 'browser-demo');
   const send = useAgentStore((store) => store.send);
   const [chosen, setChosen] = useState('');
   const close = () => useUiStore.getState().setAgentPanelOpen(false);
@@ -173,7 +175,14 @@ function AgentPanelBody() {
           Close <kbd>Esc</kbd>
         </button>
       </header>
-      {!connected && <p className="agent-note">Connecting to the app…</p>}
+      {browserDemo ? (
+        <p className="agent-note">
+          This page runs demo data in the browser; AI agents run on the server. Try them with{' '}
+          <code>npx gridcity demo</code>.
+        </p>
+      ) : (
+        !connected && <p className="agent-note">Connecting to the app…</p>
+      )}
 
       <div className="agent-start">
         <label className="agent-select">

@@ -288,6 +288,106 @@ const DEMO_RESOURCE_SPECS: DemoResourceSpec[] = [
     'steady',
     5000,
   ),
+  // GCP Frankfurt: the analytics pipeline
+  spec(
+    {
+      id: 'analytics-pg',
+      name: 'analytics-sql',
+      kind: 'postgres',
+      engine: 'Cloud SQL · PostgreSQL',
+      district: 'GCP Frankfurt',
+      target: '10.60.2.5:5432',
+      tags: ['db', 'managed'],
+    },
+    'growing',
+  ),
+  spec(
+    {
+      id: 'events-redis',
+      name: 'events-memorystore',
+      kind: 'redis',
+      engine: 'Memorystore · Redis',
+      district: 'GCP Frankfurt',
+      target: '10.60.3.4:6379',
+      tags: ['cache'],
+    },
+    'steady',
+  ),
+  spec(
+    {
+      id: 'warehouse-bucket',
+      name: 'warehouse-exports',
+      kind: 's3',
+      engine: 'GCS',
+      district: 'GCP Frankfurt',
+      target: 'storage.googleapis.com',
+    },
+    'steady',
+    5000,
+  ),
+  // Azure London: client portals
+  spec(
+    {
+      id: 'portal-sql',
+      name: 'portal-sql',
+      kind: 'mssql',
+      engine: 'Azure SQL',
+      district: 'Azure London',
+      target: 'portal-sql.example.database.windows.net:1433',
+      tags: ['prod', 'db', 'managed'],
+    },
+    'steady',
+  ),
+  spec(
+    {
+      id: 'portal-lb',
+      name: 'portal-lb',
+      kind: 'loadbalancer',
+      engine: 'Azure Load Balancer',
+      district: 'Azure London',
+      target: 'portal-lb.uksouth.cloudapp.azure.com',
+      tags: ['prod', 'edge'],
+    },
+    'unhealthy-target',
+  ),
+  spec(
+    {
+      id: 'probe-portal',
+      name: 'portal.clients',
+      kind: 'http',
+      engine: 'HTTPS',
+      district: 'Azure London',
+      target: 'https://portal.example.com/health',
+      tags: ['prod'],
+    },
+    'steady',
+    5000,
+  ),
+  // Oracle Hyderabad: free-tier utilities
+  spec(
+    {
+      id: 'artifact-store',
+      name: 'ci-artifacts',
+      kind: 's3',
+      engine: 'OCI Object Storage',
+      district: 'Oracle Hyderabad',
+      target: 'objectstorage.ap-hyderabad-1.oraclecloud.com',
+    },
+    'growing',
+    5000,
+  ),
+  spec(
+    {
+      id: 'probe-wireguard',
+      name: 'wireguard udp',
+      kind: 'tcp',
+      engine: 'TCP',
+      district: 'Oracle Hyderabad',
+      target: '198.51.100.70:51820',
+    },
+    'steady',
+    5000,
+  ),
 ];
 
 export interface DemoResources {

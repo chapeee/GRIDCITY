@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **Live demo on GitHub Pages**: <https://chapeee.github.io/GRIDCITY/demo/> runs the simulated
+  city in the browser, with no install and no server. GitHub and Install buttons point visitors to
+  the repo and to `npx gridcity`. It is linked from the README and the docs (navbar, home page,
+  quick start). The Docs workflow builds it (`STATIC_DEMO=true npm run build:demo -w @app/web`).
+- **A bigger demo city**: three new districts (GCP Frankfurt, Azure London, Oracle Hyderabad), for
+  eight in all, with 13 more servers, an Azure SQL database, a Cloud SQL database, Memorystore, two
+  more buckets, an Azure load balancer and their links. The online demo shows 96 hosts.
+- The AI agent panel says agents need the app when it runs in the in-browser demo, instead of
+  waiting on "Connecting to the app…" forever.
+
 ## 0.4.1 · 2026-11-12
 
 - **`gridcity` keeps running after you close the terminal.** `gridcity` and `gridcity demo`

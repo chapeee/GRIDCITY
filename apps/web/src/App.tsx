@@ -34,6 +34,7 @@ import {
   TopBar,
 } from './ui/ScreenOverlays';
 import { IntroOverlay } from './ui/IntroOverlay';
+import { StaticDemoLinks } from './ui/StaticDemoLinks';
 import { EmptyFleet, StatusBanners } from './ui/StatusBanners';
 import { DiveOverlay, TerminalView } from './ui/TerminalView';
 import { useAmbientDirector } from './ui/use-ambient-director';
@@ -81,6 +82,7 @@ export function App() {
     <div className="app">
       <WorldScene model={model} />
       <TopBar />
+      {__STATIC_DEMO__ && <StaticDemoLinks />}
       <TopToolbar />
       <StatusBanners />
       <IncidentBanner />

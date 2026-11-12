@@ -123,8 +123,8 @@ const config: Config = {
       respectPrefersColorScheme: false,
     },
     announcementBar: {
-      id: 'v0-4',
-      content: `GRIDCITY 0.4 is out: <code>npx gridcity demo</code>. <a href="${baseUrl}docs/guides/security/">See who is attacking what</a>, <a href="${baseUrl}docs/guides/manage/">manage databases and buckets</a>, and get <a href="${baseUrl}docs/guides/alerts/">alerts with the app closed</a>.`,
+      id: 'v0-4-demo',
+      content: `GRIDCITY 0.4 is out: <code>npx gridcity demo</code>, or <a href="${baseUrl}demo/">try the live demo in your browser</a>. <a href="${baseUrl}docs/guides/security/">See who is attacking what</a>, <a href="${baseUrl}docs/guides/manage/">manage databases and buckets</a>, and get <a href="${baseUrl}docs/guides/alerts/">alerts with the app closed</a>.`,
       isCloseable: true,
     },
     docs: {
@@ -146,6 +146,7 @@ const config: Config = {
         { type: 'doc', docId: 'reference/cli', position: 'left', label: 'Reference' },
         { type: 'doc', docId: 'architecture/overview', position: 'left', label: 'Architecture' },
         { type: 'doc', docId: 'contributing/index', position: 'left', label: 'Contributing' },
+        { to: 'pathname:///demo/', label: 'Live demo', position: 'right' },
         { type: 'search', position: 'right' },
         {
           href: repositoryUrl,

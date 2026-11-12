@@ -9,6 +9,7 @@ export default defineConfig(
   {
     ignores: [
       '**/dist/**',
+      '**/dist-demo/**',
       '**/node_modules/**',
       'coverage/**',
       'test-results/**',

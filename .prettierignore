@@ -1,5 +1,6 @@
 package-lock.json
 **/dist
+**/dist-demo
 coverage
 test-results
 playwright-report

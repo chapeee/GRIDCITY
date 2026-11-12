@@ -7,11 +7,15 @@ description: 'From nothing to your first server in the city, in five minutes.'
 
 ## 1. Explore the demo
 
+No install needed: open the [live demo](pathname:///demo/) in your browser. It runs a
+simulated city right in the page. For the full app, with the terminal, database manager, alerts
+and AI agents, run:
+
 ```bash
 npx gridcity demo
 ```
 
-Open the printed link. You are above a city of five districts. Try this:
+Open the printed link. You are above a city of eight districts. Try this:
 
 1. **Click a tower.** The camera flies to it and its panel opens: CPU, memory, disks, network,
    uptime, the services found on it and who it talks to.

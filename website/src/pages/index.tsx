@@ -79,8 +79,11 @@ export default function Home(): ReactNode {
         </p>
         <div className="gc-install">npx gridcity demo</div>
         <div className="gc-cta">
+          <Link className="button button--primary button--lg" to="pathname:///demo/">
+            Try the live demo
+          </Link>
           <Link
-            className="button button--primary button--lg"
+            className="button button--secondary button--lg"
             to="/docs/getting-started/quick-start/"
           >
             Quick start

@@ -99,6 +99,7 @@ describe('demo resources', () => {
         'postgres',
         'mysql',
         'mongodb',
+        'mssql',
         'redis',
         'rds',
         's3',

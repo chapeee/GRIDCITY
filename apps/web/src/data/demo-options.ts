@@ -1,3 +1,5 @@
+import { DEMO_HOST_COUNT } from '@app/shared';
+
 /** Demo fleet settings, adjustable through the URL for screenshots and perf tests. */
 export interface DemoOptions {
   /** `?hosts=50` */
@@ -8,7 +10,14 @@ export interface DemoOptions {
   pollIntervalMs: number;
 }
 
-export const DEFAULT_DEMO_OPTIONS: DemoOptions = { hostCount: 24, seed: 7, pollIntervalMs: 2000 };
+export const DEFAULT_DEMO_OPTIONS: DemoOptions = {
+  hostCount: DEMO_HOST_COUNT,
+  seed: 7,
+  pollIntervalMs: 2000,
+};
+
+/** The GitHub Pages demo shows a bigger city: the hand-written fleet plus generated hosts. */
+export const STATIC_DEMO_HOST_COUNT = 96;
 
 const LIMITS = {
   hostCount: { min: 1, max: 200 },

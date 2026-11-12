@@ -121,6 +121,111 @@ kbd {
   pointer-events: auto;
 }
 
+/* ---------- GitHub Pages demo: GitHub + Install ---------- */
+
+.static-demo-links {
+  position: fixed;
+  top: 60px; /* below the toolbar */
+  right: 16px;
+  z-index: 30;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.static-demo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+  color: var(--color-text-bright);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.static-demo-link:hover,
+.static-demo-link:focus-visible {
+  border-color: var(--color-online);
+  color: var(--color-online);
+}
+
+.static-demo-link.is-primary {
+  border-color: var(--color-online);
+  color: var(--color-online);
+  box-shadow: 0 0 12px rgba(143, 227, 255, 0.25);
+}
+
+.static-demo-install {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(360px, calc(100vw - 32px));
+  padding: 14px;
+  border: var(--panel-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.static-demo-install p {
+  margin: 0;
+}
+
+.static-demo-install ul {
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.static-demo-install li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  align-items: center;
+}
+
+.static-demo-install code {
+  color: var(--color-online);
+}
+
+.static-demo-install li button {
+  padding: 2px 8px;
+  border: 1px solid var(--color-line);
+  background: transparent;
+  color: var(--color-text-bright);
+  font: inherit;
+  cursor: pointer;
+}
+
+.static-demo-install small {
+  grid-column: 1 / -1;
+  color: var(--color-muted);
+}
+
+.static-demo-install a {
+  color: var(--color-online);
+}
+
+/* Phones: the top is crowded, the toolbar moves to the bottom; sit just above it. */
+@media (max-width: 720px) {
+  .static-demo-links {
+    top: auto;
+    bottom: 72px;
+  }
+
+  .static-demo-install {
+    top: auto;
+    bottom: calc(100% + 8px);
+  }
+}
+
 /* ---------- Shortcut hints ---------- */
 
 .shortcut-hints {

@@ -4,6 +4,7 @@
 
 **Your servers, databases and buckets as a living 3D city of light: monitor, manage, secure and fix them in one local app, with an MCP server for your AI agent.**
 
+[![Live demo](https://img.shields.io/badge/live%20demo-try%20it%20in%20your%20browser-00e5ff)](https://chapeee.github.io/GRIDCITY/demo/)
 [![npm](https://img.shields.io/npm/v/gridcity?color=00e5ff&label=npm)](https://www.npmjs.com/package/gridcity)
 [![CI](https://github.com/chapeee/GRIDCITY/actions/workflows/ci.yml/badge.svg)](https://github.com/chapeee/GRIDCITY/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-chapeee.github.io%2FGRIDCITY-00e5ff)](https://chapeee.github.io/GRIDCITY/)
@@ -11,9 +12,9 @@
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.12-3c873a)](https://nodejs.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-![Flying through the city, focusing a degraded host, and jacking in](docs/media/demo.gif)
+[![Flying through the city, focusing a degraded host, and jacking in](docs/media/demo.gif)](https://chapeee.github.io/GRIDCITY/demo/)
 
-**[Documentation](https://chapeee.github.io/GRIDCITY/)** · [Quick start](https://chapeee.github.io/GRIDCITY/docs/getting-started/quick-start/) · [MCP tools](https://chapeee.github.io/GRIDCITY/docs/reference/mcp-tools/) · [The Doctor](https://chapeee.github.io/GRIDCITY/docs/guides/doctor/) · [Changelog](CHANGELOG.md)
+**[Live demo](https://chapeee.github.io/GRIDCITY/demo/)** · **[Documentation](https://chapeee.github.io/GRIDCITY/)** · [Quick start](https://chapeee.github.io/GRIDCITY/docs/getting-started/quick-start/) · [MCP tools](https://chapeee.github.io/GRIDCITY/docs/reference/mcp-tools/) · [The Doctor](https://chapeee.github.io/GRIDCITY/docs/guides/doctor/) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -27,6 +28,10 @@ call, with **every command your AI wants to run waiting for your click**. Nothin
 machine: no cloud, no account, no telemetry.
 
 ## Quick start
+
+**Try it without installing anything:** the [live demo](https://chapeee.github.io/GRIDCITY/demo/)
+runs a simulated city of eight districts in your browser. Server-side features (the terminal,
+managing databases, alerts, AI agents) need the app itself:
 
 ```bash
 npx gridcity demo            # a simulated city, no setup at all
@@ -240,6 +245,11 @@ The demo is a **simulated fleet** (always labelled DEMO DATA). It behaves like a
 rises and falls through the day, and every so often a server runs a busy job, gets a traffic surge,
 leaks memory until its service restarts, or reboots. To watch it at four times the speed, open the
 in-browser demo with `?source=demo&poll=500`.
+
+The [live demo](https://chapeee.github.io/GRIDCITY/demo/) on GitHub Pages is the same web app built
+with `STATIC_DEMO=true`: no server, always the in-browser demo, 96 hosts by default (`?hosts=`
+changes it). The Docs workflow builds it into `website/build/demo/`. To build it yourself:
+`STATIC_DEMO=true npm run build:demo -w @app/web` (output in `apps/web/dist-demo/`).
 
 ## Use it with your servers
 

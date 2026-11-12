@@ -21,6 +21,14 @@ if (!projectName) {
   throw new Error('PROJECT_NAME is not set. Copy .env.example to .env.');
 }
 
+/**
+ * `STATIC_DEMO=true` builds a server-less copy of the app that always runs the
+ * in-browser demo fleet, for hosting on GitHub Pages. `WEB_BASE` is the path it
+ * is served under (e.g. `/GRIDCITY/demo/`).
+ */
+const staticDemo = readSetting('STATIC_DEMO') === 'true';
+const base = readSetting('WEB_BASE') ?? '/';
+
 const serverPort = Number(readSetting('SERVER_PORT') ?? 4600);
 const webPort = Number(readSetting('WEB_PORT') ?? 4601);
 
@@ -40,9 +48,11 @@ function projectNameInHtml(name: string): Plugin {
 }
 
 export default defineConfig({
+  base,
   plugins: [react(), projectNameInHtml(projectName)],
   define: {
     __PROJECT_NAME__: JSON.stringify(projectName),
+    __STATIC_DEMO__: JSON.stringify(staticDemo),
   },
   server: {
     // Docker sets VITE_HOST=0.0.0.0; compose publishes it on 127.0.0.1 only.

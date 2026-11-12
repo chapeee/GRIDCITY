@@ -49,9 +49,43 @@ export const DEMO_DISTRICTS: District[] = [
     description: 'What the public sees: the sites, probed from this machine every few seconds.',
     inferred: false,
   },
+  {
+    id: 'gcp-frankfurt',
+    name: 'GCP Frankfurt',
+    provider: 'gcp',
+    region: 'europe-west3',
+    description: 'The analytics pipeline: GKE nodes, ETL workers, Metabase and Cloud SQL.',
+    inferred: false,
+  },
+  {
+    id: 'azure-london',
+    name: 'Azure London',
+    provider: 'azure',
+    region: 'uk-south',
+    description: 'Client portals for agency work, behind an Azure load balancer with SQL Server.',
+    inferred: false,
+  },
+  {
+    id: 'oracle-hyderabad',
+    name: 'Oracle Hyderabad',
+    provider: 'oracle',
+    region: 'ap-hyderabad-1',
+    description: 'Always Free ARM boxes: CI runners, a WireGuard exit and an object store mirror.',
+    inferred: false,
+  },
 ];
 
 const DECLARED: [from: string, to: string][] = [
+  ['etl-worker', 'analytics-pg'],
+  ['etl-worker', 'events-redis'],
+  ['metabase', 'analytics-pg'],
+  ['gke-node-a', 'events-redis'],
+  ['portal-web-1', 'portal-api'],
+  ['portal-web-2', 'portal-api'],
+  ['portal-api', 'portal-sql'],
+  ['portal-jobs', 'portal-sql'],
+  ['ci-runner-arm', 'artifact-store'],
+  ['minio-mirror', 'backups-bucket'],
   ['ausia-edge', 'ausia-web'],
   ['lekhix-web', 'lekhix-api'],
   ['lekhix-api', 'orders-db'],
@@ -83,6 +117,11 @@ const OBSERVED: [from: string, to: string, label: string][] = [
   ['lekhix-scraper', 'events-mongo', ':27017'],
   ['leadgent-queue', 'skillgen-redis', ':6379'],
   ['pihole', 'home-nas', ':2049'],
+  ['etl-worker', 'analytics-pg', ':5432'],
+  ['metabase', 'analytics-pg', ':5432'],
+  ['portal-api', 'portal-sql', ':1433'],
+  ['portal-jobs', 'portal-sql', ':1433'],
+  ['gke-node-b', 'events-redis', ':6379'],
 ];
 
 const BALANCES: [balancer: string, target: string][] = [
@@ -90,6 +129,8 @@ const BALANCES: [balancer: string, target: string][] = [
   ['lekhix-alb', 'ausia-web'],
   ['skillgen-lb', 'skillgen-app'],
   ['skillgen-lb', 'reverse-seo'],
+  ['portal-lb', 'portal-web-1'],
+  ['portal-lb', 'portal-web-2'],
 ];
 
 const PROBES: [probe: string, target: string][] = [
@@ -99,6 +140,8 @@ const PROBES: [probe: string, target: string][] = [
   ['probe-gitsmith', 'gitsmith-docs'],
   ['probe-jellyfin', 'jellyfin'],
   ['probe-nas-smb', 'home-nas'],
+  ['probe-portal', 'portal-lb'],
+  ['probe-wireguard', 'wireguard-exit'],
 ];
 
 export function createDemoLinks(now: number): Link[] {
