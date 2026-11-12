@@ -6,8 +6,12 @@ description: 'Every gridcity command and option.'
 # Command line
 
 ```text
-gridcity                      start with your servers, then open the printed link
-gridcity demo                 start with a simulated city
+gridcity                      start with your servers in the background, then open the printed link
+gridcity demo                 start with a simulated city (also in the background)
+gridcity status               is it running? prints the link again
+gridcity stop                 stop the background server
+gridcity restart              stop, then start with the same mode and port
+gridcity logs [-f]            show the background server's log (-f: follow)
 gridcity doctor [--json]      check this machine and every server, database, bucket and probe
 gridcity mcp [--json]         connect Claude Code or any MCP app
 gridcity add-host user@host   test and add one SSH server
@@ -18,13 +22,26 @@ gridcity --help
 
 ## `gridcity` and `gridcity demo`
 
-| Option        | Meaning                                                                   |
-| ------------- | ------------------------------------------------------------------------- |
-| `--port <n>`  | serve on this port (default 4600; always on `127.0.0.1`)                  |
-| `--open`      | open the link in your default browser                                     |
-| `--new-token` | create a new session token: every existing link and browser is signed out |
+| Option         | Meaning                                                                                               |
+| -------------- | ----------------------------------------------------------------------------------------------------- |
+| `--port <n>`   | serve on this port (default 4600; always on `127.0.0.1`)                                              |
+| `--open`       | open the link in your default browser                                                                 |
+| `--new-token`  | create a new session token: every existing link and browser is signed out                             |
+| `--foreground` | stay attached to this terminal (Ctrl+C stops it), for systemd, launchd, Task Scheduler or a container |
 
 The printed link contains the session token and stays valid across restarts.
+
+**It runs in the background.** `gridcity` starts the server and returns: it keeps watching your
+servers and sending alerts after you close the terminal. Run `gridcity` again (or
+`gridcity status`) to see the link, `gridcity stop` to stop it. Running `gridcity demo` while your
+servers are running (or the other way round) asks you to stop first.
+
+The background server writes `server.log` (the previous run's is `server.log.old`) and
+`server.json` (pid and port) in the data folder: `%LOCALAPPDATA%gridcity` on Windows,
+`~/.local/share/gridcity` elsewhere. The log never contains the token.
+
+It does not start again after a reboot by itself: run `gridcity` once after logging in, or run
+`gridcity --foreground` from systemd, launchd or Task Scheduler.
 
 ## `gridcity doctor`
 

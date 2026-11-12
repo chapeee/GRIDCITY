@@ -26,11 +26,14 @@ Drag to move across the city at the same zoom, right-drag to orbit, scroll to zo
 
 ## 2. Start with your own servers
 
-Stop the demo and run:
+Stop the demo and start with your own servers:
 
 ```bash
+npx gridcity stop
 npx gridcity
 ```
+
+Both run in the background, so you can close the terminal; `gridcity status` shows the link again.
 
 The city is empty. Choose **Connect a server**.
 

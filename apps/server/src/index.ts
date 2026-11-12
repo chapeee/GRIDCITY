@@ -54,7 +54,9 @@ async function main(): Promise<void> {
     env.DATA_MODE === 'demo'
       ? 'DEMO DATA (simulated fleet)'
       : `${server.hostCount} host(s) from ${server.paths.hostsFile}`;
-  process.stdout.write(`\n  ${env.PROJECT_NAME} is running · ${fleet}\n\n    ${url}\n\n`);
+  // In the background (`gridcity`), stdout goes to a log file: print the link without its token.
+  const printed = process.env.GRIDCITY_BACKGROUND === '1' ? `http://127.0.0.1:${publicPort}/` : url;
+  process.stdout.write(`\n  ${env.PROJECT_NAME} is running · ${fleet}\n\n    ${printed}\n\n`);
   if (openBrowser && !isDevMode) openInBrowser(url);
   if (server.configErrors.length > 0) {
     process.stdout.write(`  hosts.yaml has errors:\n    ${server.configErrors.join('\n    ')}\n\n`);

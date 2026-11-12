@@ -30,7 +30,8 @@ machine: no cloud, no account, no telemetry.
 
 ```bash
 npx gridcity demo            # a simulated city, no setup at all
-npx gridcity                 # your own servers (connect them in the app)
+npx gridcity                 # your own servers (connect them in the app), runs in the background
+npx gridcity stop            # stop it (gridcity status shows the link again)
 npx gridcity mcp             # connect Claude Code, Cursor or any MCP app
 ```
 
@@ -211,17 +212,22 @@ Full reference: [MCP tools](https://chapeee.github.io/GRIDCITY/docs/reference/mc
 | From source         | `git clone`, `npm install`, `npm run dev`       | Node.js 22.12+ |
 
 ```text
-gridcity                      start with your servers, then open the printed link
-gridcity demo                 start with a simulated city
+gridcity                      start with your servers in the background, then open the printed link
+gridcity demo                 start with a simulated city (also in the background)
+gridcity status               is it running? prints the link again
+gridcity stop                 stop the background server
+gridcity restart              stop, then start with the same mode and port
+gridcity logs [-f]            show the background server's log (-f: follow)
 gridcity doctor [--json]      check this machine and every server, database, bucket and probe
 gridcity mcp                  connect Claude Code or any MCP app
 gridcity add-host user@host   test and add one SSH server
 gridcity import-ssh-config    add every host from ~/.ssh/config
-  --port <n>  --open  --new-token
+  --port <n>  --open  --new-token  --foreground
 ```
 
 The link printed at start contains a session token; it stays the same across restarts (bookmark
-it). Remote servers must be Linux.
+it). The server keeps running in the background after you close the terminal; `--foreground`
+keeps it attached instead. Remote servers must be Linux.
 
 ## Try it from source
 
