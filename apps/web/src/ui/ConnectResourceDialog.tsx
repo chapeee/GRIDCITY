@@ -1,7 +1,8 @@
 import { detectProvider, type Fix } from '@app/shared';
 import { AnimatePresence, motion } from 'motion/react';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useFleetStore } from '../data/fleet-store';
+import { fetchMeta } from '../data/server-api';
 import {
   addResource,
   testResource,
@@ -55,6 +56,25 @@ function ConnectResourceForm() {
   const [result, setResult] = useState<ResourceTestResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [inContainer, setInContainer] = useState(false);
+  const [extras, setExtras] = useState<Record<string, unknown>>({});
+  const resultRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchMeta()
+      .then((meta) => !cancelled && setInContainer(meta.inContainer === true))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // The result sits under the form: bring it into view so a test never looks silent.
+  useEffect(() => {
+    if (result || error)
+      resultRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [result, error]);
 
   const close = () => useUiStore.getState().setConnectResourceOpen(false);
 
@@ -68,6 +88,7 @@ function ConnectResourceForm() {
     setPasswordSource(next.password ? 'typed' : 'none');
     setPasswordRef('');
     setSecrets({});
+    setExtras({});
     setResult(null);
     setError(null);
     if (!district)
@@ -82,22 +103,28 @@ function ConnectResourceForm() {
       );
   };
 
-  const draft = () =>
-    buildDraft({
+  const draft = (
+    formValues: Record<string, string | boolean> = values,
+    doctorExtras: Record<string, unknown> = extras,
+  ) => ({
+    ...buildDraft({
       kind: spec!.kind,
       id: id || slugify(name),
       name,
       district,
-      values,
+      values: formValues,
       passwordSource,
       passwordRef,
       provider,
-    });
+    }),
+    // Doctor settings without a field in this form (e.g. Mongo authSource, S3 path style).
+    ...doctorExtras,
+  });
 
   // A typed password is sent only when the password comes from the field (not env/file).
-  const credentials = (): OneTimeSecrets => ({
-    ...secrets,
-    password: passwordSource === 'typed' ? secrets.password : undefined,
+  const credentials = (from: OneTimeSecrets = secrets): OneTimeSecrets => ({
+    ...from,
+    password: passwordSource === 'typed' ? from.password : undefined,
   });
 
   const run = async (label: string, action: () => Promise<void>) => {
@@ -112,37 +139,41 @@ function ConnectResourceForm() {
     }
   };
 
-  const test = (override?: Record<string, string | boolean>) =>
+  // State updates land after this render, so a re-test right after a fix gets its inputs passed in.
+  const test = (override?: {
+    values: Record<string, string | boolean>;
+    extras: Record<string, unknown>;
+    secrets: OneTimeSecrets;
+  }) =>
     run('Testing…', async () => {
-      const entry = override
-        ? buildDraft({
-            kind: spec!.kind,
-            id: id || slugify(name),
-            name,
-            district,
-            values: override,
-            passwordSource,
-            passwordRef,
-            provider,
-          })
-        : draft();
-      setResult(await testResource(entry, credentials()));
+      const entry = override ? draft(override.values, override.extras) : draft();
+      setResult(await testResource(entry, credentials(override?.secrets)));
     });
 
   /** A proven Doctor fix: put its settings in the form, then test again. */
   const applyFix = (fix: Fix) => {
-    if (!fix.patch) return;
+    if (!fix.patch || !spec) return;
+    const formKeys = new Set(spec.fields.map((field) => field.key));
     const next = { ...values };
+    const nextExtras = { ...extras };
+    let nextSecrets = secrets;
     for (const [key, value] of Object.entries(fix.patch)) {
       if (key === 'passwordSecret' || key === 'passwordEnv' || key === 'passwordFile') {
-        setSecrets((current) => ({ ...current, password: '' }));
+        nextSecrets = { ...nextSecrets, password: '' };
+        continue;
+      }
+      if (!formKeys.has(key)) {
+        if (value === undefined || value === null) delete nextExtras[key];
+        else nextExtras[key] = value;
         continue;
       }
       if (value === undefined || value === null) next[key] = '';
       else next[key] = typeof value === 'boolean' ? value : String(value);
     }
     setValues(next);
-    void test(next);
+    setExtras(nextExtras);
+    setSecrets(nextSecrets);
+    void test({ values: next, extras: nextExtras, secrets: nextSecrets });
   };
 
   // Prevention: recognise managed services from the host and say what they need.
@@ -190,7 +221,9 @@ function ConnectResourceForm() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      onMouseDown={(event) => event.target === event.currentTarget && close()}
+      // Outside clicks close the kind picker only: once a form is open, a stray click
+      // (say, where a button was before the result box changed height) must not lose it.
+      onMouseDown={(event) => event.target === event.currentTarget && !spec && close()}
     >
       <motion.form
         className="add-host connect-resource"
@@ -247,7 +280,13 @@ function ConnectResourceForm() {
                     if (!idEdited) setId(slugify(event.target.value));
                   }}
                   placeholder={
-                    spec.kind === 's3' || spec.kind === 'rds' ? 'e.g. aws-prod' : 'e.g. orders-db'
+                    spec.kind === 's3' || spec.kind === 'rds'
+                      ? 'e.g. aws-prod'
+                      : spec.kind === 'loadbalancer'
+                        ? 'e.g. shop-prod'
+                        : spec.kind === 'http' || spec.kind === 'tcp'
+                          ? 'e.g. shop-health'
+                          : 'e.g. orders-db'
                   }
                   required
                   maxLength={80}
@@ -274,7 +313,13 @@ function ConnectResourceForm() {
                   value={district}
                   onChange={(event) => setDistrict(event.target.value)}
                   list="connect-resource-districts"
-                  placeholder={spec.kind === 'rds' ? 'default: RDS · <region>' : ''}
+                  placeholder={
+                    spec.kind === 'rds'
+                      ? 'default: RDS · <region>'
+                      : spec.kind === 'loadbalancer'
+                        ? 'default: AWS · <region>'
+                        : ''
+                  }
                 />
                 <datalist id="connect-resource-districts">
                   {districts.map((entry) => (
@@ -354,7 +399,7 @@ function ConnectResourceForm() {
                   )}
                 </div>
               )}
-              {pointsAtLocalhost(values) && (
+              {inContainer && pointsAtLocalhost(values) && (
                 <p className="settings-help is-warning">
                   If the app runs in Docker, “localhost” is the container itself: use
                   host.docker.internal for a database on this computer.
@@ -502,6 +547,23 @@ function ConnectResourceForm() {
               </details>
             )}
 
+            {Object.keys(extras).length > 0 && (
+              <p className="settings-help">
+                Set by the Doctor (saved with the entry; change later under Edit):{' '}
+                {Object.entries(extras).map(([key, value], index) => (
+                  <span key={key}>
+                    {index > 0 && ', '}
+                    <code>
+                      {key}: {String(value)}
+                    </code>
+                  </span>
+                ))}{' '}
+                <button type="button" className="link-button" onClick={() => setExtras({})}>
+                  undo
+                </button>
+              </p>
+            )}
+
             {spec.grant && (
               <p className="settings-help">
                 Recommended read-only access: <code>{spec.grant}</code>
@@ -510,10 +572,11 @@ function ConnectResourceForm() {
 
             {result && (
               <section
+                ref={resultRef}
                 className={`connect-result${result.ok ? ' is-ok' : ' is-error'}`}
                 aria-live="polite"
               >
-                <h3>{result.ok ? 'Connected' : 'Could not connect'}</h3>
+                <h3>{result.ok ? 'Connected' : 'Test failed'}</h3>
                 {result.error && <p>{result.error}</p>}
                 <ul>
                   {result.found.map((entry) => (
@@ -541,7 +604,13 @@ function ConnectResourceForm() {
               </section>
             )}
             {error && (
-              <p className="add-host-error" role="alert">
+              <p
+                className="add-host-error"
+                role="alert"
+                ref={(node) => {
+                  if (!result) resultRef.current = node;
+                }}
+              >
                 {error}
               </p>
             )}

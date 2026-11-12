@@ -106,7 +106,6 @@ function EditResourceForm({ sourceId, members }: { sourceId: string; members: Re
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      onMouseDown={(event) => event.target === event.currentTarget && close()}
     >
       <motion.form
         className="dialog edit-host-dialog"

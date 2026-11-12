@@ -1,3 +1,4 @@
+import { isManageable } from '@app/shared';
 import { useEffect } from 'react';
 import { useFleetStore } from '../data/fleet-store';
 import { useReplayStore } from '../data/replay-store';
@@ -37,6 +38,11 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
       }
       if (ui.runbookPanel) {
         if (event.key === 'Escape' && !isTypingTarget(event.target)) ui.closeRunbooks();
+        return;
+      }
+      // The Manage view is a workspace: its keys are its own; Esc (outside an editor) closes it.
+      if (ui.manageTarget) {
+        if (event.key === 'Escape' && !isTypingTarget(event.target)) ui.closeManage();
         return;
       }
       if (ui.connectResourceOpen || ui.editResourceId) {
@@ -96,6 +102,22 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
           if (event.ctrlKey || event.metaKey || event.altKey) return;
           ui.openHistory(ui.historyTarget !== undefined ? undefined : ui.focusedHostId);
           break;
+        case 'm':
+        case 'M': {
+          // Manage the focused database, Redis or bucket.
+          if (event.ctrlKey || event.metaKey || event.altKey) return;
+          const { resources, dataMode } = useFleetStore.getState();
+          const resource = resources.find((r) => r.id === ui.focusedHostId);
+          if (dataMode !== 'real' || !resource || !isManageable(resource.kind)) break;
+          ui.openManage({
+            id: resource.sourceId,
+            bucket:
+              resource.kind === 's3' && resource.id !== resource.sourceId
+                ? resource.name
+                : undefined,
+          });
+          break;
+        }
         case 'e':
         case 'E': {
           if (event.ctrlKey || event.metaKey || event.altKey) return;

@@ -1,4 +1,5 @@
 import {
+  isManageable,
   DEFAULT_RESOURCE_THRESHOLDS,
   isStale,
   linksOf,
@@ -164,10 +165,27 @@ export function ResourceHud() {
 
           <p className="hud-os">
             {RESOURCE_KIND_LABELS[resource.kind]} · polled every{' '}
-            {Math.round((state?.pollIntervalMs ?? 0) / 1000)} s · read-only
+            {Math.round((state?.pollIntervalMs ?? 0) / 1000)} s · monitoring is read-only
           </p>
 
           <footer className="hud-actions">
+            {dataMode === 'real' && isManageable(resource.kind) && (
+              <button
+                type="button"
+                className="button-primary"
+                onClick={() =>
+                  useUiStore.getState().openManage({
+                    id: resource.sourceId,
+                    bucket:
+                      resource.kind === 's3' && resource.id !== resource.sourceId
+                        ? resource.name
+                        : undefined,
+                  })
+                }
+              >
+                Manage <kbd>M</kbd>
+              </button>
+            )}
             <button type="button" onClick={() => useUiStore.getState().openHistory(resource.id)}>
               History <kbd>H</kbd>
             </button>

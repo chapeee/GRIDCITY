@@ -16,6 +16,7 @@ import { TimelineBar } from './ui/TimelineBar';
 import { useAlerts } from './ui/use-alerts';
 import { EditHostDialog } from './ui/EditHostDialog';
 import { ConnectResourceDialog } from './ui/ConnectResourceDialog';
+import { ManagePanel } from './ui/manage/ManagePanel';
 import { EditResourceDialog } from './ui/EditResourceDialog';
 import { HistoryPanel } from './ui/HistoryPanel';
 import { SettingsPanel } from './ui/SettingsPanel';
@@ -93,6 +94,7 @@ export function App() {
       <TimelineBar />
       <EditHostDialog />
       <ConnectResourceDialog />
+      <ManagePanel />
       <EditResourceDialog />
       <AgentPanel />
       <AddHostDialog />

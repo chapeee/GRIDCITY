@@ -112,9 +112,18 @@ export function createLoadBalancerConnector(
   };
 
   const targetHealth = async (balancer: LoadBalancer): Promise<TargetHealthDescription[]> => {
-    const groups = await clients.elb.send(
-      new DescribeTargetGroupsCommand({ LoadBalancerArn: balancer.LoadBalancerArn }),
-    );
+    let groups;
+    try {
+      groups = await clients.elb.send(
+        new DescribeTargetGroupsCommand({ LoadBalancerArn: balancer.LoadBalancerArn }),
+      );
+    } catch (error) {
+      // A new balancer with no listener yet has no target groups: some APIs answer
+      // TargetGroupNotFound instead of an empty list. That is zero targets, not a fault.
+      const name = (error as { name?: string }).name;
+      if (name === 'TargetGroupNotFoundException' || name === 'TargetGroupNotFound') return [];
+      throw error;
+    }
     const all: TargetHealthDescription[] = [];
     for (const group of groups.TargetGroups ?? []) {
       const health = await clients.elb.send(
@@ -202,7 +211,7 @@ export function createLoadBalancerConnector(
           textMetric(
             'scheme',
             'Scheme',
-            `${balancer.Scheme ?? ''} · ${balancer.Type ?? ''} · ${state}`.trim(),
+            [balancer.Scheme, balancer.Type, state].filter(Boolean).join(' · '),
           ),
           metric('targets', 'Healthy targets', 'count', targetError ? null : healthy),
           metric('targetsTotal', 'Targets', 'count', targetError ? null : targets.length),

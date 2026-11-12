@@ -35,6 +35,8 @@ export type AuditKind =
   | 'resource_added'
   | 'resource_edited'
   | 'resource_removed'
+  // Changes made from the Manage view (rows, keys, documents, objects); never values or secrets.
+  | 'resource_changed'
   // Runbooks and fleet-wide commands the user ran (command, hosts, exit codes).
   | 'runbook_run'
   | 'fleet_command_run'

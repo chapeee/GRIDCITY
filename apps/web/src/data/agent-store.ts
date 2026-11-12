@@ -1,5 +1,6 @@
 import { AgentServerMessageSchema, type AgentClientMessage, type AgentState } from '@app/shared';
 import { create } from 'zustand';
+import { checkSession } from './websocket-source';
 
 interface AgentStore {
   /** Null until the server sent its first state (or in demo mode). */
@@ -36,7 +37,9 @@ export function connectAgentSocket(location: Location = window.location): () => 
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const current = new WebSocket(`${protocol}//${location.host}/ws/agent`);
     socket = current;
+    let opened = false;
     current.addEventListener('open', () => {
+      opened = true;
       attempt = 0;
       useAgentStore.setState({ connected: true });
     });
@@ -51,9 +54,13 @@ export function connectAgentSocket(location: Location = window.location): () => 
       const parsed = AgentServerMessageSchema.safeParse(raw);
       if (parsed.success) useAgentStore.setState({ state: parsed.data.state });
     });
-    current.addEventListener('close', () => {
+    current.addEventListener('close', async () => {
       if (socket === current) socket = null;
       useAgentStore.setState({ connected: false });
+      if (stopped) return;
+      // A refused upgrade with a dead session never succeeds: stop, like the state socket
+      // (its "Session expired" banner tells the user to open the new link).
+      if (!opened && !(await checkSession())) return;
       if (stopped) return;
       const delay = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** attempt);
       attempt += 1;

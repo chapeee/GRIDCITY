@@ -54,6 +54,8 @@ interface UiStore {
   focusedDistrict: string | null;
   /** The runbook panel: closed (null) or open, preselecting these hosts. */
   runbookPanel: { hostIds: string[]; runbookId: string | null } | null;
+  /** The Manage view: a resources.yaml entry (and for storage, the bucket to open), or null. */
+  manageTarget: { id: string; bucket?: string } | null;
   /** Desktop notifications when something goes offline, degraded or recovers. */
   notificationsEnabled: boolean;
   /** The Doctor panel: undefined = closed, null = check everything, otherwise one host or resource. */
@@ -91,6 +93,8 @@ interface UiStore {
   focusDistrict(name: string | null): void;
   openRunbooks(hostIds?: string[], runbookId?: string | null): void;
   closeRunbooks(): void;
+  openManage(target: { id: string; bucket?: string }): void;
+  closeManage(): void;
   setNotificationsEnabled(enabled: boolean): void;
   openDoctor(target: string | null | undefined): void;
 }
@@ -131,6 +135,7 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   editResourceId: null,
   focusedDistrict: null,
   runbookPanel: null,
+  manageTarget: null,
   notificationsEnabled: readStoredJson(NOTIFICATIONS_KEY, false),
   doctorTarget: undefined,
 
@@ -188,6 +193,8 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   openRunbooks: (hostIds = [], runbookId = null) =>
     set({ runbookPanel: { hostIds, runbookId }, paletteOpen: false }),
   closeRunbooks: () => set({ runbookPanel: null }),
+  openManage: (target) => set({ manageTarget: target, paletteOpen: false }),
+  closeManage: () => set({ manageTarget: null }),
   openDoctor: (target) =>
     set(
       target === undefined

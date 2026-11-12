@@ -38,7 +38,9 @@ import { registerRunbookRoutes } from './http/runbook-routes';
 import { registerDoctorRoutes } from './http/doctor-routes';
 import { diagnoseResource } from './doctor/doctor';
 import { diagnoseHost } from './doctor/ssh';
+import { registerExploreRoutes } from './http/explore-routes';
 import { registerResourceRoutes, testResource } from './http/resource-routes';
+import { ExploreHub } from './explore/hub';
 import { runningInContainer } from './doctor/ladder';
 import { listLocalKeys } from './ssh/local-keys';
 import { loadResourcesFile, type ResourcesConfig } from './config/resources-file';
@@ -162,6 +164,8 @@ export async function startServer({
     appName: env.PROJECT_NAME,
     now: Date.now,
   };
+  // The Manage view: one session per database, bucket or Redis, opened on demand.
+  const exploreHub = new ExploreHub(paths.resourcesFile, connectorContext);
   const buildResources = (
     config: ResourcesConfig,
     hostIds: ReadonlySet<string>,
@@ -407,6 +411,8 @@ export async function startServer({
     logger: { level: env.LOG_LEVEL, transport: devMode ? { target: 'pino-pretty' } : undefined },
     describe: () => ({
       dataMode: env.DATA_MODE,
+      // The connect dialogs warn about "localhost" only when it means the container.
+      inContainer: runningInContainer(),
       // In Docker the real path is inside the container; compose provides the host-side hint.
       ...(env.DATA_MODE === 'real'
         ? { hostsFile: process.env.HOSTS_FILE_HINT ?? paths.hostsFile }
@@ -559,6 +565,12 @@ export async function startServer({
           };
         },
       });
+      registerExploreRoutes(instance, {
+        hub: exploreHub,
+        audit,
+        resourcesFile: paths.resourcesFile,
+        demoMode: env.DATA_MODE === 'demo',
+      });
       registerResourceRoutes(instance, {
         audit,
         secrets: vault,
@@ -672,6 +684,7 @@ export async function startServer({
       unwatchFile(paths.districtsFile);
       unwatchFile(paths.runbooksFile);
       agentHub.close();
+      await exploreHub.close();
       hub.stop();
       await app.close();
       audit.append('server_stopped');

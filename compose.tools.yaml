@@ -1,0 +1,50 @@
+# Optional open-source admin tools to run next to GRIDCITY.
+#
+# GRIDCITY's Manage view (focus a building, press M) covers day-to-day work on
+# databases, Redis, MongoDB and buckets. For deep administration you can also
+# run these well-known tools. Start only what you need, by profile:
+#
+#   docker compose -f compose.tools.yaml --profile sql up -d      # Adminer + CloudBeaver
+#   docker compose -f compose.tools.yaml --profile redis up -d    # Redis Commander
+#   docker compose -f compose.tools.yaml --profile all up -d
+#   docker compose -f compose.tools.yaml --profile all down
+#
+# - Nothing to configure here: each tool asks for its connections (host, user, password) in its
+#   own web page. GRIDCITY never hands them the passwords it saved (those stay in its vault).
+# - Every port is published on 127.0.0.1 only: nothing else on your network can reach them.
+# - A database on this computer is "host.docker.internal" from inside these containers.
+# - Licenses: Adminer (Apache-2.0 / GPL-2.0), CloudBeaver Community (Apache-2.0),
+#   Redis Commander (MIT).
+
+name: gridcity-tools
+
+services:
+  # Adminer: one small page for MySQL/MariaDB, PostgreSQL, SQLite, SQL Server and more.
+  # http://127.0.0.1:4621, then type the server, user and password.
+  adminer:
+    image: adminer:5.3.0
+    profiles: [sql, all]
+    ports: ['127.0.0.1:4621:8080']
+    extra_hosts: ['host.docker.internal:host-gateway']
+    restart: unless-stopped
+
+  # CloudBeaver: the web edition of DBeaver (ER diagrams, data export, SQL editor).
+  # http://127.0.0.1:4622; the first visit asks you to create its admin account.
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:25.2.0
+    profiles: [sql, all]
+    ports: ['127.0.0.1:4622:8978']
+    volumes: ['cloudbeaver-workspace:/opt/cloudbeaver/workspace']
+    extra_hosts: ['host.docker.internal:host-gateway']
+    restart: unless-stopped
+
+  # Redis Commander: http://127.0.0.1:4623, then "More… → Add server" with host and password.
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    profiles: [redis, all]
+    ports: ['127.0.0.1:4623:8081']
+    extra_hosts: ['host.docker.internal:host-gateway']
+    restart: unless-stopped
+
+volumes:
+  cloudbeaver-workspace:

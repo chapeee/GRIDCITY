@@ -26,6 +26,10 @@ const KIND_LABEL: Record<string, string> = {
   agent_stopped: 'agent stopped',
   resource_reachable: 'resource reachable',
   resource_unreachable: 'resource unreachable',
+  resource_added: 'resource added',
+  resource_edited: 'resource edited',
+  resource_removed: 'resource removed',
+  resource_changed: 'data changed (Manage)',
 };
 
 /** Kinds that deserve the alert accent. */
@@ -96,8 +100,9 @@ export function AuditLogPanel() {
           </header>
           <p className="audit-note">
             Append-only. Records connections, host key refusals, when terminal sessions open and
-            close, and every command an AI agent ran or was denied. Never what you type in a
-            terminal.
+            close, every command an AI agent ran or was denied, and every change made from Manage
+            (rows, keys, documents, objects). Never what you type in a terminal, and never values or
+            secrets.
           </p>
           {source !== 'server' && (
             <p className="audit-empty">

@@ -70,6 +70,14 @@ const tlsCa: FieldSpec = {
   placeholder: '-----BEGIN CERTIFICATE-----  (only for managed databases with their own CA)',
 };
 const tlsGroup = [tls, tlsVerify, tlsCa];
+/** RDS and load balancers: a custom AWS API endpoint (VPC endpoints, LocalStack, Moto). */
+const awsEndpoint: FieldSpec = {
+  key: 'endpoint',
+  label: 'API endpoint',
+  type: 'text',
+  placeholder: 'optional, e.g. http://localhost:4566',
+  advanced: true,
+};
 
 export const RESOURCE_KINDS: KindSpec[] = [
   {
@@ -179,6 +187,7 @@ export const RESOURCE_KINDS: KindSpec[] = [
         type: 'list',
         placeholder: 'optional, comma separated',
       },
+      awsEndpoint,
     ],
     password: false,
     keys: true,
@@ -290,6 +299,7 @@ export const RESOURCE_KINDS: KindSpec[] = [
         type: 'list',
         placeholder: 'host ids, when target IPs cannot be matched',
       },
+      awsEndpoint,
     ],
     password: false,
     keys: true,

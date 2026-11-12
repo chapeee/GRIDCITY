@@ -78,7 +78,7 @@ test('a failing test explains why, and secrets are refused', async () => {
   await dialog.getByLabel('Variable name').fill('NOWHERE_PW');
   await dialog.getByLabel('Password for this test').fill('typed-once-secret');
   await dialog.getByRole('button', { name: 'Test connection' }).click();
-  await expect(dialog.getByText('Could not connect')).toBeVisible({ timeout: 20_000 });
+  await expect(dialog.getByText('Test failed')).toBeVisible({ timeout: 20_000 });
   await expect(dialog.getByText(/ECONNREFUSED/)).toBeVisible();
   await expect(page.getByText('typed-once-secret')).toHaveCount(0);
   await page.keyboard.press('Escape');

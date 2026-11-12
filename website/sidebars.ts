@@ -21,6 +21,7 @@ const sidebars: SidebarsConfig = {
       label: 'Guides',
       collapsed: false,
       items: [
+        'guides/manage',
         'guides/doctor',
         'guides/time-travel',
         'guides/topology',

@@ -1,4 +1,4 @@
-import { DEFAULT_RESOURCE_THRESHOLDS, isStale, runbookMatches } from '@app/shared';
+import { DEFAULT_RESOURCE_THRESHOLDS, isManageable, isStale, runbookMatches } from '@app/shared';
 import { Command } from 'cmdk';
 import { useFleetStore } from '../data/fleet-store';
 import { useReplayStore } from '../data/replay-store';
@@ -112,6 +112,47 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
           </Command.Group>
         )}
 
+        {dataMode === 'real' && resources.some((r) => isManageable(r.kind)) && (
+          <Command.Group heading="Manage">
+            {resources
+              .filter((r) => isManageable(r.kind))
+              .map((resource) => (
+                <Command.Item
+                  key={`manage-${resource.id}`}
+                  // Short value, no broad keywords: they would fuzzy-match unrelated searches ("audit").
+                  value={`manage ${resource.name} ${resource.sourceId}`}
+                  onSelect={() =>
+                    run(() =>
+                      useUiStore.getState().openManage({
+                        id: resource.sourceId,
+                        bucket:
+                          resource.kind === 's3' && resource.id !== resource.sourceId
+                            ? resource.name
+                            : undefined,
+                      }),
+                    )
+                  }
+                >
+                  <span className="palette-item-title">
+                    Manage {resource.name}
+                    {resource.kind === 's3' && resource.id !== resource.sourceId
+                      ? ` · ${resource.sourceId}`
+                      : ''}
+                  </span>
+                  <span className="palette-item-meta">
+                    {resource.kind === 's3'
+                      ? 'browse, upload, permissions'
+                      : resource.kind === 'redis'
+                        ? 'keys, console, activity'
+                        : resource.kind === 'mongodb'
+                          ? 'documents, indexes'
+                          : 'tables, query, edit rows'}
+                  </span>
+                </Command.Item>
+              ))}
+          </Command.Group>
+        )}
+
         {districts.length > 0 && (
           <Command.Group heading="Districts">
             {districts.map((district) => {
@@ -149,7 +190,8 @@ export function CommandPalette({ onJackIn }: CommandPaletteProps) {
               .map((runbook) => (
                 <Command.Item
                   key={runbook.id}
-                  value={`run runbook ${runbook.name} ${runbook.description ?? ''}`}
+                  // Name only: whole descriptions fuzzy-match unrelated searches ("audit" -> "Listening ports").
+                  value={`run runbook ${runbook.name}`}
                   onSelect={() =>
                     run(() =>
                       useUiStore

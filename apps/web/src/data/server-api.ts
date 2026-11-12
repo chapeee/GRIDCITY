@@ -11,6 +11,8 @@ export interface ServerMeta {
   dataMode?: 'real' | 'demo';
   /** Where hosts.yaml lives (real mode), shown in the empty-fleet screen. */
   hostsFile?: string;
+  /** True when the server runs in a container, where "localhost" is the container itself. */
+  inContainer?: boolean;
 }
 
 export interface ImportReport {

@@ -12,6 +12,7 @@ import {
 } from './connector';
 import { parseRedisInfo } from './redis';
 import { recordGrowth } from './s3';
+import { bannerText } from './tcp';
 
 describe('resources.yaml', () => {
   it('accepts every kind with defaults', () => {
@@ -98,6 +99,11 @@ describe('secrets', () => {
       'cannot reach postgres://bob:***@db/x',
     );
     expect(redactSecrets('Server=x;Password=abc;User=y')).toBe('Server=x;Password=***;User=y');
+    // MySQL's flag is not a secret; a real value is still hidden.
+    expect(redactSecrets("Access denied for user 'm'@'h' (using password: YES)")).toBe(
+      "Access denied for user 'm'@'h' (using password: YES)",
+    );
+    expect(redactSecrets('password: YESman')).toBe('password: ***');
   });
 });
 
@@ -182,5 +188,22 @@ describe('resource runtime (truth rules)', () => {
     const up = applyOutcome(base, okOutcome(10), 1000);
     expect(runtimeToState(up, 1000 + 30_000).stale).toBe(false);
     expect(runtimeToState(up, 1000 + 30_001).stale).toBe(true);
+  });
+});
+
+describe('TCP banners', () => {
+  it('keeps the first line of text protocols', () => {
+    expect(bannerText('SSH-2.0-OpenSSH_9.6\r\nmore')).toBe('SSH-2.0-OpenSSH_9.6');
+    expect(bannerText('220 mail.example.com ESMTP\r\n')).toBe('220 mail.example.com ESMTP');
+  });
+
+  it('reads binary greetings (MySQL starts with length bytes and a 0x0a byte)', () => {
+    const greeting = Buffer.from([0x4a, 0, 0, 0, 0x0a, ...Buffer.from('8.4.13'), 0, 0x08, 0]);
+    expect(bannerText(greeting.toString('utf8'))).toContain('8.4.13');
+  });
+
+  it('returns null when nothing readable arrived', () => {
+    expect(bannerText('')).toBeNull();
+    expect(bannerText(String.fromCharCode(0, 1))).toBeNull();
   });
 });

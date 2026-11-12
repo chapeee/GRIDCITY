@@ -108,12 +108,12 @@ export function probeTcp(
       let banner = '';
       socket.on('data', (chunk: Buffer) => {
         banner += chunk.toString('utf8');
-        if (banner.includes('\n') || banner.length > 512) {
-          finish(() => resolve({ connectMs, banner: firstLine(banner), certificate }));
+        if (hasReadableFirstLine(banner) || banner.length > 512) {
+          finish(() => resolve({ connectMs, banner: bannerText(banner), certificate }));
         }
       });
       bannerTimer = setTimeout(
-        () => finish(() => resolve({ connectMs, banner: firstLine(banner), certificate })),
+        () => finish(() => resolve({ connectMs, banner: bannerText(banner), certificate })),
         BANNER_WAIT_MS,
       );
     };
@@ -149,7 +149,38 @@ export function probeTcp(
   });
 }
 
-function firstLine(text: string): string | null {
-  const line = text.split(/\r?\n/)[0]?.trim() ?? '';
-  return line ? line : null;
+/**
+ * What a person can read of the greeting. Text protocols (SSH, SMTP, FTP):
+ * the first line. Binary ones (MySQL, PostgreSQL) start with length bytes and
+ * may contain a newline byte early (MySQL's protocol version is 0x0a), so
+ * their banner is the readable runs of the whole greeting ("8.4.13 …").
+ */
+export function bannerText(raw: string): string | null {
+  const line = readable(raw.split(/\r?\n/)[0] ?? '');
+  if (line.length >= 3) return line;
+  // Binary: words of 3+ characters (versions, plugin names), not random salt bytes.
+  const all = readable(raw)
+    .split(' ')
+    .filter((word) => word.length >= 3)
+    .join(' ')
+    .slice(0, 200);
+  return all || null;
+}
+
+/** Control and undecodable characters become spaces; runs of spaces collapse. */
+function readable(text: string): string {
+  let out = '';
+  for (const char of text) {
+    const code = char.codePointAt(0) ?? 0;
+    const printable =
+      code >= 0x20 && code !== 0x7f && !(code >= 0x80 && code < 0xa0) && code !== 0xfffd;
+    out += printable ? char : ' ';
+  }
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+/** A text protocol's first line has arrived (binary greetings wait for the timer). */
+function hasReadableFirstLine(raw: string): boolean {
+  const newline = raw.indexOf('\n');
+  return newline >= 0 && readable(raw.slice(0, newline)).length >= 3;
 }

@@ -141,9 +141,15 @@ export function redactSecrets(
   for (const secret of secrets) {
     if (secret && secret.length >= 3) result = result.split(secret).join('***');
   }
-  return result
-    .replace(/(\b[a-z][a-z0-9+.-]*:\/\/[^/@\s:]*:)[^/@\s]*@/gi, '$1***@')
-    .replace(/\b(password|pwd|secret|token)(\s*[=:]\s*)("[^"]*"|'[^']*'|[^\s;,&]+)/gi, '$1$2***');
+  return (
+    result
+      .replace(/(\b[a-z][a-z0-9+.-]*:\/\/[^/@\s:]*:)[^/@\s]*@/gi, '$1***@')
+      // MySQL's "(using password: YES)" only says whether one was sent: keep it readable.
+      .replace(
+        /\b(password|pwd|secret|token)(\s*[=:]\s*)(?!(?:YES|NO)\))("[^"]*"|'[^']*'|[^\s;,&]+)/gi,
+        '$1$2***',
+      )
+  );
 }
 
 export function errorMessage(error: unknown): string {

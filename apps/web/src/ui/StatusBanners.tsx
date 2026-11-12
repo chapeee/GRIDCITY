@@ -64,15 +64,18 @@ function ConfigErrorBanner() {
 }
 
 /**
- * Shown in real mode while hosts.yaml has no hosts: tells the user exactly
- * where the file is and offers the one-click import.
+ * Shown in real mode while the city has nothing in it (no hosts, databases,
+ * buckets, probes or load balancers): tells the user exactly where the file
+ * is and offers the one-click import and the resource dialog.
  */
 export function EmptyFleet() {
   const dataMode = useFleetStore((store) => store.dataMode);
   const hostCount = useFleetStore((store) => store.hosts.length);
+  const resourceCount = useFleetStore((store) => store.resources.length);
   const [hostsFile, setHostsFile] = useState<string | null>(null);
   const { importHosts, importing } = useHostImport();
-  const visible = dataMode === 'real' && hostCount === 0;
+  // A database, bucket or probe on its own is already a city: don't cover it.
+  const visible = dataMode === 'real' && hostCount === 0 && resourceCount === 0;
 
   useEffect(() => {
     if (!visible) return;
@@ -106,6 +109,16 @@ export function EmptyFleet() {
             disabled={importing}
           >
             {importing ? 'Importing…' : 'Import from ~/.ssh/config'}
+          </button>
+        </li>
+        <li>
+          Or connect a database, bucket, probe or load balancer:
+          <button
+            type="button"
+            className="button-primary"
+            onClick={() => useUiStore.getState().setConnectResourceOpen(true)}
+          >
+            Connect a database or bucket
           </button>
         </li>
         <li>

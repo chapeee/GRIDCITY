@@ -148,7 +148,11 @@ export function createS3Connector(
   };
 }
 
-function clientConfig(config: ResourceConfigOf<'s3'>, context: ConnectorContext): S3ClientConfig {
+/** Client settings shared by the connector and the Manage view. */
+export function clientConfig(
+  config: ResourceConfigOf<'s3'>,
+  context: ConnectorContext,
+): S3ClientConfig {
   const credentials = awsCredentials(config, context);
   const region = config.provider === 'r2' && config.region === 'us-east-1' ? 'auto' : config.region;
   return {

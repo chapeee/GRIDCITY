@@ -22,9 +22,12 @@ export function stateSocketUrl(location: Location = window.location): string {
 }
 
 /** The session is valid when an authenticated endpoint answers 200. */
-async function checkSession(): Promise<boolean> {
+export async function checkSession(): Promise<boolean> {
   try {
-    return (await fetch('/api/meta', { credentials: 'same-origin' })).ok;
+    const response = await fetch('/api/meta', { credentials: 'same-origin' });
+    // Only the session guard's answer means "new token needed". A proxy in front of a
+    // restarting server (Vite in dev, nginx in production) answers 502/503: keep retrying.
+    return response.status !== 401 && response.status !== 403;
   } catch {
     return true; // server unreachable: not a session problem, keep retrying
   }

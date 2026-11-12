@@ -54,6 +54,9 @@ const rung = (context: RuleContext, step: LadderStep['step']) =>
 const quoted = (text: string, pattern: RegExp) => pattern.exec(text)?.[1] ?? null;
 const tlsOn = (context: RuleContext) => context.config.tls === true;
 const host = (context: RuleContext) => String(context.config.host ?? '');
+/** Works in the connect form (the field is right there) and for a saved entry (Edit). */
+const PASSWORD_STEP =
+  'Type it in the Password field and test again (for a saved entry: Edit → New password).';
 
 /** The patch that turns TLS on, plus what the provider tells us about certificates. */
 function tlsOnFixes(context: RuleContext): Fix[] {
@@ -432,7 +435,7 @@ export const RULES: Rule[] = [
       const fixes = [
         fix({
           label: noPassword ? 'Enter the password' : 'Re-enter the password',
-          steps: ['Edit → New password (saved encrypted).'],
+          steps: [PASSWORD_STEP],
         }),
       ];
       if (context.kind === 'mongodb' && !context.config.authSource) {
@@ -578,6 +581,109 @@ export const RULES: Rule[] = [
         : null,
   },
   {
+    // Discovery worked (the login and the API call succeeded) and returned an empty list.
+    id: 'discovery.empty',
+    kinds: ['s3', 'rds', 'loadbalancer'],
+    match: (context) => {
+      if (!/found nothing to watch/i.test(context.error)) return null;
+      const what =
+        context.kind === 's3'
+          ? 'buckets'
+          : context.kind === 'rds'
+            ? 'DB instances'
+            : 'load balancers';
+      const filterKey =
+        context.kind === 's3' ? 'buckets' : context.kind === 'rds' ? 'instances' : 'names';
+      const filtered = Array.isArray(context.config[filterKey]);
+      return {
+        title: `Signed in, but there are no ${what} to watch`,
+        explanation: `The credentials work and the API answered with an empty list. Nothing is broken; there is just nothing here yet${filtered ? ', or the "Only these" list matches none' : ''}.`,
+        confidence: 'likely',
+        evidence: [
+          `region: ${String(context.config.region ?? 'default')}`,
+          ...(context.config.endpoint ? [`endpoint: ${String(context.config.endpoint)}`] : []),
+        ],
+        fixes: [
+          fix({
+            label: `Check where the ${what} are`,
+            steps: [
+              ...(context.kind === 's3'
+                ? ['Create a bucket, or check that these keys may list it (s3:ListAllMyBuckets).']
+                : [`Check that the ${what} live in this region; each region is separate.`]),
+              ...(filtered ? ['Clear "Only these" or fix the names in it.'] : []),
+              'Test again; you can also add it now and it fills in when something appears.',
+            ],
+          }),
+        ],
+      };
+    },
+  },
+  {
+    // The port is open; what the service said first is not what the probe expects.
+    id: 'tcp.unexpected-banner',
+    kinds: ['tcp'],
+    match: (context) => {
+      const mismatch = /^banner "(.*)" does not contain "(.*)"$/s.exec(context.error);
+      const silent = /^no banner received \(expected "(.*)"\)$/.exec(context.error);
+      if (!mismatch && !silent) return null;
+      return {
+        title: mismatch
+          ? `The port answered, but not with "${mismatch[2]}"`
+          : 'The port is open, but the service sent nothing first',
+        explanation: mismatch
+          ? `It greeted with "${mismatch[1]}". Another service may be listening on this port, or the expected text is too specific.`
+          : 'Many services (HTTP, most databases over TLS) wait for the client to speak first, so there is no banner to check.',
+        confidence: 'certain',
+        evidence: [`probe said: "${context.error.slice(0, 160)}"`],
+        fixes: [
+          fix({
+            label: mismatch ? 'Check the expected text' : 'Remove the banner check',
+            steps: mismatch
+              ? ['Compare with the banner shown above.', 'Fix or clear "Banner contains".']
+              : ['Clear "Banner contains": the open port is then the check.'],
+          }),
+        ],
+      };
+    },
+  },
+  {
+    // The probe reached the endpoint and got an answer; the answer failed a check.
+    id: 'http.unexpected-response',
+    kinds: ['http'],
+    match: (context) => {
+      const status = /^HTTP (\d{3})/.exec(context.error);
+      const body = /^body does not contain "(.*)"$/s.exec(context.error);
+      if (!status && !body) return null;
+      const expected = context.config.expectStatus;
+      return {
+        title: status
+          ? `The endpoint answered with HTTP ${status[1]}`
+          : `The endpoint answered, but the body lacks "${body![1]}"`,
+        explanation: status
+          ? expected
+            ? `The network and TLS work; the response status is not the ${String(expected)} this probe expects.`
+            : 'The network and TLS work; the response is not a 2xx/3xx. The service itself reports a problem, or the URL is wrong.'
+          : 'The network, TLS and status are fine; the page does not contain the text this probe looks for.',
+        confidence: 'certain',
+        evidence: [`probe said: "${context.error.slice(0, 160)}"`],
+        fixes: [
+          fix({
+            label: status ? 'Check the URL and the expected status' : 'Check the expected text',
+            steps: status
+              ? [
+                  'Open the URL in a browser from this machine.',
+                  'If this status is normal for it, set "Expect status" to it.',
+                ]
+              : [
+                  'Open the URL and look for the text (it is case-sensitive).',
+                  'Fix or clear "Body contains".',
+                ],
+          }),
+        ],
+      };
+    },
+  },
+  {
     id: 'redis.noauth',
     kinds: ['redis'],
     match: (context) =>
@@ -590,7 +696,7 @@ export const RULES: Rule[] = [
             fixes: [
               fix({
                 label: 'Enter the password',
-                steps: ['Edit → New password (saved encrypted).'],
+                steps: [PASSWORD_STEP],
               }),
             ],
           }

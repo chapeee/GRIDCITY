@@ -82,8 +82,13 @@ export function createMssqlConnector(
           .request()
           .input('slowMs', mssql.Int, config.slowQueryMs)
           .query(
-            `SELECT COUNT(*) AS slow FROM sys.dm_exec_requests
-             WHERE session_id <> @@SPID AND session_id > 50 AND total_elapsed_time >= @slowMs`,
+            // User sessions only: modern SQL Server runs its own background tasks (log
+            // writer, broker, XE timers) above session 50, and they "run" forever.
+            // WAITFOR sleeps on purpose.
+            `SELECT COUNT(*) AS slow FROM sys.dm_exec_requests r
+               JOIN sys.dm_exec_sessions s ON s.session_id = r.session_id
+             WHERE r.session_id <> @@SPID AND s.is_user_process = 1
+               AND r.command <> 'WAITFOR' AND r.total_elapsed_time >= @slowMs`,
           );
         return num((result.recordset[0] as Record<string, unknown>).slow);
       });

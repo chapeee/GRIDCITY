@@ -85,12 +85,22 @@ const tlsFields = {
     .optional(),
 };
 
+/**
+ * What the Manage view may do. 'read' (the default): browse, inspect and run
+ * read-only queries. 'write': also edit rows, keys and objects. Every change
+ * is audited. Switched on per resource, in the app or here.
+ */
+const manageFields = {
+  manage: z.enum(['read', 'write']).optional(),
+};
+
 /** Queries running longer than this count as slow. */
 const slowQueryMs = z.number().int().min(10).default(1000);
 
 const PostgresSchema = z.strictObject({
   kind: z.literal('postgres'),
   ...baseFields,
+  ...manageFields,
   ...hostPort(5432),
   ...secretFields,
   user: z.string().min(1),
@@ -102,6 +112,7 @@ const PostgresSchema = z.strictObject({
 const MysqlSchema = z.strictObject({
   kind: z.literal('mysql'),
   ...baseFields,
+  ...manageFields,
   ...hostPort(3306),
   ...secretFields,
   user: z.string().min(1),
@@ -113,6 +124,7 @@ const MysqlSchema = z.strictObject({
 const MongoSchema = z.strictObject({
   kind: z.literal('mongodb'),
   ...baseFields,
+  ...manageFields,
   ...secretFields,
   /** mongodb:// or mongodb+srv:// URL without a password. */
   url: z.string().regex(/^mongodb(\+srv)?:\/\//, 'must start with mongodb:// or mongodb+srv://'),
@@ -128,6 +140,7 @@ const MongoSchema = z.strictObject({
 const RedisSchema = z.strictObject({
   kind: z.literal('redis'),
   ...baseFields,
+  ...manageFields,
   ...hostPort(6379),
   ...secretFields,
   user: z.string().min(1).optional(),
@@ -137,6 +150,7 @@ const RedisSchema = z.strictObject({
 const MssqlSchema = z.strictObject({
   kind: z.literal('mssql'),
   ...baseFields,
+  ...manageFields,
   ...hostPort(1433),
   ...secretFields,
   user: z.string().min(1),
@@ -149,6 +163,7 @@ const MssqlSchema = z.strictObject({
 const SqliteSchema = z.strictObject({
   kind: z.literal('sqlite'),
   ...baseFields,
+  ...manageFields,
   /** Database file; opened read-only, never created. */
   path: z.string().min(1),
 });
@@ -171,6 +186,7 @@ export const S3_PROVIDERS = ['aws', 'spaces', 'minio', 'r2', 'other'] as const;
 const S3Schema = z.strictObject({
   kind: z.literal('s3'),
   ...baseFields,
+  ...manageFields,
   ...awsKeyFields,
   provider: z.enum(S3_PROVIDERS).default('aws'),
   /** Custom endpoint for Spaces, MinIO, R2 or any S3-compatible service. */

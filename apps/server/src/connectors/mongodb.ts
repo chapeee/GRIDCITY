@@ -82,6 +82,15 @@ export function createMongoConnector(
           active: true,
           microsecs_running: { $gte: config.slowQueryMs * 1000 },
           op: { $in: ['query', 'update', 'insert', 'remove', 'getmore', 'command'] },
+          // Ops that wait on purpose are not slow: drivers' awaitable heartbeats (this
+          // app's own included, ~10 s each) and tailable cursors (change streams, oplog).
+          $nor: [
+            { 'command.hello': { $exists: true } },
+            { 'command.isMaster': { $exists: true } },
+            { 'command.ismaster': { $exists: true } },
+            { 'cursor.tailable': true },
+            { 'cursor.awaitData': true },
+          ],
         });
         return Array.isArray(ops.inprog) ? ops.inprog.length : null;
       });
