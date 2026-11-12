@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.2 · 2026-11-12
 
 - **Live demo on GitHub Pages**: <https://chapeee.github.io/GRIDCITY/demo/> runs the simulated
   city in the browser, with no install and no server. GitHub and Install buttons point visitors to
@@ -18,6 +18,8 @@
   on the buildings) and upcoming certificate, disk, backup and domain dates, all labelled DEMO DATA.
 - **Ctrl+K picks the best match across all groups.** An exact action or resource ("settings",
   "session-cache") no longer loses to a fuzzy server match.
+- The npm package carries `mcpName` (`io.github.chapeee/gridcity`), and `server.json` describes
+  it for the official [MCP Registry](https://registry.modelcontextprotocol.io).
 
 ## 0.4.1 · 2026-11-12
 

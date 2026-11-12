@@ -1,6 +1,6 @@
 {
   "name": "@app/shared",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "Zod schemas and TypeScript types shared by the server and the web client: the host model, live host state and the WebSocket protocol.",
   "type": "module",
