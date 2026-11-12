@@ -65,6 +65,20 @@ Two things worth knowing:
 If you install nothing else, install CrowdSec: it is free, open source, and blocks brute force and
 scans once a bouncer is added.
 
+## Vulnerable packages
+
+Every 12 hours GRIDCITY lists each server's installed packages (`dpkg-query`, `rpm` or `apk`,
+read-only) and checks them against [OSV.dev](https://osv.dev), the open vulnerability database fed
+by Debian, Ubuntu, Alpine, Rocky and Alma security data. One finding per server says how many
+packages have known issues and how many can be fixed by updating, with the worst ones by CVSS
+score (computed from the published CVSS 3.1 vector). Severity follows the worst issue that has a
+fix; known issues without a fix yet are "low".
+
+## Fixing and looking into findings
+
+Findings offer one-click fixes (block the address, lock the account, block public access on a
+bucket) and the runbooks that help look into them. See [Investigate and fix](./operations.md).
+
 ## Exposures on databases and buckets
 
 Every ten minutes, with the credentials GRIDCITY already has, read-only:

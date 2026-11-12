@@ -84,7 +84,7 @@ Webhooks receive `text` and `content` (what chat webhooks read) plus structured 
 - **Offline** is always sent.
 - **Back online** is always sent when it closes an alert that went out, however soon after. You are
   never left believing something is still down.
-- **Degraded** is held back for a minute after the last alert for the same target, so a server
+- **Degraded** is held back for ten minutes after the last alert for the same target, so a server
   flapping around a threshold does not flood your channels.
 
 ## Scripted setups

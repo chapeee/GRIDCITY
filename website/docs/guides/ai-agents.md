@@ -26,16 +26,17 @@ Then ask in plain words:
 
 ## The tools
 
-| Tool               | What the AI gets                                                          |
-| ------------------ | ------------------------------------------------------------------------- |
-| `incident_report`  | everything not healthy, grouped by likely root cause, and what is at risk |
-| `diagnose`         | the [Doctor](./doctor.md) for one server or resource, with proven fixes   |
-| `get_topology`     | links, and the blast radius of a building                                 |
-| `list_servers`     | servers with status, CPU, memory, disks and discovered services           |
-| `list_resources`   | databases, buckets, probes and load balancers with their metrics          |
-| `list_runbooks`    | saved commands and where they apply                                       |
-| `run_command`      | runs a shell command on one server **after you approve it**               |
-| `wait_for_command` | collects a command that was still waiting for you                         |
+| Tool                | What the AI gets                                                          |
+| ------------------- | ------------------------------------------------------------------------- |
+| `incident_report`   | everything not healthy, grouped by likely root cause, and what is at risk |
+| `security_findings` | attacks and exposures, and the checks that could not run                  |
+| `diagnose`          | the [Doctor](./doctor.md) for one server or resource, with proven fixes   |
+| `get_topology`      | links, and the blast radius of a building                                 |
+| `list_servers`      | servers with status, CPU, memory, disks and discovered services           |
+| `list_resources`    | databases, buckets, probes and load balancers with their metrics          |
+| `list_runbooks`     | saved commands and where they apply                                       |
+| `run_command`       | runs a shell command on one server **after you approve it**               |
+| `wait_for_command`  | collects a command that was still waiting for you                         |
 
 Reference: [MCP tools](../reference/mcp-tools.md).
 

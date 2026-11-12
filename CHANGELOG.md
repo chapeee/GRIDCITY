@@ -1,6 +1,30 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 · 2026-11-12
+
+The first release on npm (`npx gridcity`).
+
+### Upcoming, fixes and investigation
+
+- **Upcoming panel (U)**: certificates and domains that expire (RDAP via IANA's directory),
+  disks that will fill up (trend since the last cleanup), and backups that are late, missing or too
+  small (a file pattern over SSH or a bucket prefix). Alerts 30, 7 and 1 days ahead.
+- **Vulnerable packages**: every server's packages checked against OSV.dev every 12 hours; one
+  finding per server with the fixable ones first, scored by CVSS 3.1.
+- **One-click fixes** from findings: block an attacker (Fail2ban, CrowdSec or iptables), lock an
+  account, block public access on a bucket. Each shows the exact command, needs a second click,
+  runs through `sudo -n`, is audited and re-checked at once.
+- **Runbooks for findings**, and three new read-only ones: recent logins and failures, accounts
+  with power, CrowdSec and Fail2ban status.
+- **What happened**: the incident timeline around any moment (status, findings, commands, AI
+  actions, changes, alerts), from a finding or time travel.
+- **Log search (L)** across every server's journal, /var/log files and container logs at once.
+- **Containers and Kubernetes**: crash loops, OOM kills, unhealthy containers and pods in
+  trouble become findings; the HUD shows CPU, memory and restarts per container.
+- **Cloud costs (C)**: month to date, forecast, top services and 30 days per AWS account, with
+  alerts on spikes; off until turned on (Cost Explorer charges per request).
+- Fix: a probe flapping around "degraded" no longer sends an alert every minute (10-minute
+  window).
 
 ### Security: see who is attacking what
 
@@ -96,8 +120,8 @@
 
 ## 0.2.0 · 2026-11-11
 
-The first public release, on npm (`npx gridcity`) and as a Docker image
-(`ghcr.io/chapeee/gridcity`).
+The first public release, as a Docker image (`ghcr.io/chapeee/gridcity`); the npm package
+followed with 0.3.0.
 
 ### The Doctor
 

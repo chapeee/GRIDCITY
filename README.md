@@ -2,7 +2,7 @@
 
 # GRIDCITY
 
-**Your servers as a living 3D city of light, with an MCP server that lets your AI agent find the root cause and a Doctor that proves its fixes.**
+**Your servers, databases and buckets as a living 3D city of light: monitor, manage, secure and fix them in one local app, with an MCP server for your AI agent.**
 
 [![npm](https://img.shields.io/npm/v/gridcity?color=00e5ff&label=npm)](https://www.npmjs.com/package/gridcity)
 [![CI](https://github.com/chapeee/GRIDCITY/actions/workflows/ci.yml/badge.svg)](https://github.com/chapeee/GRIDCITY/actions/workflows/ci.yml)
@@ -17,9 +17,11 @@
 
 </div>
 
-GRIDCITY is a local-first infrastructure monitor and **MCP server** for SSH servers, databases,
-buckets, load balancers and HTTP/TCP endpoints. Every one of them becomes a building whose light
-tells the truth about it. Dive into any server for a real terminal, rewind the whole city to last
+GRIDCITY is a local-first infrastructure monitor, admin console and **MCP server** for SSH
+servers, databases, Redis, MongoDB, buckets, load balancers and HTTP/TCP endpoints. Every one of
+them becomes a building whose light tells the truth about it. Dive into any server for a real
+terminal, browse and edit a database or bucket, see **who is attacking what** with a red ring on
+the building, get alerts on your phone while the app is closed, rewind the whole city to last
 night's outage, and let Claude Code, Cursor or any MCP client ask "what is the root cause?" in one
 call, with **every command your AI wants to run waiting for your click**. Nothing leaves your
 machine: no cloud, no account, no telemetry.
@@ -48,6 +50,11 @@ docker logs gridcity          # the link with your session token
 - [Install](#install)
 - [Use it with your servers](#use-it-with-your-servers)
 - [Databases, RDS and object storage](#databases-rds-and-object-storage)
+- [Manage databases, Redis and buckets](#manage-databases-redis-and-buckets)
+- [Alerts that reach you with the app closed](#alerts-that-reach-you-with-the-app-closed)
+- [Security: who is attacking what](#security-who-is-attacking-what)
+- [Upcoming: expiry dates, full disks, late backups](#upcoming-expiry-dates-full-disks-late-backups)
+- [Investigate and fix](#investigate-and-fix)
 - [Districts, probes, load balancers and services](#districts-probes-load-balancers-and-what-runs-on-your-servers)
 - [Codex and Gemini inside the app (ACP)](#codex-and-gemini-inside-the-app-acp)
 - [Reading the city](#reading-the-city) · [Controls](#controls)
@@ -114,20 +121,22 @@ Apps that only speak stdio can reach it through a bridge such as
 - "Which server is running out of disk, and what is filling it?"
 - "What breaks if orders-db goes offline?"
 - "The new database won't connect. Diagnose it and tell me the fix."
+- "Is anyone attacking my servers right now? Which ones are blocked?"
 - "Update the packages on the staging servers."
 
 ### Tools
 
-| Tool               | What the AI gets                                                                                   | Read-only |
-| ------------------ | -------------------------------------------------------------------------------------------------- | --------- |
-| `incident_report`  | everything not healthy, grouped by likely **root cause**, with what each explains and puts at risk | yes       |
-| `diagnose`         | the Doctor for one target: DNS → port → TLS → login, with fixes **proven** by a real connection    | yes       |
-| `get_topology`     | districts and links (declared, observed, load balancer targets), and a target's blast radius       | yes       |
-| `list_servers`     | servers: status, OS, CPU, memory, disks, uptime, listening ports, containers, failed units         | yes       |
-| `list_resources`   | databases, buckets, probes and load balancers with their metrics                                   | yes       |
-| `list_runbooks`    | saved diagnostic and maintenance commands and where they apply                                     | yes       |
-| `run_command`      | runs a shell command on one server **after you approve it**                                        | no        |
-| `wait_for_command` | collects the result of a command that was still waiting for your approval                          | yes       |
+| Tool                | What the AI gets                                                                                                              | Read-only |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `incident_report`   | everything not healthy, grouped by likely **root cause**, with what each explains and puts at risk                            | yes       |
+| `security_findings` | attacks and exposures (brute force, logins after guessing, public buckets, open databases…) and the checks that could not run | yes       |
+| `diagnose`          | the Doctor for one target: DNS → port → TLS → login, with fixes **proven** by a real connection                               | yes       |
+| `get_topology`      | districts and links (declared, observed, load balancer targets), and a target's blast radius                                  | yes       |
+| `list_servers`      | servers: status, OS, CPU, memory, disks, uptime, listening ports, containers, failed units                                    | yes       |
+| `list_resources`    | databases, buckets, probes and load balancers with their metrics                                                              | yes       |
+| `list_runbooks`     | saved diagnostic and maintenance commands and where they apply                                                                | yes       |
+| `run_command`       | runs a shell command on one server **after you approve it**                                                                   | no        |
+| `wait_for_command`  | collects the result of a command that was still waiting for your approval                                                     | yes       |
 
 ### You stay in charge
 
@@ -157,8 +166,21 @@ Full reference: [MCP tools](https://chapeee.github.io/GRIDCITY/docs/reference/mc
   it sees on your servers, load balancer targets). When ten things go red, a banner names the one
   that explains the others; every panel shows what goes down with it.
 - **Built for AI agents.** Connect Claude Code (`gridcity mcp` prints the command). Your agent gets
-  `incident_report`, `diagnose`, `get_topology`, `list_runbooks` and `run_command`, and every command
-  waits for your click in the city.
+  `incident_report`, `security_findings`, `diagnose`, `get_topology`, `list_runbooks` and
+  `run_command`, and every command waits for your click in the city.
+- **Manage, not just monitor.** Press **M** on a database, Redis or bucket: tables and queries
+  for PostgreSQL, MySQL, SQL Server and SQLite in one SQL manager, keys and a console for Redis,
+  documents for MongoDB, files and policies for buckets. Read-only until you allow changes; every
+  change is audited.
+- **Security on the map.** Brute force, a login right after failed guesses, a second root account,
+  a new open port, a public bucket, a database open to the internet: a red ring strikes the
+  building, the Security panel says who, from where, whether it is blocked and what to do, and one
+  click blocks the attacker. CrowdSec and Fail2ban findings show up too.
+- **It warns you before things break.** Certificates and domains that expire, disks that will be
+  full in days, backups that are late, vulnerable packages with fixes waiting, containers in a crash
+  loop, cloud cost spikes.
+- **Alerts with the app closed.** Browser push (Windows, macOS, Android), email, Slack, Discord,
+  Telegram, Teams, ntfy, Pushover, Gotify and Apprise, sent by the server.
 - **Districts that hold anything.** A district is a VPC, an account, a rack: EC2 next to its RDS,
   bucket and ALB, a home lab next to its probes.
 - **Everything in the app.** Connect servers (paste or upload a key, trust the fingerprint),
@@ -406,12 +428,79 @@ runbooks:
     match: { tags: [web] } # optional; every server when omitted
 ```
 
-**Alerts.** Settings → **Desktop notifications** tells this browser when a server or resource goes
-offline, degraded, or recovers (real data only). For Slack, Discord, ntfy or anything that takes
-JSON, paste its URL in Settings → **Webhook** (saved encrypted; **Send a test** checks it): the
-server posts each transition, with a quiet minute per target so a flapping host does not flood the
-channel. (`ALERT_WEBHOOK_URL` in `.env` still works for scripted setups.) AI agents see the same picture:
-`list_servers` now includes the discovered services, and `list_resources` the probes and balancers.
+## Manage databases, Redis and buckets
+
+Focus a database, Redis or bucket and press **M** (or **Ctrl+K → Manage …**).
+
+| Kind                                                            | What you can do                                                                                                                                                                        |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL, MySQL/MariaDB, SQL Server, SQLite (one SQL manager) | browse schemas and tables, page, sort and search rows, edit cells, insert and delete rows, structure, foreign keys both ways, DDL, a query editor with completion, Explain and history |
+| Redis / Valkey                                                  | browse keys with an editor per type, TTL and rename, a console that asks before dangerous commands, timed MONITOR, slow log, clients, INFO                                             |
+| MongoDB                                                         | find with Extended JSON filters, edit, insert and delete documents (types round-trip), aggregation, indexes, running operations                                                        |
+| S3, Spaces, MinIO, R2                                           | browse, upload with drag and drop, download, delete, copy, move, tags, previews, bucket policy, CORS, versioning, usage per folder                                                     |
+
+Every view opens **read-only**, and read-only is enforced by the database itself (read-only or
+rolled-back transactions, read-only SQLite files, Redis's own write flags). **Allow changes…** turns
+writing on for that resource; every change is written to the audit log.
+[Manage guide](https://chapeee.github.io/GRIDCITY/docs/guides/manage/).
+
+## Alerts that reach you with the app closed
+
+Alerts are sent **by the server** the moment something goes offline, degraded or recovers, and
+when an attack or an expiry needs you, whether or not anyone has GRIDCITY open.
+**Settings → Alerts**:
+
+- **Browser notifications (Web Push):** turn them on once per browser; Windows, macOS and Android
+  notifications arrive with the tab closed.
+- **Channels:** email over any SMTP server, Slack, Discord, Mattermost, Google Chat, Telegram,
+  Microsoft Teams, ntfy, Pushover, Gotify, and Apprise for 100+ more. Test before saving; choose
+  offline, degraded, recovered and attacks per channel.
+
+A "back online" or "attack over" message always follows an alert that went out, even after a
+restart, and a flapping target alerts at most once per ten minutes. Everything is saved encrypted.
+[Alerts guide](https://chapeee.github.io/GRIDCITY/docs/guides/alerts/).
+
+## Security: who is attacking what
+
+Read-only checks over the SSH connection GRIDCITY already has (nothing installed): SSH brute force,
+a login right after failed attempts, logins from new addresses, new accounts, a second root account,
+new open ports, refused sudo, and vulnerable packages (checked against OSV.dev). Where installed,
+**CrowdSec** and **Fail2ban** findings are shown too, and the same attacker seen by several tools
+is one finding. Resources are checked for public buckets, databases open to the internet, and Redis
+or MongoDB without a password.
+
+High and critical findings put a pulsing red ring on the building and send alerts; the Security
+panel (**S**) gives the attacker's address, how often, whether it is blocked, and what to do.
+GRIDCITY catches known patterns, not every attack, and says which checks could not run.
+[Security guide](https://chapeee.github.io/GRIDCITY/docs/guides/security/).
+
+Try it on purpose: `node scripts/security-lab.mjs up` starts a lab server with CrowdSec and
+Fail2ban and two attackers on a private Docker network; `attack` runs real brute force, password
+guessing and backdoor accounts against it.
+
+## Upcoming: expiry dates, full disks, late backups
+
+The Upcoming panel (**U**) lists everything dated, soonest first, with alerts 30, 7 and 1 days
+ahead: TLS certificates (read with their own handshake, so an expired one is still seen), domain
+registrations (RDAP), disks that will fill up (trend since the last cleanup), and **backup checks**
+(a file pattern on a server or a prefix in a bucket that must be fresh and big enough).
+[Upcoming guide](https://chapeee.github.io/GRIDCITY/docs/guides/upcoming/).
+
+## Investigate and fix
+
+- **One-click fixes** from a finding: block an attacker (Fail2ban, CrowdSec or the firewall), lock
+  an account, block public access on a bucket. Each shows the exact command, needs a second click,
+  runs through `sudo -n` (never a password) and is audited.
+- **Runbooks for a finding:** the right read-only diagnostics, one click away.
+- **What happened:** the incident timeline around any moment (status, attacks, commands people and
+  AI ran, changes, alerts), from a finding or from time travel.
+- **Log search (L):** one search across every server's journal, `/var/log` and container logs.
+- **Containers and Kubernetes:** crash loops, OOM kills, unhealthy containers and pods in trouble
+  become findings; the HUD shows CPU, memory and restarts per container.
+- **Cloud costs (C):** month to date, forecast, top services and spikes per AWS account (off until
+  you turn it on: Cost Explorer charges per request).
+
+[Investigate and fix guide](https://chapeee.github.io/GRIDCITY/docs/guides/operations/).
 
 ## Codex and Gemini inside the app (ACP)
 
@@ -491,6 +580,11 @@ Every encoding, and the reasoning behind it: [docs/VISUAL_LANGUAGE.md](docs/VISU
 | **D**               | The Doctor: diagnose the focused building, or check everything                       |
 | **T**               | Time travel: rewind the city and play it back                                        |
 | **R**               | Runbooks: run saved or typed commands on one server or many                          |
+| **M**               | Manage the focused database, Redis or bucket                                         |
+| **S**               | Security: attacks and exposures                                                      |
+| **U**               | Upcoming: expiring certificates and domains, full disks, backups                     |
+| **L**               | Search the logs of every server                                                      |
+| **C**               | Cloud costs                                                                          |
 | **`** (backtick)    | Performance overlay                                                                  |
 
 Also in the palette: lite mode (no bloom or particles, for weak GPUs, suggested automatically when
@@ -508,7 +602,11 @@ frames are slow), the audit log, importing from `~/.ssh/config`, and replaying t
   (never overwriting one), and uses a password once, in memory, to add your public key to the
   server's `authorized_keys`.
 - Every 2 seconds it runs **one fixed, read-only script** per host that reads `/proc`, `df` and
-  `/etc/os-release`. It installs nothing and changes nothing on your servers.
+  `/etc/os-release`. Every minute a read-only security sweep reads the auth log, accounts,
+  listening ports and, where allowed with `sudo -n`, CrowdSec and Fail2ban; every few minutes
+  Docker and the installed packages. It installs nothing and changes nothing on your servers.
+- It changes a server only when **you** click a fix (block an address, lock an account) after
+  seeing the exact command, or run a runbook or a terminal command yourself.
 - When you jack in, it opens an interactive shell on the existing connection. What you type runs
   with that user's permissions, exactly like `ssh`.
 - It keeps an **append-only audit log** of connections, host key refusals and terminal sessions
@@ -539,6 +637,13 @@ STATUS`, MongoDB's `serverStatus`, Redis `INFO`, SQL Server DMVs (`ApplicationIn
 - You can still use references instead: `passwordEnv` / `passwordFile`, `accessKeyIdEnv` /
   `secretAccessKeyEnv`, or an AWS `profile` (or the standard AWS chain when no keys are given).
   Error messages are scrubbed of secrets before they are logged or shown.
+- **Manage views write only after you turn on "Allow changes"** for that resource; every change is
+  audited (what and where, never values).
+- Exposure checks are read-only: bucket policy and public access settings, RDS and security
+  groups, and one unauthenticated `PING` / database list to see whether Redis or MongoDB need a
+  password.
+- To find vulnerable packages, package names and versions (no host names or addresses) are sent to
+  api.osv.dev every 12 hours. Domain dates come from the registries' public RDAP service.
 - Reachability changes are written to the audit log (reachable / unreachable, never every retry).
 
 ## Development

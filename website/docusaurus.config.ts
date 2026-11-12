@@ -11,7 +11,7 @@ const SITE_URL = `https://${organizationName}.github.io`;
 const url = process.env.DOCS_URL?.replace(/\/+$/, '') || SITE_URL;
 const baseUrl = process.env.DOCS_BASE_URL || `/${projectName}/`;
 const description =
-  'GRIDCITY shows your servers, databases, buckets, load balancers and probes as a living 3D city of light, with a Doctor that proves its fixes, time travel, real terminals and MCP tools for AI agents. Local-first.';
+  'GRIDCITY is a local-first server monitor, database admin and security console in a 3D city: SSH servers, PostgreSQL, MySQL, MongoDB, Redis, S3 and AWS, with attack detection, alerts that reach you with the app closed, a Doctor that proves fixes, time travel, and an MCP server for Claude Code and other AI agents.';
 
 const config: Config = {
   title: 'GRIDCITY',
@@ -110,7 +110,7 @@ const config: Config = {
       {
         name: 'keywords',
         content:
-          'GRIDCITY, server monitoring, 3D infrastructure, SSH, database monitoring, MCP, Claude Code, AI agents, homelab, devops, observability, local-first',
+          'GRIDCITY, server monitoring, MCP server, Model Context Protocol, Claude Code, AI agents, database admin, PostgreSQL, MySQL, MongoDB, Redis, S3, AWS, intrusion detection, CrowdSec, Fail2ban, web push alerts, uptime monitoring, homelab, devops, observability, self-hosted, local-first, 3D',
       },
       { name: 'twitter:card', content: 'summary_large_image' },
       { property: 'og:type', content: 'website' },
@@ -123,8 +123,8 @@ const config: Config = {
       respectPrefersColorScheme: false,
     },
     announcementBar: {
-      id: 'v0-2',
-      content: `GRIDCITY 0.2 is out: <code>npx gridcity demo</code>. The <a href="${baseUrl}docs/guides/doctor/">Doctor</a> proves its fixes; <a href="${baseUrl}docs/guides/time-travel/">time travel</a> rewinds the city.`,
+      id: 'v0-3',
+      content: `GRIDCITY 0.3 is out: <code>npx gridcity demo</code>. <a href="${baseUrl}docs/guides/security/">See who is attacking what</a>, <a href="${baseUrl}docs/guides/manage/">manage databases and buckets</a>, and get <a href="${baseUrl}docs/guides/alerts/">alerts with the app closed</a>.`,
       isCloseable: true,
     },
     docs: {
