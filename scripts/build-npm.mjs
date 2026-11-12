@@ -49,6 +49,8 @@ const dependencies = Object.fromEntries(
 const pkg = {
   name: 'gridcity',
   version: rootPkg.version,
+  // Official MCP Registry ownership check: must equal "name" in server.json.
+  mcpName: 'io.github.chapeee/gridcity',
   description:
     'Local-first server monitoring, database admin and security in a 3D city: SSH servers, PostgreSQL, MySQL, MongoDB, Redis, S3 and AWS as buildings, with attack detection, alerts (push, email, Slack, Telegram), a Doctor that proves fixes, time travel, and an MCP server for Claude Code and other AI agents.',
   keywords: [

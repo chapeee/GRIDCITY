@@ -1,0 +1,40 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.chapeee/gridcity",
+  "title": "GRIDCITY",
+  "description": "Local-first infra monitor: servers, databases and buckets as a 3D city; commands need your OK.",
+  "repository": {
+    "url": "https://github.com/chapeee/GRIDCITY",
+    "source": "github"
+  },
+  "websiteUrl": "https://chapeee.github.io/GRIDCITY/",
+  "version": "0.4.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "gridcity",
+      "version": "0.4.2",
+      "transport": {
+        "type": "streamable-http",
+        "url": "http://127.0.0.1:4600/mcp",
+        "headers": [
+          {
+            "name": "Authorization",
+            "description": "Session token printed by `npx gridcity mcp`",
+            "value": "Bearer {token}",
+            "isRequired": true,
+            "isSecret": true,
+            "variables": {
+              "token": {
+                "description": "GRIDCITY session token (run `npx gridcity mcp` to see it)",
+                "isRequired": true,
+                "isSecret": true
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
