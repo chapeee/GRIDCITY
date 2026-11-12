@@ -38,7 +38,8 @@ const ATTACK_CATEGORIES = new Set([
   'other',
 ]);
 const ENV_CHANNEL_ID = 'env-webhook';
-const DEFAULT_QUIET_MS = 60_000;
+/** A target that keeps flipping in and out of "degraded" alerts at most once in this window. */
+const DEFAULT_QUIET_MS = 10 * 60_000;
 
 interface ChannelRecord extends StoredChannel {
   enabled: boolean;

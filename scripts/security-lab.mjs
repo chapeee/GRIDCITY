@@ -55,8 +55,25 @@ async function up() {
   if (!existsSync(join(tlsDir, 'cert.pem'))) {
     mkdirSync(tlsDir, { recursive: true });
     // A certificate that expires in 5 days, for the expiry checks.
-    run('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '5', '-subj', '/CN=localhost/O=GRIDCITY lab',
-      '-keyout', join(tlsDir, 'key.pem'), '-out', join(tlsDir, 'cert.pem')], { quiet: true });
+    run(
+      'openssl',
+      [
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-nodes',
+        '-days',
+        '5',
+        '-subj',
+        '/CN=localhost/O=GRIDCITY lab',
+        '-keyout',
+        join(tlsDir, 'key.pem'),
+        '-out',
+        join(tlsDir, 'cert.pem'),
+      ],
+      { quiet: true },
+    );
   }
   docker([...compose, 'up', '-d', '--build']);
   for (let attempt = 0; attempt < 60; attempt++) {

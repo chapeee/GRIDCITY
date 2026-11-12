@@ -327,7 +327,7 @@ describe('alert center', () => {
     expect(center.notify(event('degraded'))).toEqual([]); // flapping
     expect(center.notify(event('online', 'degraded'))).toEqual([]); // nothing open to close
     expect(center.notify(event('offline', 'online'))).toHaveLength(1);
-    now.t += 61_000;
+    now.t += 10 * 60_000 + 1000;
     expect(center.notify(event('degraded', 'offline'))).toHaveLength(1);
   });
 

@@ -65,20 +65,27 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
       switch (event.key) {
         case 'Escape':
           // Innermost first: panels, then ambient mode, then focus.
-          if (useReplayStore.getState().active && !ui.focusedHostId)
+          if (ui.incident) ui.openIncident(null);
+          else if (useReplayStore.getState().active && !ui.focusedHostId)
             useReplayStore.getState().close();
           else if (ui.doctorTarget !== undefined) ui.openDoctor(undefined);
           else if (ui.auditLogOpen) ui.setAuditLogOpen(false);
           else if (ui.historyTarget !== undefined) ui.openHistory(undefined);
           else if (ui.settingsOpen) ui.setSettingsOpen(false);
-          else if (ui.incident) ui.openIncident(null);
           else if (ui.securityOpen) ui.setSecurityOpen(false);
           else if (ui.upcomingOpen) ui.setUpcomingOpen(false);
           else if (ui.logsOpen) ui.setLogsOpen(false);
+          else if (ui.costsOpen) ui.setCostsOpen(false);
           else if (ui.agentPanelOpen) ui.setAgentPanelOpen(false);
           else if (ui.ambientMode) ui.setAmbientMode(false);
           else if (ui.focusedHostId) ui.focusHost(null);
           else if (ui.focusedDistrict) ui.focusDistrict(null);
+          break;
+        case 'c':
+        case 'C':
+          // Cloud costs.
+          if (event.ctrlKey || event.metaKey || event.altKey) return;
+          ui.setCostsOpen(!ui.costsOpen);
           break;
         case 'l':
         case 'L':

@@ -111,8 +111,22 @@ export function openDatabase(file: string): AppDatabase {
   try {
     db = new Database(file);
   } catch (error) {
+    const message = (error as Error).message;
+    // The SQLite driver is a native module: a blocked or missing binary is not a folder problem.
+    if (
+      /\.node\b|Application Control|was compiled against|invalid ELF|not a valid Win32/i.test(
+        message,
+      )
+    ) {
+      throw new Error(
+        `The SQLite driver (better-sqlite3) could not be loaded: ${message}. ` +
+          'Your system may block native modules in this folder (Windows Application Control, ' +
+          'antivirus) or the install is incomplete: reinstall gridcity into another folder.',
+        { cause: error },
+      );
+    }
     throw new Error(
-      `Cannot open the database at ${file} (${(error as Error).message}). ` +
+      `Cannot open the database at ${file} (${message}). ` +
         'Check that the directory exists and is writable by this user (set DATA_DIR to move it).',
       { cause: error },
     );

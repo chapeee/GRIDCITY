@@ -52,6 +52,8 @@ interface UiStore {
   upcomingOpen: boolean;
   /** Log search across servers. */
   logsOpen: boolean;
+  /** Cloud costs. */
+  costsOpen: boolean;
   /** The incident timeline: what happened around a moment (optionally for one building). */
   incident: { at: number; targetId: string | null } | null;
   /** The host being edited (rename, district, thresholds), or null. */
@@ -104,6 +106,7 @@ interface UiStore {
   setSecurityOpen(open: boolean, targetId?: string | null): void;
   setUpcomingOpen(open: boolean): void;
   setLogsOpen(open: boolean): void;
+  setCostsOpen(open: boolean): void;
   openIncident(incident: { at: number; targetId: string | null } | null): void;
   setEditHostId(hostId: string | null): void;
   setConnectResourceOpen(open: boolean): void;
@@ -152,6 +155,7 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   securityTarget: null,
   upcomingOpen: false,
   logsOpen: false,
+  costsOpen: false,
   incident: null,
   editHostId: null,
   connectResourceOpen: false,
@@ -214,6 +218,7 @@ export const useUiStore = create<UiStore>()((set, get) => ({
     set({ securityOpen: open, securityTarget: open ? targetId : null, paletteOpen: false }),
   setUpcomingOpen: (open) => set({ upcomingOpen: open, paletteOpen: false }),
   setLogsOpen: (open) => set({ logsOpen: open, paletteOpen: false }),
+  setCostsOpen: (open) => set({ costsOpen: open, paletteOpen: false }),
   openIncident: (incident) =>
     set(
       incident

@@ -41,8 +41,10 @@ export function FindingActions({
     return () => {
       cancelled = true;
     };
-  }, [finding.id, finding.status]);
+  }, [finding.id, finding.status, finding.blocked, finding.severity]);
 
+  // A finding that ended has nothing left to fix.
+  const shownFixes = finding.status === 'open' ? fixes : [];
   const runbooks = isHost
     ? (RUNBOOKS_FOR_FINDING[finding.category] ?? [])
         .map((id) => BUILTIN_RUNBOOKS.find((runbook) => runbook.id === id))
@@ -64,7 +66,7 @@ export function FindingActions({
     }
   };
 
-  if (runbooks.length === 0 && fixes.length === 0 && !outcome) return null;
+  if (runbooks.length === 0 && shownFixes.length === 0 && !outcome) return null;
   return (
     <div className="finding-actions">
       {runbooks.length > 0 && (
@@ -82,10 +84,10 @@ export function FindingActions({
           ))}
         </div>
       )}
-      {fixes.length > 0 && !confirming && (
+      {shownFixes.length > 0 && !confirming && (
         <div className="finding-actions-row">
           <span className="finding-actions-label">Fix</span>
-          {fixes.map((option) => (
+          {shownFixes.map((option) => (
             <button
               key={option.id}
               type="button"

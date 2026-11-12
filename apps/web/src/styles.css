@@ -3767,3 +3767,85 @@ button:disabled {
   color: var(--color-base);
   background: var(--color-degraded);
 }
+
+/* ---------- Cloud costs ---------- */
+
+.costs-panel {
+  border-top-color: var(--color-online);
+}
+
+.costs-account {
+  margin-top: 8px;
+}
+
+.costs-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.costs-totals div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: var(--panel-border);
+}
+
+.costs-totals span {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.costs-totals strong {
+  color: var(--color-text-bright);
+  font-family: var(--font-mono);
+  font-size: 18px;
+}
+
+.costs-daily {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 70px;
+  margin: 10px 0;
+  padding: 4px;
+  border: var(--panel-border);
+}
+
+.costs-bar {
+  flex: 1;
+  min-width: 3px;
+  background: var(--color-online);
+  opacity: 0.75;
+}
+
+.costs-services {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.costs-services li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(60px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.costs-service-bar {
+  height: 6px;
+  background: var(--color-grid);
+}
+
+.costs-service-bar i {
+  display: block;
+  height: 100%;
+  background: var(--color-online);
+}
+
+.costs-services strong {
+  font-family: var(--font-mono);
+}

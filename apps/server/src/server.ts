@@ -49,6 +49,7 @@ import { createPackagesProducer } from './insights/packages';
 import { createContainersProducer } from './insights/containers';
 import { buildIncidentTimeline } from './insights/incident';
 import { searchLogs } from './insights/log-search';
+import { costAccounts, createCostsProducer } from './insights/costs';
 import { readCertificate } from './connectors/tls-info';
 import { ThreatStore } from './threats/threat-store';
 import { registerResourceRoutes, testResource } from './http/resource-routes';
@@ -247,6 +248,8 @@ export async function startServer({
   let threatHub: ThreatHub | null = null;
   let backups: ReturnType<typeof backupStore> | undefined;
   let containers: ReturnType<typeof createContainersProducer> | undefined;
+  let costs: ReturnType<typeof createCostsProducer> | undefined;
+  let costsStore: ThreatStore | undefined;
   const hub = new StateHub({
     provider,
     resources: resourceProvider,
@@ -282,6 +285,7 @@ export async function startServer({
   if (env.DATA_MODE === 'real') {
     const threatStore = new ThreatStore(db);
     backups = backupStore(threatStore);
+    costsStore = threatStore;
     const sshRunner = (hostId: string) => {
       const fleet = hub.currentProvider;
       const connection = fleet instanceof RealFleet ? fleet.connectionFor(hostId) : undefined;
@@ -294,6 +298,13 @@ export async function startServer({
     threatHub = new ThreatHub({
       store: threatStore,
       producers: [
+        (costs = createCostsProducer({
+          enabled: () => threatStore.getJson<boolean>('costs:enabled') === true,
+          configs: async () => [...(await loadResourceConfigs()).values()],
+          resources: () => hub.currentResources.resources(),
+          context: connectorContext,
+          cache: threatStore,
+        })),
         (containers = createContainersProducer({
           hosts: () => hub.currentProvider.hosts,
           runnerFor: (hostId) => sshRunner(hostId),
@@ -665,6 +676,23 @@ export async function startServer({
         backups,
         audit,
         containers: (hostId) => containers?.snapshot(hostId) ?? null,
+        costs:
+          costs && costsStore
+            ? {
+                enabled: () => costsStore?.getJson<boolean>('costs:enabled') === true,
+                setEnabled: async (enabled) => {
+                  costsStore?.setJson('costs:enabled', enabled, Date.now());
+                  if (enabled) await threatHub?.runProducer('costs');
+                },
+                reports: () => costs?.reports() ?? [],
+                accounts: async () => {
+                  const loaded = await loadResourcesFile(paths.resourcesFile);
+                  return costAccounts(loaded.ok ? loaded.config.resources : []).map(
+                    (c) => c.name ?? c.id,
+                  );
+                },
+              }
+            : undefined,
         searchLogs: threatHub
           ? (search) =>
               searchLogs(search, hub.currentProvider.hosts, (hostId) => {

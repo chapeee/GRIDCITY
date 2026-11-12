@@ -12,6 +12,13 @@ export interface ThreatRouteDeps {
   backups?: ReturnType<typeof backupStore>;
   /** Latest containers and pods on a server (null before the first look). */
   containers?: (hostId: string) => unknown;
+  /** Cloud costs (off until turned on: Cost Explorer charges per request). */
+  costs?: {
+    enabled(): boolean;
+    setEnabled(enabled: boolean): Promise<void>;
+    reports(): unknown[];
+    accounts(): Promise<string[]>;
+  };
   /** Log search across servers. */
   searchLogs?: (search: LogSearch) => Promise<unknown>;
   /** Everything recorded around a moment (the incident timeline). */
@@ -43,17 +50,33 @@ export function registerThreatRoutes(app: FastifyInstance, deps: ThreatRouteDeps
     return { findings: deps.hub?.between(since, until) ?? [] };
   });
 
+  app.get('/api/costs', async () => ({
+    enabled: deps.costs?.enabled() ?? false,
+    accounts: (await deps.costs?.accounts()) ?? [],
+    reports: deps.costs?.reports() ?? [],
+  }));
+
+  app.put<{ Body: { enabled?: unknown } }>('/api/costs', async (request, reply) => {
+    if (!deps.costs) return reply.code(409).send({ error: 'Demo data: there is no AWS account.' });
+    const enabled = request.body?.enabled === true;
+    await deps.costs.setEnabled(enabled);
+    deps.audit?.append('settings_changed', null, `cost tracking ${enabled ? 'on' : 'off'}`);
+    return {
+      enabled: deps.costs.enabled(),
+      accounts: await deps.costs.accounts(),
+      reports: deps.costs.reports(),
+    };
+  });
+
   /** Searches the logs of every chosen server at once (read-only). */
   app.post('/api/logs/search', async (request, reply) => {
     if (!deps.searchLogs)
       return reply.code(409).send({ error: 'Demo data: there are no real logs to search.' });
     const parsed = LogSearchSchema.safeParse(request.body);
     if (!parsed.success) {
-      return reply
-        .code(422)
-        .send({
-          problems: parsed.error.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`),
-        });
+      return reply.code(422).send({
+        problems: parsed.error.issues.map((i) => `${i.path.join('.') || 'body'}: ${i.message}`),
+      });
     }
     deps.audit?.append(
       'logs_searched',

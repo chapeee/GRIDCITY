@@ -39,7 +39,7 @@ const HELP = `
     --new-token     new link: signs out every browser
 
   Everything else (servers, databases, keys, alerts) is set up in the app.
-  Docs: https://github.com/chapeee/GRIDCITY
+  Docs: https://chapeee.github.io/GRIDCITY/
 `;
 
 const ENTRIES = {

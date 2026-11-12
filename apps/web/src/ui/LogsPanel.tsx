@@ -166,6 +166,10 @@ export function LogsPanel() {
                   <span>Regular expression</span>
                 </label>
               </div>
+              <p className="settings-help">
+                The time range filters journal and container lines exactly; for log files it picks
+                the files changed in that window and searches their recent lines.
+              </p>
               <div className="logs-hosts">
                 <span className="finding-actions-label">Servers</span>
                 <button

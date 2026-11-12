@@ -33,6 +33,12 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M10.2 10.2 14 14" />
     </>
   ),
+  coin: (
+    <>
+      <circle cx="8" cy="8" r="5.6" />
+      <path d="M9.8 6.2c-.4-.6-1-.9-1.8-.9-1 0-1.7.5-1.7 1.3 0 1.8 3.6.9 3.6 2.8 0 .8-.8 1.3-1.9 1.3-.8 0-1.5-.4-1.9-1M8 4v1.3M8 10.7V12" />
+    </>
+  ),
   shield: <path d="M8 1.8 13 3.7v4c0 3-2.1 5.4-5 6.5-2.9-1.1-5-3.5-5-6.5v-4z" />,
   settings: (
     <>
@@ -107,6 +113,7 @@ export function TopToolbar() {
       security: store.securityOpen,
       upcoming: store.upcomingOpen,
       logs: store.logsOpen,
+      costs: store.costsOpen,
       connect: store.connectResourceOpen,
       terminal: store.terminal !== null,
     })),
@@ -135,6 +142,7 @@ export function TopToolbar() {
     state.setSecurityOpen(false);
     state.setUpcomingOpen(false);
     state.setLogsOpen(false);
+    state.setCostsOpen(false);
     return useUiStore.getState();
   };
   const close = () => useUiStore.getState();
@@ -187,6 +195,13 @@ export function TopToolbar() {
         >
           {upkeep > 0 && <span className="toolbar-count">{upkeep}</span>}
         </ToolButton>
+        <ToolButton
+          icon="coin"
+          label="Cloud costs"
+          shortcut="C"
+          active={ui.costs}
+          onClick={() => (ui.costs ? close().setCostsOpen(false) : store().setCostsOpen(true))}
+        />
         <ToolButton
           icon="search"
           label="Search logs on every server"

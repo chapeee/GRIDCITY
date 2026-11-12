@@ -25,6 +25,7 @@ import { SecurityPanel } from './ui/SecurityPanel';
 import { UpcomingPanel } from './ui/UpcomingPanel';
 import { IncidentPanel } from './ui/IncidentPanel';
 import { LogsPanel } from './ui/LogsPanel';
+import { CostsPanel } from './ui/CostsPanel';
 import {
   LiteModeSuggestion,
   NoticeToast,
@@ -99,6 +100,7 @@ export function App() {
       <UpcomingPanel />
       <IncidentPanel />
       <LogsPanel />
+      <CostsPanel />
       <RunbookPanel />
       <DoctorPanel />
       <TimelineBar />
