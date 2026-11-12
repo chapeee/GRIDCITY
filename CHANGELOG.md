@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0 · 2026-11-12
+
+The same app as 0.3.0, released as 0.4.0: no functional changes. Everything listed under
+0.3.0 below is in it.
+
 ## 0.3.0 · 2026-11-12
 
 The first release on npm (`npx gridcity`).

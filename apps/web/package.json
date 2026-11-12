@@ -1,6 +1,6 @@
 {
   "name": "@app/web",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Browser client: the 3D city of light, focus HUD, command palette and terminal.",
   "type": "module",
