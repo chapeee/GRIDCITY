@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1 · 2026-11-12
+
+- **`gridcity` keeps running after you close the terminal.** `gridcity` and `gridcity demo`
+  start the server in the background and print the link; new commands `gridcity status`,
+  `gridcity stop`, `gridcity restart` and `gridcity logs [-f]`. `--foreground` keeps the old
+  behaviour, for systemd, launchd, Task Scheduler and containers (the Docker image is unchanged).
+- The background log (`server.log` in the data folder) never contains the session token.
+
 ## 0.4.0 · 2026-11-12
 
 The same app as 0.3.0, released as 0.4.0: no functional changes. Everything listed under
