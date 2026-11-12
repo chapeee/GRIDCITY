@@ -1,12 +1,13 @@
 import { rootCauses, type DoctorReport, type Fix } from '@app/shared';
 import { AnimatePresence, motion } from 'motion/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import {
   applyDoctorFix,
   diagnose,
   fetchDoctorOverview,
   type DoctorOverview,
 } from '../data/doctor-api';
+import { demoDiagnose, type DemoDoctorTarget } from '../data/demo-doctor';
 import { useFleetStore } from '../data/fleet-store';
 import { useReplayStore } from '../data/replay-store';
 import { useServerLink } from '../data/server-link';
@@ -34,6 +35,8 @@ function DoctorPanelBody({ target }: { target: string | null }) {
   const resources = useFleetStore((store) => store.resources);
   const dataMode = useFleetStore((store) => store.dataMode);
   const live = useServerLink((store) => store.source) === 'server' && dataMode === 'real';
+  /** Demo city: the Doctor runs on simulated reports (DEMO DATA), in the browser. */
+  const demo = dataMode === 'demo';
   const close = () => useUiStore.getState().openDoctor(undefined);
   const nameOf = useCallback(
     (id: string) =>
@@ -65,21 +68,22 @@ function DoctorPanelBody({ target }: { target: string | null }) {
       </header>
       {!live && (
         <p className="audit-note">
-          DEMO DATA: the Doctor diagnoses real servers and resources. Below is what it can infer
-          from the demo city alone.
+          DEMO DATA: these diagnoses are simulated from the demo city. With your servers the Doctor
+          tests the real target and proves each fix before offering it.
         </p>
       )}
       {target ? (
-        <TargetDiagnosis target={target} live={live} />
+        <TargetDiagnosis target={target} live={live} demo={demo} />
       ) : (
-        <Overview live={live} nameOf={nameOf} />
+        <Overview live={live || demo} nameOf={nameOf} />
       )}
     </motion.section>
   );
 }
 
-function TargetDiagnosis({ target, live }: { target: string; live: boolean }) {
+function TargetDiagnosis({ target, live, demo }: { target: string; live: boolean; demo: boolean }) {
   const isHost = useFleetStore((store) => store.hosts.some((h) => h.id === target));
+  const demoTarget = useDemoTarget(target);
   const [report, setReport] = useState<DoctorReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -87,13 +91,24 @@ function TargetDiagnosis({ target, live }: { target: string; live: boolean }) {
   const [applied, setApplied] = useState<string | null>(null);
 
   const run = useCallback(() => {
+    if (demo) {
+      setRunning(true);
+      setError(null);
+      // A short pause, like the real ladder, then the simulated report.
+      setTimeout(() => {
+        const current = demoTarget.current;
+        if (current) setReport(demoDiagnose(current));
+        setRunning(false);
+      }, 900);
+      return;
+    }
     if (!live) return;
     setRunning(true);
     setError(null);
     diagnose(target, isHost ? 'host' : 'resource')
       .then(setReport, (reason: Error) => setError(reason.message))
       .finally(() => setRunning(false));
-  }, [target, isHost, live]);
+  }, [target, isHost, live, demo, demoTarget]);
 
   useEffect(() => {
     // Deferred one tick so the effect itself sets no state (the panel opens first).
@@ -103,6 +118,12 @@ function TargetDiagnosis({ target, live }: { target: string; live: boolean }) {
 
   const apply = async (fix: Fix) => {
     if (!fix.patch) return;
+    if (demo) {
+      setApplied(
+        `${fix.label}: simulated in the demo. With your servers the Doctor proves it once more, saves it, and the city reconnects.`,
+      );
+      return;
+    }
     setApplying(fix.id);
     setError(null);
     try {
@@ -116,7 +137,7 @@ function TargetDiagnosis({ target, live }: { target: string; live: boolean }) {
     }
   };
 
-  if (!live)
+  if (!live && !demo)
     return <p className="settings-help">Start the app with your real servers to run the Doctor.</p>;
   return (
     <>
@@ -130,7 +151,7 @@ function TargetDiagnosis({ target, live }: { target: string; live: boolean }) {
       {report && !running && (
         <DoctorReportView
           report={report}
-          onApply={isHost ? undefined : apply}
+          onApply={isHost && !demo ? undefined : apply}
           applying={applying}
         />
       )}
@@ -325,4 +346,38 @@ export function IncidentBanner() {
       {root.explains.length} other failure{root.explains.length === 1 ? '' : 's'} · open the Doctor
     </button>
   );
+}
+
+/** The focused building's demo state, for simulated Doctor reports (kept in a ref: polls do not re-run it). */
+function useDemoTarget(id: string): RefObject<DemoDoctorTarget | null> {
+  const host = useFleetStore((store) => store.hosts.find((h) => h.id === id));
+  const resource = useFleetStore((store) => store.resources.find((r) => r.id === id));
+  const hostState = useFleetStore((store) => store.states[id]);
+  const resourceState = useFleetStore((store) => store.resourceStates[id]);
+  const ref = useRef<DemoDoctorTarget | null>(null);
+  useEffect(() => {
+    const state = hostState ?? resourceState;
+    if (host) {
+      ref.current = {
+        id,
+        name: host.name,
+        kind: 'server',
+        address: `${host.address}:${host.port}`,
+        status: state?.status ?? 'unknown',
+        stale: state?.stale ?? false,
+        reason: state?.statusReason ?? null,
+      };
+    } else if (resource) {
+      ref.current = {
+        id,
+        name: resource.name,
+        kind: resource.kind,
+        address: resource.target,
+        status: state?.status ?? 'unknown',
+        stale: state?.stale ?? false,
+        reason: state?.statusReason ?? null,
+      };
+    }
+  }, [id, host, resource, hostState, resourceState]);
+  return ref;
 }

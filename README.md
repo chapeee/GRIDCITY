@@ -30,8 +30,11 @@ machine: no cloud, no account, no telemetry.
 ## Quick start
 
 **Try it without installing anything:** the [live demo](https://chapeee.github.io/GRIDCITY/demo/)
-runs a simulated city of eight districts in your browser. Server-side features (the terminal,
-managing databases, alerts, AI agents) need the app itself:
+runs a simulated city of eight districts in your browser. Try the Doctor (press **D** on a red
+building: the connection checks, the cause and a proven fix), Security (**S**: attacks and exposures,
+with red rings on the buildings), Upcoming (**U**: certificates, disks and backups that are due),
+time travel (**T**) and Ctrl+K. Everything there is simulated DEMO DATA. The terminal, managing
+databases, alerts and AI agents need the app itself:
 
 ```bash
 npx gridcity demo            # a simulated city, no setup at all

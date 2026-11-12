@@ -137,7 +137,8 @@ export function SecurityPanel() {
 
           {view?.demo ? (
             <p className="audit-note">
-              DEMO DATA: security checks run only on real servers and resources.
+              DEMO DATA: these attacks and exposures are simulated. On your servers they come from
+              read-only checks and CrowdSec or Fail2ban.
             </p>
           ) : (
             <p className="security-intro">

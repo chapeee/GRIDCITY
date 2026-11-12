@@ -10,6 +10,7 @@ import {
   PROTOCOL_VERSION,
 } from '@app/shared';
 import type { DemoOptions } from './demo-options';
+import { createDemoThreatFindings } from './demo-threats';
 import type { HostDataSource } from './host-data-source';
 
 /** Delay before the first poll, so the city visibly starts out "unknown". */
@@ -49,7 +50,7 @@ export function createDemoDataSource(options: DemoOptions, projectName: string):
         districts: DEMO_DISTRICTS,
         links: createDemoLinks(Date.now()),
         runbooks: BUILTIN_RUNBOOKS,
-        threats: [],
+        threats: createDemoThreatFindings(Date.now()),
       });
 
       const poll = () => {

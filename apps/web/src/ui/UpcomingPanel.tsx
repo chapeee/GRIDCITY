@@ -93,7 +93,12 @@ export function UpcomingPanel() {
               </button>
             </div>
           </header>
-          {view?.demo && <p className="audit-note">DEMO DATA: nothing real to look ahead at.</p>}
+          {view?.demo && (
+            <p className="audit-note">
+              DEMO DATA: simulated dates. On your servers these come from real certificates,
+              domains, disks and backups.
+            </p>
+          )}
           <p className="security-intro">
             Certificates and domains that expire, disks that will fill up, and backups that are due.
             You are alerted 30, 7 and 1 days ahead, and when a backup is late.

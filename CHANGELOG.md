@@ -11,6 +11,13 @@
   more buckets, an Azure load balancer and their links. The online demo shows 96 hosts.
 - The AI agent panel says agents need the app when it runs in the in-browser demo, instead of
   waiting on "Connecting to the app…" forever.
+- **The Doctor works in the demo**: diagnosing a demo building shows a simulated report (the
+  DNS / port / TLS / login checks, the cause with its evidence, and fixes with commands); applying
+  a proven fix is simulated. Also in `gridcity demo`.
+- **Security and Upcoming in the in-browser demo**: simulated attacks and exposures (with red rings
+  on the buildings) and upcoming certificate, disk, backup and domain dates, all labelled DEMO DATA.
+- **Ctrl+K picks the best match across all groups.** An exact action or resource ("settings",
+  "session-cache") no longer loses to a fuzzy server match.
 
 ## 0.4.1 · 2026-11-12
 

@@ -1,4 +1,5 @@
 import type { ThreatFinding, ThreatsView } from '@app/shared';
+import { createDemoThreatsView } from './demo-threats';
 import { useServerLink } from './server-link';
 
 /** Attack and exposure findings: the server's /api/threats routes. */
@@ -21,11 +22,13 @@ export interface FixOption {
   preview: string;
 }
 
-const EMPTY: ThreatsView = { findings: [], coverage: [], upcoming: [], demo: true };
 const inBrowserDemo = () => useServerLink.getState().source !== 'server';
 
 export const threatsApi = {
-  load: () => (inBrowserDemo() ? Promise.resolve(EMPTY) : request<ThreatsView>('/api/threats')),
+  load: () =>
+    inBrowserDemo()
+      ? Promise.resolve(createDemoThreatsView())
+      : request<ThreatsView>('/api/threats'),
   acknowledge: (id: string) =>
     request<ThreatsView>(`/api/threats/${encodeURIComponent(id)}/acknowledge`, {
       method: 'POST',
