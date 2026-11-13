@@ -10,3 +10,7 @@ docs/BRIEF.md
 release/
 website/build/
 website/.docusaurus/
+# Package-manager templates: {{PLACEHOLDERS}} are not valid YAML until filled
+packaging/distribution/
+packaging/desktop/stage/
+packaging/desktop/.work/

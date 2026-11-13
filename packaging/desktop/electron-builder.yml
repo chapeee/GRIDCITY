@@ -1,0 +1,45 @@
+# electron-builder config for the GRIDCITY desktop app (run through build.mjs,
+# which prepares stage/ as the project folder).
+appId: io.github.chapeee.gridcity
+productName: GRIDCITY
+copyright: Copyright © 2026 Raj
+# The bundled `gridcity` command runs with Electron acting as Node.js and reads
+# its web app and modules from disk, so the app is not packed into an asar.
+asar: false
+# No native modules are shipped (better-sqlite3 is left out on purpose).
+npmRebuild: false
+directories:
+  output: ../dist
+  buildResources: build
+files:
+  - main.cjs
+  - icon.png
+  - package.json
+  - node_modules/**/*
+artifactName: GRIDCITY-${version}-${os}-${arch}.${ext}
+
+win:
+  target: [nsis, zip]
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: GRIDCITY
+  include: build/installer.nsh
+
+mac:
+  category: public.app-category.developer-tools
+  target: [dmg, zip]
+  hardenedRuntime: true
+dmg:
+  title: GRIDCITY ${version}
+
+linux:
+  target: [AppImage, deb, rpm]
+  category: Development
+  synopsis: Your servers as a living 3D city
+  description: Local-first server monitoring, database admin and security in a 3D city.
+  maintainer: Raj <137584877+chapeee@users.noreply.github.com>
+  executableName: gridcity-desktop

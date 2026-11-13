@@ -15,6 +15,8 @@ export default defineConfig(
       'test-results/**',
       'playwright-report/**',
       'release/**',
+      'packaging/desktop/stage/**',
+      'packaging/desktop/.work/**',
       'website/**',
     ],
   },
@@ -41,10 +43,15 @@ export default defineConfig(
       '*.{js,mjs,ts}',
       'apps/web/*.ts',
       'scripts/**/*.mjs',
-      'packaging/**/*.js',
+      'packaging/**/*.{js,cjs,mjs}',
       'e2e/**/*.ts',
     ],
     languageOptions: { globals: globals.node },
+  },
+  {
+    // The Electron main process and launcher are CommonJS.
+    files: ['packaging/**/*.cjs'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   prettier,
 );

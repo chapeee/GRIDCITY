@@ -3,7 +3,9 @@ name: Release
 # Push a tag like v0.2.0 (matching the version in package.json) to publish:
 #   - the `gridcity` package on npm, with provenance;
 #   - the multi-arch image ghcr.io/<owner>/gridcity:<version> and :latest;
-#   - a GitHub release with the notes from CHANGELOG.md.
+#   - the `gridcity-desktop` package on npm (`npx gridcity-desktop`);
+#   - desktop installers for Windows, macOS and Linux (packaging/desktop);
+#   - a GitHub release with the notes from CHANGELOG.md and the installers as downloads.
 # Needs the repository secret NPM_TOKEN (an npm automation token).
 
 on:
@@ -52,6 +54,21 @@ jobs:
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # `npx gridcity-desktop`: Electron + the gridcity package just published.
+      - run: npm ci --no-audit --no-fund
+        working-directory: packaging/desktop
+      - run: node build.mjs --stage-only
+        working-directory: packaging/desktop
+      - name: Publish gridcity-desktop
+        working-directory: release/desktop-npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  desktop:
+    needs: verify
+    uses: ./.github/workflows/desktop-build.yml
+    secrets: inherit
 
   docker:
     needs: verify
@@ -79,7 +96,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   github-release:
-    needs: [npm, docker]
+    needs: [verify, npm, docker, desktop]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -88,6 +105,27 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           awk -v v="$version" '$0 ~ "^## \\[?"v {found=1; next} found && /^## / {exit} found' CHANGELOG.md > notes.md
           [ -s notes.md ] || echo "See CHANGELOG.md" > notes.md
+          cat >> notes.md <<EOF
+
+          ## Downloads
+
+          | | Desktop app (Chromium built in) |
+          |---|---|
+          | Windows | \`GRIDCITY-$version-win-x64.exe\` (installer) · \`-arm64.exe\` · \`.zip\` (portable) |
+          | macOS | \`GRIDCITY-$version-mac-arm64.dmg\` (Apple Silicon) · \`-x64.dmg\` (Intel) |
+          | Linux | \`.AppImage\` (any distro) · \`.deb\` (Debian, Ubuntu) · \`.rpm\` (Fedora, RHEL) |
+
+          Or without an installer: \`npx gridcity-desktop\` (window) · \`npx gridcity\` (browser) · \`docker run ghcr.io/${{ github.repository_owner }}/gridcity:$version\`
+          EOF
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-[LWm]*
+          path: downloads
+          merge-multiple: true
+      - name: Checksums
+        working-directory: downloads
+        run: sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
       - uses: softprops/action-gh-release@v2
         with:
           body_path: notes.md
+          files: downloads/*

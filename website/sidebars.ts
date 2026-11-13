@@ -11,6 +11,7 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'getting-started/installation',
+        'getting-started/desktop-app',
         'getting-started/quick-start',
         'getting-started/connect-a-server',
         'getting-started/connect-resources',

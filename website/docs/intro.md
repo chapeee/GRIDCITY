@@ -51,5 +51,6 @@ like a real one: load follows the day, servers spike, leak memory and reboot.
 
 ## Next
 
-- [Install](./getting-started/installation.md) with npm or Docker.
+- [Install](./getting-started/installation.md) as a [desktop app](./getting-started/desktop-app.md)
+  (Windows, macOS, Linux), with [npm](https://www.npmjs.com/package/gridcity) or Docker.
 - [Quick start](./getting-started/quick-start.md): from nothing to your first server.

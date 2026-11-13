@@ -1,0 +1,19 @@
+# winget: submit the three files in this folder to microsoft/winget-pkgs under
+# manifests/c/chapeee/GRIDCITY/{{VERSION}}/ (or: wingetcreate submit <folder>).
+PackageIdentifier: chapeee.GRIDCITY
+PackageVersion: {{VERSION}}
+InstallerType: nullsoft
+Scope: user
+InstallModes:
+  - interactive
+  - silent
+UpgradeBehavior: install
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/chapeee/GRIDCITY/releases/download/v{{VERSION}}/GRIDCITY-{{VERSION}}-win-x64.exe
+    InstallerSha256: {{WIN_X64_SHA256}}
+  - Architecture: arm64
+    InstallerUrl: https://github.com/chapeee/GRIDCITY/releases/download/v{{VERSION}}/GRIDCITY-{{VERSION}}-win-arm64.exe
+    InstallerSha256: {{WIN_ARM64_SHA256}}
+ManifestType: installer
+ManifestVersion: 1.6.0

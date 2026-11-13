@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **Desktop app for Windows, macOS and Linux**, with Chromium built in and no Node.js needed.
+  Download the `.exe`, `.dmg`, `.AppImage`, `.deb` or `.rpm` from the GitHub release, or run
+  `npx gridcity-desktop`. It runs the same server as the `gridcity` command and shares its data.
+  Closing the window keeps it in the tray, still monitoring. The tray can switch to the demo
+  city, open GRIDCITY in your browser, or stop it.
+- **Start at login**: the installed app starts with the computer, hidden in the tray, so
+  monitoring and alerts survive a restart. On by default; a tray checkbox turns it off.
+- Every GitHub release lists the installers and `SHA256SUMS.txt` as downloads.
+- Manifests for winget, Scoop, Homebrew and the AUR (`packaging/distribution/`).
+
 ## 0.4.3 · 2026-11-13
 
 - **Starts on Windows with Smart App Control / Application Control.** These block

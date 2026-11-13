@@ -1,0 +1,59 @@
+name: Desktop preview
+
+# Every push to the desktop branch builds and tests the installers, then
+# replaces the "desktop-preview" GitHub pre-release with them. Nothing goes to
+# npm or GHCR, and the pre-release is never marked as the latest release.
+
+on:
+  push:
+    branches: [feat/desktop-app]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-preview
+  cancel-in-progress: true
+
+jobs:
+  build:
+    uses: ./.github/workflows/desktop-build.yml
+    secrets: inherit
+
+  prerelease:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # desktop-Linux, desktop-Windows, desktop-macOS (not desktop-screenshots-*).
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-[LWm]*
+          path: downloads
+          merge-multiple: true
+      - name: Checksums
+        working-directory: downloads
+        run: sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Replace the desktop-preview pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          cat > notes.md <<EOF
+          **Preview build of the GRIDCITY desktop app** from branch \`${GITHUB_REF_NAME}\`
+          (commit ${GITHUB_SHA::7}). Not an official release: it is replaced on every push.
+
+          | System | Download |
+          |---|---|
+          | Windows | \`GRIDCITY-$version-win-x64.exe\` (installer) · \`-arm64.exe\` · \`.zip\` (portable) |
+          | macOS | \`GRIDCITY-$version-mac-arm64.dmg\` (Apple Silicon) · \`-mac-x64.dmg\` (Intel) |
+          | Linux | \`.AppImage\` (any distro) · \`.deb\` (Debian, Ubuntu) · \`.rpm\` (Fedora, RHEL) |
+
+          The builds are unsigned: Windows SmartScreen asks for **More info → Run anyway**, and
+          macOS needs **System Settings → Privacy & Security → Open Anyway** once.
+          EOF
+          gh release delete desktop-preview --cleanup-tag --yes || true
+          gh release create desktop-preview downloads/* \
+            --prerelease --latest=false --target "$GITHUB_SHA" \
+            --title "Desktop preview ($version, ${GITHUB_REF_NAME})" --notes-file notes.md
