@@ -3,10 +3,15 @@ name: Desktop build
 # Builds the desktop installers (packaging/desktop) on Windows, macOS and Linux,
 # runs the end-to-end test against each packaged app, and uploads the files as
 # artifacts named desktop-<os>. Called by release.yml (tags) and
-# desktop-preview.yml (the desktop branch).
+# desktop-beta.yml (betas from the desktop branch).
 
 on:
   workflow_call:
+    inputs:
+      version:
+        description: App version for the installers (empty = the version in package.json)
+        type: string
+        default: ''
 
 jobs:
   build:
@@ -44,8 +49,17 @@ jobs:
       - name: Build installers
         working-directory: packaging/desktop
         shell: bash
-        run: node build.mjs ${{ matrix.args }}
+        run: |
+          extra=""
+          if [ -z "$CSC_LINK" ]; then
+            # No certificate: an empty CSC_LINK would be read as a path, so drop it.
+            # macOS gets an ad-hoc signature (Apple Silicon runs nothing unsigned).
+            unset CSC_LINK CSC_KEY_PASSWORD
+            [ "$RUNNER_OS" = macOS ] && extra="-c.mac.identity=-"
+          fi
+          node build.mjs ${{ matrix.args }} $extra
         env:
+          GRIDCITY_DESKTOP_VERSION: ${{ inputs.version }}
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CSC_LINK != '' }}
           CSC_LINK: ${{ runner.os == 'Windows' && secrets.WIN_CSC_LINK || secrets.MAC_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ runner.os == 'Windows' && secrets.WIN_CSC_KEY_PASSWORD || secrets.MAC_CSC_KEY_PASSWORD }}

@@ -36,7 +36,8 @@ const gridcity = JSON.parse(readFileSync(join(npmPackage, 'package.json'), 'utf8
 const electronVersion = JSON.parse(
   readFileSync(join(here, 'node_modules', 'electron', 'package.json'), 'utf8'),
 ).version;
-const version = gridcity.version;
+// The app's version: the gridcity version, or a beta such as 0.5.0-beta.1 (desktop-beta.yml).
+const version = process.env.GRIDCITY_DESKTOP_VERSION || gridcity.version;
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const run = (command, commandArgs, cwd) =>
   execFileSync(command, commandArgs, {
@@ -60,7 +61,7 @@ const common = {
 rmSync(work, { recursive: true, force: true });
 mkdirSync(work, { recursive: true });
 run(npm, ['pack', npmPackage, '--pack-destination', work, '--silent'], here);
-const tarball = join(work, `gridcity-${version}.tgz`);
+const tarball = join(work, `gridcity-${gridcity.version}.tgz`);
 
 // 2. stage/: main.cjs, the icon, and gridcity with its runtime dependencies.
 //    Optional dependencies are left out: better-sqlite3 is native code built for
@@ -79,7 +80,7 @@ writeFileSync(
       productName: 'GRIDCITY',
       ...common,
       main: 'main.cjs',
-      dependencies: { gridcity: version },
+      dependencies: { gridcity: gridcity.version },
     },
     null,
     2,
@@ -90,7 +91,9 @@ run(
   ['install', tarball, '--omit=optional', '--omit=dev', '--no-save', '--no-audit', '--no-fund'],
   stage,
 );
-console.log(`stage/: gridcity ${version} on Electron ${electronVersion}`);
+console.log(
+  `stage/: gridcity ${gridcity.version} as app ${version} on Electron ${electronVersion}`,
+);
 
 // 3. The gridcity-desktop npm package: `npx gridcity-desktop` downloads Electron
 //    and gridcity from npm and opens the same window.
@@ -112,7 +115,7 @@ writeFileSync(
       bin: { 'gridcity-desktop': 'bin/gridcity-desktop.cjs' },
       files: ['bin', 'main.cjs', 'icon.png', 'README.md', 'LICENSE'],
       engines: gridcity.engines,
-      dependencies: { electron: electronVersion, gridcity: version },
+      dependencies: { electron: electronVersion, gridcity: gridcity.version },
       publishConfig: { access: 'public', provenance: true },
     },
     null,

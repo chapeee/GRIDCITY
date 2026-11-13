@@ -1,0 +1,81 @@
+name: Desktop beta
+
+# Every push to the desktop branch builds and tests the installers and publishes
+# them as the next beta: tag v<next minor>-beta.<n> (e.g. v0.5.0-beta.1) on that
+# branch's commit, as a GitHub pre-release. Earlier betas are kept.
+# Nothing goes to npm or GHCR, main is not touched, and a beta is never marked
+# as the latest release.
+
+on:
+  push:
+    branches: [feat/desktop-app]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-beta
+  cancel-in-progress: true
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: next
+        name: Next beta version
+        run: |
+          current=$(node -p "require('./package.json').version")
+          base=$(node -p "const [a,b]='$current'.split('.').map(Number); a+'.'+(b+1)+'.0'")
+          last=$(git ls-remote --tags origin "refs/tags/v$base-beta.*" \
+            | sed -E 's#.*-beta\.([0-9]+)$#\1#' | sort -n | tail -1)
+          version="$base-beta.$(( ${last:-0} + 1 ))"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Next beta: $version"
+
+  build:
+    needs: version
+    uses: ./.github/workflows/desktop-build.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+    secrets: inherit
+
+  beta-release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # desktop-Linux, desktop-Windows, desktop-macOS (not desktop-screenshots-*).
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-[LWm]*
+          path: downloads
+          merge-multiple: true
+      - name: Checksums
+        working-directory: downloads
+        run: sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Publish the beta pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          cat > notes.md <<EOF
+          **GRIDCITY desktop app $VERSION (beta)**, built from branch \`${GITHUB_REF_NAME}\`
+          (commit ${GITHUB_SHA::7}). A test build, not an official release.
+
+          | System | Download |
+          |---|---|
+          | Windows | \`GRIDCITY-$VERSION-win-x64.exe\` (installer) · \`-arm64.exe\` · \`.zip\` (portable) |
+          | macOS | \`GRIDCITY-$VERSION-mac-arm64.dmg\` (Apple Silicon) · \`-mac-x64.dmg\` (Intel) |
+          | Linux | \`.AppImage\` (any distro) · \`.deb\` (Debian, Ubuntu) · \`.rpm\` (Fedora, RHEL) |
+
+          The builds are unsigned: Windows SmartScreen asks for **More info → Run anyway** (with
+          Smart App Control on, Windows blocks them; use \`npx gridcity-desktop\` there), and macOS
+          needs **System Settings → Privacy & Security → Open Anyway** once.
+          EOF
+          gh release create "v$VERSION" downloads/* \
+            --prerelease --latest=false --target "$GITHUB_SHA" \
+            --title "GRIDCITY $VERSION (desktop beta)" --notes-file notes.md

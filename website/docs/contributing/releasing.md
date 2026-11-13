@@ -35,6 +35,11 @@ Linux runners. The installers (`.exe`, `.zip`, `.dmg`, `.AppImage`, `.deb`, `.rp
 npm right after `gridcity`. The desktop app ships the exact `gridcity` package from
 `release/npm`: it doesn't rebuild or change the app code.
 
+**Betas:** every push to the `feat/desktop-app` branch builds and tests the installers and
+publishes them as the next beta (tag `v0.5.0-beta.1`, then `beta.2`, …) on that branch's commit,
+as a GitHub pre-release (workflow **Desktop beta**). A beta is never marked as the latest release,
+publishes nothing to npm or GHCR, and doesn't touch `main`.
+
 Build and test it locally:
 
 ```bash
