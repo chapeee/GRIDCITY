@@ -7,7 +7,9 @@ import { build } from 'esbuild';
 import { readFile } from 'node:fs/promises';
 
 const pkg = JSON.parse(await readFile(new URL('./package.json', import.meta.url), 'utf8'));
-const external = Object.keys(pkg.dependencies ?? {}).filter((name) => !name.startsWith('@app/'));
+const external = Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies }).filter(
+  (name) => !name.startsWith('@app/'),
+);
 
 await build({
   // The server, plus the import command (usable without dev tools in Docker).

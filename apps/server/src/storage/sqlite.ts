@@ -1,5 +1,6 @@
-import BetterSqlite3 from 'better-sqlite3';
+import type BetterSqlite3Type from 'better-sqlite3';
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import type * as NodeSqlite from 'node:sqlite';
 
 /**
@@ -8,6 +9,8 @@ import type * as NodeSqlite from 'node:sqlite';
  * - `better-sqlite3`, the default: fast, but a native `.node` file that some
  *   machines refuse to load (Windows Application Control / Smart App Control
  *   blocks unsigned DLLs, antivirus quarantines it, or the prebuild is missing).
+ *   It is an optional dependency: npm 10 tries to compile it (node-gyp) and,
+ *   without a C++ toolchain, leaves it out instead of failing the install.
  * - `node:sqlite`, built into Node itself (22.16+, 24+): nothing extra to load,
  *   so nothing to block. Used when better-sqlite3 cannot load.
  *
@@ -65,6 +68,19 @@ export interface SqliteOpenOptions {
 export const NATIVE_LOAD_ERROR =
   /\.node\b|Application Control|was compiled against|invalid ELF|not a valid Win32|Could not locate the bindings file|blocked/i;
 
+type BetterSqlite3Constructor = typeof BetterSqlite3Type;
+
+const requireFromHere = createRequire(import.meta.url);
+let loadBetterSqlite3 = (): BetterSqlite3Constructor =>
+  requireFromHere('better-sqlite3') as BetterSqlite3Constructor;
+let BetterSqlite3: BetterSqlite3Constructor | null = null;
+
+/** better-sqlite3 not installed (an optional dependency npm may have skipped). */
+function isMissingModule(error: unknown): boolean {
+  const e = error as NodeJS.ErrnoException;
+  return e?.code === 'MODULE_NOT_FOUND' && /better-sqlite3/.test(e.message);
+}
+
 let chosen: { name: SqliteDriverName; nativeError: string | null } | null = null;
 
 /** The driver in use (decided on first use), and why better-sqlite3 was skipped. */
@@ -76,23 +92,47 @@ export function sqliteDriver(): { name: SqliteDriverName; nativeError: string | 
     return (chosen = { name: 'node:sqlite', nativeError: null });
   }
   try {
-    new BetterSqlite3(':memory:').close();
+    const Driver = loadBetterSqlite3();
+    new Driver(':memory:').close();
+    BetterSqlite3 = Driver;
     return (chosen = { name: 'better-sqlite3', nativeError: null });
   } catch (error) {
-    const message = (error as Error).message;
-    if (wanted === 'better-sqlite3' || !NATIVE_LOAD_ERROR.test(message)) throw error;
+    const message = isMissingModule(error)
+      ? 'better-sqlite3 is not installed'
+      : (error as Error).message;
+    if (wanted === 'better-sqlite3') throw error;
+    if (!isMissingModule(error) && !NATIVE_LOAD_ERROR.test(message)) throw error;
     requireNodeSqlite(message);
     return (chosen = { name: 'node:sqlite', nativeError: message });
+  }
+}
+
+/** Whether better-sqlite3 is installed and loads here (tests skip its cases otherwise). */
+export function betterSqlite3Loads(): boolean {
+  try {
+    new (loadBetterSqlite3())(':memory:').close();
+    return true;
+  } catch {
+    return false;
   }
 }
 
 /** Test hook: forget the chosen driver so the next open decides again. */
 export function resetSqliteDriverForTests(): void {
   chosen = null;
+  BetterSqlite3 = null;
+}
+
+/** Test hook: replace how better-sqlite3 is loaded (null restores the real one). */
+export function setBetterSqlite3LoaderForTests(loader: (() => unknown) | null): void {
+  loadBetterSqlite3 = loader
+    ? (loader as () => BetterSqlite3Constructor)
+    : () => requireFromHere('better-sqlite3') as BetterSqlite3Constructor;
+  resetSqliteDriverForTests();
 }
 
 export function openSqlite(file: string, options: SqliteOpenOptions = {}): SqliteDatabase {
-  if (sqliteDriver().name === 'better-sqlite3') {
+  if (sqliteDriver().name === 'better-sqlite3' && BetterSqlite3) {
     return new BetterSqlite3(file, options) as unknown as SqliteDatabase;
   }
   return new NodeSqliteDatabase(file, options);

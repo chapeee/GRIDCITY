@@ -45,6 +45,9 @@ writeFileSync(
 const dependencies = Object.fromEntries(
   Object.entries(serverPkg.dependencies ?? {}).filter(([name]) => !name.startsWith('@app/')),
 );
+// better-sqlite3: npm 10 compiles it with node-gyp and, without a C++ toolchain, the
+// install must not fail. The server then uses the SQLite built into Node.js.
+const optionalDependencies = serverPkg.optionalDependencies ?? {};
 
 const pkg = {
   name: 'gridcity',
@@ -96,6 +99,7 @@ const pkg = {
   files: ['bin', 'apps', 'README.md', 'LICENSE', 'CHANGELOG.md'],
   engines: { node: '>=22.12' },
   dependencies,
+  optionalDependencies,
   publishConfig: { access: 'public', provenance: true },
 };
 writeFileSync(join(out, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);

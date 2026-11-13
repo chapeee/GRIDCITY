@@ -421,9 +421,11 @@ Real environment variables win over `.env`, which wins over `.env.example`.
   in; entries `index`, `doctor`, `mcp-setup`, `add-host`, `import-ssh-config`), the built web
   app, `packaging/npm/gridcity.js` as the `gridcity` command, and the server's third-party
   runtime dependencies. `better-sqlite3` ships prebuilt binaries (Linux, macOS, Windows; x64 and
-  arm64), so no install script or compiler is needed. If that binary cannot load (Windows
-  Application Control blocks unsigned DLLs), `storage/sqlite.ts` falls back to `node:sqlite`
-  (Node 22.16+); `GRIDCITY_SQLITE_DRIVER=node|better-sqlite3` forces one. The command sets `GRIDCITY_PACKAGED=1`
+  arm64), so no install script or compiler is needed. It is an optional dependency: npm 10
+  still runs `node-gyp rebuild` for it and, without a C++ toolchain, leaves it out instead of
+  failing the install. If it is missing or its binary cannot load (Windows Application Control
+  blocks unsigned DLLs), `storage/sqlite.ts` falls back to `node:sqlite` (Node 22.16+);
+  `GRIDCITY_SQLITE_DRIVER=node|better-sqlite3` forces one. The command sets `GRIDCITY_PACKAGED=1`
   (the app then never reads a `.env` from the folder it was started in), `PROJECT_NAME=GRIDCITY`
   and `LOG_LEVEL=warn`.
 - **Docker image**: Node 24 on Debian slim, non-root `node` user, volumes `/config` and

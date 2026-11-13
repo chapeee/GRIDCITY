@@ -3,15 +3,22 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase } from './database';
-import { openSqlite, resetSqliteDriverForTests, sqliteDriver, type SqliteDatabase } from './sqlite';
+import {
+  betterSqlite3Loads,
+  openSqlite,
+  resetSqliteDriverForTests,
+  sqliteDriver,
+  type SqliteDatabase,
+} from './sqlite';
 
 const dir = mkdtempSync(join(tmpdir(), 'gridcity-sqlite-'));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
+// better-sqlite3 is optional: npm may have left it out (no C++ toolchain for npm 10).
 const DRIVERS = [
-  ['better-sqlite3', 'better-sqlite3'],
-  ['node', 'node:sqlite'],
-] as const;
+  ...(betterSqlite3Loads() ? [['better-sqlite3', 'better-sqlite3'] as const] : []),
+  ['node', 'node:sqlite'] as const,
+];
 
 describe.each(DRIVERS)('SQLite driver %s', (setting, name) => {
   const before = process.env.GRIDCITY_SQLITE_DRIVER;

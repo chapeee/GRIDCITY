@@ -13,6 +13,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { ResourceConfigSchema, type ResourceConfig } from '../config/resources-file';
 import { createConnector } from './index';
 import type { Connector, PollOutcome } from './connector';
+import { openSqlite } from '../storage/sqlite';
 
 const enabled = process.env.CONNECTOR_TESTS === '1';
 const env = {
@@ -341,8 +342,7 @@ describe('SQLite connector (real files)', () => {
   it('opens a database read-only and reports its size', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'sqlite-connector-'));
     const file = join(dir, 'app.db');
-    const { default: Database } = await import('better-sqlite3');
-    const db = new Database(file);
+    const db = openSqlite(file);
     db.exec(
       "CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT); INSERT INTO t (v) VALUES ('a'), ('b');",
     );

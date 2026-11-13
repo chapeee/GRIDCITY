@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import Database from 'better-sqlite3';
+import { openSqlite } from '../storage/sqlite';
 import type { ManageMode } from '@app/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { parseResourcesYaml } from '../config/resources-file';
@@ -113,7 +113,7 @@ describe('the shared SQL explorer (SQLite, a real file)', () => {
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'explore-'));
     file = join(dir, 'shop.db');
-    const db = new Database(file);
+    const db = openSqlite(file);
     db.exec(`
       CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE);
       CREATE TABLE orders (id INTEGER PRIMARY KEY, customer_id INTEGER NOT NULL REFERENCES customers(id), total REAL, note TEXT);

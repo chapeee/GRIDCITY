@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { openSqlite } from '../storage/sqlite';
 import Fastify from 'fastify';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,7 +15,7 @@ function setup(options: { demoMode?: boolean } = {}) {
   const resourcesFile = join(dir, 'resources.yaml');
   writeFileSync(resourcesFile, '# my databases\nresources: []\n');
   const sqliteFile = join(dir, 'app.db');
-  const db = new Database(sqliteFile);
+  const db = openSqlite(sqliteFile);
   db.exec('CREATE TABLE t (id INTEGER PRIMARY KEY)');
   db.close();
   const app = Fastify();
