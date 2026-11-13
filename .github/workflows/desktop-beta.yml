@@ -1,40 +1,32 @@
 name: Desktop beta
 
-# Every push to the desktop branch builds and tests the installers and publishes
-# them as the next beta: tag v<next minor>-beta.<n> (e.g. v0.5.0-beta.1) on that
-# branch's commit, as a GitHub pre-release. Earlier betas are kept.
+# A beta tag (v0.5.0-beta.1, v0.5.0-beta.2, ...) pushed on a commit of the
+# desktop branch builds and tests the installers and publishes them as a GitHub
+# pre-release for that tag. The owner pushes the tag (the repository's rules
+# don't let workflows create tags):
+#   git tag v0.5.0-beta.1 && git push origin v0.5.0-beta.1
 # Nothing goes to npm or GHCR, main is not touched, and a beta is never marked
-# as the latest release.
+# as the latest release (release.yml ignores -beta tags).
 
 on:
   push:
-    branches: [feat/desktop-app]
-  workflow_dispatch:
+    tags: ['v*-beta.*']
 
 permissions:
   contents: write
 
 concurrency:
-  group: desktop-beta
+  group: desktop-beta-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   version:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.next.outputs.version }}
+      version: ${{ steps.tag.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - id: next
-        name: Next beta version
-        run: |
-          current=$(node -p "require('./package.json').version")
-          base=$(node -p "const [a,b]='$current'.split('.').map(Number); a+'.'+(b+1)+'.0'")
-          last=$(git ls-remote --tags origin "refs/tags/v$base-beta.*" \
-            | sed -E 's#.*-beta\.([0-9]+)$#\1#' | sort -n | tail -1)
-          version="$base-beta.$(( ${last:-0} + 1 ))"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Next beta: $version"
+      - id: tag
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
   build:
     needs: version
@@ -63,7 +55,7 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           cat > notes.md <<EOF
-          **GRIDCITY desktop app $VERSION (beta)**, built from branch \`${GITHUB_REF_NAME}\`
+          **GRIDCITY desktop app $VERSION (beta)**, built from the desktop branch
           (commit ${GITHUB_SHA::7}). A test build, not an official release.
 
           | System | Download |
@@ -76,6 +68,6 @@ jobs:
           Smart App Control on, Windows blocks them; use \`npx gridcity-desktop\` there), and macOS
           needs **System Settings → Privacy & Security → Open Anyway** once.
           EOF
-          gh release create "v$VERSION" downloads/* \
-            --prerelease --latest=false --target "$GITHUB_SHA" \
+          gh release create "$GITHUB_REF_NAME" downloads/* \
+            --prerelease --latest=false --verify-tag \
             --title "GRIDCITY $VERSION (desktop beta)" --notes-file notes.md

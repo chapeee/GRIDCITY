@@ -10,7 +10,7 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags: ['v*', '!v*-beta.*']
 
 permissions:
   contents: write
