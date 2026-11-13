@@ -53,6 +53,14 @@ passwords again (Edit → New password).
 
 `gridcity --port 4700`.
 
+## "The SQLite driver could not be loaded"
+
+Windows Smart App Control, Application Control or an antivirus blocked `better-sqlite3`'s native
+file (`win32-x64.node`). GRIDCITY then uses the SQLite built into Node.js, which needs Node.js
+22.16 or newer: upgrade Node.js (`node --version`) and start again. The log says
+`using the SQLite built into Node.js` when this happens. Set `GRIDCITY_SQLITE_DRIVER=node` to use it
+on purpose, or `better-sqlite3` to never fall back.
+
 ## Still stuck
 
 Open an issue with the output of `gridcity doctor --json` (remove anything private).

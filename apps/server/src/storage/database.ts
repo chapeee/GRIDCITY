@@ -1,8 +1,8 @@
-import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { NATIVE_LOAD_ERROR, openSqlite, type SqliteDatabase } from './sqlite';
 
-export type AppDatabase = Database.Database;
+export type AppDatabase = SqliteDatabase;
 
 /**
  * Schema migrations, applied in order. `PRAGMA user_version` records how many
@@ -109,19 +109,15 @@ export function openDatabase(file: string): AppDatabase {
   if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true });
   let db: AppDatabase;
   try {
-    db = new Database(file);
+    db = openSqlite(file);
   } catch (error) {
     const message = (error as Error).message;
-    // The SQLite driver is a native module: a blocked or missing binary is not a folder problem.
-    if (
-      /\.node\b|Application Control|was compiled against|invalid ELF|not a valid Win32/i.test(
-        message,
-      )
-    ) {
+    // Neither driver could load: a blocked or missing binary is not a folder problem.
+    if (NATIVE_LOAD_ERROR.test(message) || message.includes('node:sqlite')) {
       throw new Error(
-        `The SQLite driver (better-sqlite3) could not be loaded: ${message}. ` +
-          'Your system may block native modules in this folder (Windows Application Control, ' +
-          'antivirus) or the install is incomplete: reinstall gridcity into another folder.',
+        `The SQLite driver could not be loaded: ${message}`.replace(/\.?$/, '.') +
+          ' better-sqlite3 is a native module that Windows Application Control or antivirus ' +
+          'can block; GRIDCITY then falls back to the SQLite built into Node.js 22.16 or newer.',
         { cause: error },
       );
     }

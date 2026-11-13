@@ -266,7 +266,7 @@ new clients, and swaps the fleet on `hosts.yaml` reload.
 - With demo data nothing is recorded or saved; History shows generated incidents labelled DEMO DATA
   (`demo/demo-history.ts`).
 
-### Storage (SQLite, `better-sqlite3`)
+### Storage (SQLite, `better-sqlite3`, or `node:sqlite` where the native module is blocked)
 
 | Table            | Contents                                                                                                                                                                                                                                                                                                                              |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -421,7 +421,9 @@ Real environment variables win over `.env`, which wins over `.env.example`.
   in; entries `index`, `doctor`, `mcp-setup`, `add-host`, `import-ssh-config`), the built web
   app, `packaging/npm/gridcity.js` as the `gridcity` command, and the server's third-party
   runtime dependencies. `better-sqlite3` ships prebuilt binaries (Linux, macOS, Windows; x64 and
-  arm64), so no install script or compiler is needed. The command sets `GRIDCITY_PACKAGED=1`
+  arm64), so no install script or compiler is needed. If that binary cannot load (Windows
+  Application Control blocks unsigned DLLs), `storage/sqlite.ts` falls back to `node:sqlite`
+  (Node 22.16+); `GRIDCITY_SQLITE_DRIVER=node|better-sqlite3` forces one. The command sets `GRIDCITY_PACKAGED=1`
   (the app then never reads a `.env` from the folder it was started in), `PROJECT_NAME=GRIDCITY`
   and `LOG_LEVEL=warn`.
 - **Docker image**: Node 24 on Debian slim, non-root `node` user, volumes `/config` and

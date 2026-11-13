@@ -1,7 +1,7 @@
-import Database from 'better-sqlite3';
 import { stat } from 'node:fs/promises';
 import { expandHome } from '../config/app-paths';
 import type { ResourceConfigOf } from '../config/resources-file';
+import { openSqlite, type SqliteDatabase } from '../storage/sqlite';
 import {
   errorMessage,
   healthSample,
@@ -15,7 +15,7 @@ import {
 } from './connector';
 
 /**
- * SQLite files via `better-sqlite3`, opened read-only (never created) for a
+ * SQLite files (better-sqlite3, or node:sqlite where that is blocked), opened read-only (never created) for a
  * moment each poll so the app never holds a lock on your database. "Up"
  * means the file opens and reads as SQLite.
  */
@@ -27,11 +27,11 @@ export function createSqliteConnector(
   const resource = singleResource(config, 'SQLite', config.path);
 
   const poll = async (): Promise<PollOutcome[]> => {
-    let db: Database.Database | null = null;
+    let db: SqliteDatabase | null = null;
     try {
       const file = await stat(path);
       const wal = await stat(`${path}-wal`).catch(() => null);
-      db = new Database(path, { readonly: true, fileMustExist: true, timeout: 2000 });
+      db = openSqlite(path, { readonly: true, fileMustExist: true, timeout: 2000 });
       const pragma = (name: string) => num(db!.pragma(name, { simple: true }));
       const pageCount = pragma('page_count');
       const pageSize = pragma('page_size');

@@ -1,4 +1,3 @@
-import Database from 'better-sqlite3';
 import mssql from 'mssql';
 import mysql from 'mysql2/promise';
 import pg from 'pg';
@@ -20,6 +19,7 @@ import type {
 import type { ResourceConfigOf } from '../config/resources-file';
 import { expandHome } from '../config/app-paths';
 import { readPassword, tlsOptions, type ConnectorContext } from '../connectors/connector';
+import { openSqlite, type SqliteDatabase } from '../storage/sqlite';
 import { isRowStatement, readModeProblem, splitStatements } from './sql-text';
 import { fromJsonValue, toJsonValue } from './values';
 
@@ -1270,14 +1270,14 @@ function createSqliteEngine(
   mode: () => ManageMode,
 ): SqlEngine {
   const path = expandHome(config.path, context.homeDir);
-  let handle: { db: Database.Database; mode: ManageMode } | null = null;
+  let handle: { db: SqliteDatabase; mode: ManageMode } | null = null;
 
   /** read: a read-only file handle (writes fail in SQLite itself). write: read-write. */
-  const open = (): Database.Database => {
+  const open = (): SqliteDatabase => {
     const wanted = mode();
     if (handle && handle.mode === wanted) return handle.db;
     handle?.db.close();
-    const db = new Database(path, {
+    const db = openSqlite(path, {
       readonly: wanted === 'read',
       fileMustExist: true,
       timeout: 5000,
@@ -1292,7 +1292,13 @@ function createSqliteEngine(
     const statement = db.prepare(sql);
     if (!statement.reader) {
       const info = statement.run(...(params as never[]));
-      return { fields: [], rows: [], affected: info.changes, command: null, truncated: false };
+      return {
+        fields: [],
+        rows: [],
+        affected: Number(info.changes),
+        command: null,
+        truncated: false,
+      };
     }
     statement.raw(true);
     const fields = statement.columns().map((c) => ({ name: c.name, type: c.type }));

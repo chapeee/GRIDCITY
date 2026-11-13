@@ -26,7 +26,9 @@ same across restarts, so you can bookmark the link; `gridcity --new-token` repla
 out every browser.
 
 Nothing needs compiling: the only native module (SQLite) ships prebuilt binaries for Linux, macOS
-and Windows on x64 and arm64.
+and Windows on x64 and arm64. Where that module is blocked (Windows Smart App Control or
+Application Control, some antivirus), GRIDCITY uses the SQLite built into Node.js 22.16 or newer
+instead.
 
 See the [command reference](../reference/cli.md) for `gridcity doctor`, `gridcity mcp` and the
 options.

@@ -31,6 +31,7 @@ import { loadDistrictsFile } from './config/districts-file';
 import { loadRunbooksFile } from './config/runbooks-file';
 import { AlertCenter } from './alerts/alert-center';
 import { loadVaultKey, SecretVault } from './storage/secret-vault';
+import { sqliteDriver } from './storage/sqlite';
 
 import { registerRunbookRoutes } from './http/runbook-routes';
 import { registerDoctorRoutes } from './http/doctor-routes';
@@ -863,6 +864,12 @@ export async function startServer({
   });
 
   await app.listen({ host: env.HOST, port: env.SERVER_PORT });
+  const sqlite = sqliteDriver();
+  if (sqlite.nativeError) {
+    app.log.warn(
+      `better-sqlite3 could not load (${sqlite.nativeError}); using the SQLite built into Node.js`,
+    );
+  }
   audit.append('server_started', null, `${provider.dataMode} mode, ${provider.hosts.length} hosts`);
 
   return {
