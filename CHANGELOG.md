@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.3 · 2026-11-13
+
+- **Starts on Windows with Smart App Control / Application Control.** These block
+  better-sqlite3's unsigned native file, and `gridcity start` stopped with "The SQLite driver
+  (better-sqlite3) could not be loaded". GRIDCITY now falls back to the SQLite built into
+  Node.js 22.16 or newer, so there is nothing extra to load and nothing to block. Your data and
+  saved credentials stay where they were. The log says
+  `using the SQLite built into Node.js` when this happens.
+- **`npm i -g gridcity` no longer fails on Windows with Node 22** when Visual Studio is not
+  installed. npm 10 tried to compile better-sqlite3. It is now an optional dependency, and when
+  npm leaves it out GRIDCITY uses the built-in SQLite.
+- `GRIDCITY_SQLITE_DRIVER=node` or `better-sqlite3` picks the SQLite driver.
+- CI runs every test with both SQLite drivers on Linux, macOS and Windows, on Node 22.16 and 24.
+
 ## 0.4.2 · 2026-11-12
 
 - **Live demo on GitHub Pages**: <https://chapeee.github.io/GRIDCITY/demo/> runs the simulated
