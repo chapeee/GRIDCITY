@@ -27,3 +27,6 @@ compose.ssh.yaml
 
 # Attack lab keys (scripts/security-lab.mjs)
 /scripts/security-lab/.keys/
+
+# Demo videos and music made with OpenScreen (never pushed)
+/demo/
