@@ -16,6 +16,11 @@ files:
   - icon.png
   - package.json
   - node_modules/**/*
+  # About half of node_modules never runs: source maps, TypeScript types, docs.
+  - '!node_modules/**/*.{map,md,markdown,d.ts,d.mts,d.cts}'
+  - '!node_modules/**/{__tests__,__mocks__}/**'
+# Chromium's own UI strings: English only (the app's text is its own, in English).
+electronLanguages: [en-US]
 artifactName: GRIDCITY-${version}-${os}-${arch}.${ext}
 
 win:

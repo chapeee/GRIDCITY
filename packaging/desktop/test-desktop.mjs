@@ -12,11 +12,13 @@ import { closeSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync } fro
 import { createRequire } from 'node:module';
 import { DatabaseSync } from 'node:sqlite';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const stage = join(here, 'stage');
+// --app-dir <folder>: run that app folder (e.g. a build's resources/app) with Electron.
+const appDirIndex = process.argv.indexOf('--app-dir');
+const stage = appDirIndex > 0 ? resolve(process.argv[appDirIndex + 1]) : join(here, 'stage');
 const out = join(here, 'test-results');
 const appIndex = process.argv.indexOf('--app');
 const packaged = appIndex > 0 ? process.argv[appIndex + 1] : undefined;

@@ -35,8 +35,12 @@ jobs:
       version: ${{ needs.version.outputs.version }}
     secrets: inherit
 
+  # Publishes what was built even when one system failed (GitHub sometimes has no
+  # macOS runner to give): "Re-run failed jobs" then builds the missing system
+  # and this job adds its files to the same beta.
   beta-release:
     needs: [version, build]
+    if: ${{ !cancelled() && needs.version.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,9 +50,17 @@ jobs:
           pattern: desktop-[LWm]*
           path: downloads
           merge-multiple: true
-      - name: Checksums
+      - name: Checksums and missing systems
         working-directory: downloads
-        run: sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+        run: |
+          ls | grep -q . || { echo "::error::No system built: nothing to publish."; exit 1; }
+          sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+          missing=""
+          ls *.exe >/dev/null 2>&1 || missing="$missing Windows"
+          ls *.dmg >/dev/null 2>&1 || missing="$missing macOS"
+          ls *.AppImage >/dev/null 2>&1 || missing="$missing Linux"
+          echo "MISSING=${missing# }" >> "$GITHUB_ENV"
+          [ -z "$missing" ] || echo "::warning::Not built:$missing. Re-run the failed jobs to add them."
       - name: Publish the beta pre-release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -68,6 +80,13 @@ jobs:
           Smart App Control on, Windows blocks them; use \`npx gridcity-desktop\` there), and macOS
           needs **System Settings → Privacy & Security → Open Anyway** once.
           EOF
-          gh release create "$GITHUB_REF_NAME" downloads/* \
-            --prerelease --latest=false --verify-tag \
-            --title "GRIDCITY $VERSION (desktop beta)" --notes-file notes.md
+          [ -z "$MISSING" ] || printf '\n> Not in this beta yet: %s (its build did not run).\n' "$MISSING" >> notes.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            # A re-run: add the files that are new, replace the checksums, refresh the notes.
+            gh release upload "$GITHUB_REF_NAME" downloads/* --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" downloads/* \
+              --prerelease --latest=false --verify-tag \
+              --title "GRIDCITY $VERSION (desktop beta)" --notes-file notes.md
+          fi
