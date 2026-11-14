@@ -24,8 +24,8 @@ them becomes a building whose light tells the truth about it. Dive into any serv
 terminal, browse and edit a database or bucket, see **who is attacking what** with a red ring on
 the building, get alerts on your phone while the app is closed, rewind the whole city to last
 night's outage, and let Claude Code, Cursor or any MCP client ask "what is the root cause?" in one
-call, with **every command your AI wants to run waiting for your click**. Nothing leaves your
-machine: no cloud, no account, no telemetry.
+call, with **every command your AI wants to run waiting for your click**. Nothing about you or
+your servers leaves your machine: no cloud, no account, no telemetry.
 
 ## Quick start
 
@@ -222,7 +222,8 @@ Full reference: [MCP tools](https://chapeee.github.io/GRIDCITY/docs/reference/mc
   data that stopped arriving freezes and greys out with a "last seen" label. Replay is labelled
   REPLAY. Nothing is ever faked. See [docs/VISUAL_LANGUAGE.md](docs/VISUAL_LANGUAGE.md).
 - **Local first.** Runs on your machine, listens on `127.0.0.1` only, connects outward to your
-  servers. No cloud, no account, no telemetry, no CDNs.
+  servers. No cloud, no account, no telemetry, no CDNs. Once a day it asks GitHub whether a new
+  version is out (nothing is sent; off in Settings or with `GRIDCITY_UPDATE_CHECK=off`).
 - **Your secrets stay yours.** SSH uses your ssh-agent or a key file path; private keys and
   passphrases are never stored. Database passwords, access keys and the alert webhook you paste
   in the app are saved encrypted on your machine only (never in a config file, never in logs).

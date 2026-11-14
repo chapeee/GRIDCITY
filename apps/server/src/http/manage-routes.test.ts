@@ -61,7 +61,9 @@ describe('history, settings and edit routes', () => {
   });
 
   it('never returns more days than are kept', async () => {
-    const { app } = setup({ loadSettings: () => ({ historyRetentionDays: 3 }) });
+    const { app } = setup({
+      loadSettings: () => ({ historyRetentionDays: 3, checkForUpdates: true }),
+    });
     const body = (await app.inject({ url: '/api/history?days=30' })).json();
     expect(body.until - body.since).toBe(3 * 86_400_000);
   });
@@ -83,6 +85,20 @@ describe('history, settings and edit routes', () => {
       payload: { app: { historyRetentionDays: 500 } },
     });
     expect(bad.statusCode).toBe(422);
+  });
+
+  it('changes only the settings that were sent', async () => {
+    let stored = { historyRetentionDays: 7, checkForUpdates: false };
+    const { app } = setup({
+      loadSettings: () => stored,
+      saveSettings: (next) => (stored = next),
+    });
+    await app.inject({
+      method: 'PUT',
+      url: '/api/settings',
+      payload: { app: { historyRetentionDays: 14 } },
+    });
+    expect(stored).toEqual({ historyRetentionDays: 14, checkForUpdates: false });
   });
 
   it('edits and removes hosts, reporting file problems as 422', async () => {

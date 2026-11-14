@@ -81,6 +81,8 @@ import { LayoutStore } from './storage/layout-store';
 import { SampleHistory } from './storage/sample-history';
 import { AppSettingsStore } from './storage/app-settings';
 import { StatusEvents } from './storage/status-events';
+import { registerUpdateRoutes } from './http/update-routes';
+import { detectInstall, UpdateChecker, updateCheckLockedOff } from './updates/update-check';
 
 /** How often hosts.yaml is checked for changes (polling works on every platform and in Docker). */
 const HOSTS_FILE_POLL_MS = 2000;
@@ -492,6 +494,15 @@ export async function startServer({
     }),
   });
 
+  // "Is there a newer version?": one anonymous request to GitHub a day, off with a switch.
+  const updates = new UpdateChecker({
+    currentVersion: packageJson.version,
+    install: detectInstall(runningInContainer()),
+    enabled: () => appSettings.load().checkForUpdates,
+    // Tests never reach out to GitHub.
+    lockedOff: updateCheckLockedOff(process.env) || Boolean(process.env.VITEST),
+  });
+
   const app = await createApp({
     projectName: env.PROJECT_NAME,
     version: packageJson.version,
@@ -513,6 +524,13 @@ export async function startServer({
     }),
     registerRoutes: async (instance) => {
       await registerStateSocket(instance, hub);
+      registerUpdateRoutes(instance, {
+        updates,
+        setEnabled: (enabled) => {
+          appSettings.save({ ...appSettings.load(), checkForUpdates: enabled });
+          audit.append('settings_changed', null, `update check ${enabled ? 'on' : 'off'}`);
+        },
+      });
       registerMcpEndpoint(instance, {
         tools: fleetTools,
         serverName: mcpName,
@@ -873,6 +891,7 @@ export async function startServer({
     );
   }
   audit.append('server_started', null, `${provider.dataMode} mode, ${provider.hosts.length} hosts`);
+  updates.start();
 
   return {
     paths,
@@ -881,6 +900,7 @@ export async function startServer({
     resourceErrors,
     async stop() {
       clearInterval(pruneTimer);
+      updates.stop();
       unwatchFile(paths.hostsFile);
       unwatchFile(paths.resourcesFile);
       unwatchFile(paths.districtsFile);

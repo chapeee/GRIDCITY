@@ -630,6 +630,81 @@ button:disabled {
   gap: 12px;
 }
 
+/* A new version: calm, not an alert. Bottom left, above the shortcut hints. */
+.banner-update {
+  position: fixed;
+  left: 16px;
+  bottom: 40px;
+  z-index: 6;
+  width: min(460px, calc(100vw - 32px));
+  border-color: var(--color-online);
+  font-size: 13px;
+}
+
+.banner-update p {
+  margin: 0;
+}
+
+.banner-update strong {
+  color: var(--color-online);
+}
+
+.update-actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.update-actions a {
+  color: var(--color-online);
+}
+
+.update-steps {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.update-steps p {
+  margin: 0;
+}
+
+.update-steps code {
+  justify-self: start;
+  padding: 4px 8px;
+  color: var(--color-text-bright);
+  background: rgba(143, 227, 255, 0.06);
+  user-select: all;
+}
+
+.settings-updates {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-updates .settings-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-text);
+}
+
+@media (max-width: 600px) {
+  /* The toolbar sits at the bottom on phones: stay above it. */
+  .banner-update {
+    bottom: 64px;
+  }
+
+  .banner-update .banner-row {
+    flex-wrap: wrap;
+  }
+}
+
 .banner-details {
   margin: 8px 0 0;
   white-space: pre-wrap;
@@ -3153,6 +3228,13 @@ button:disabled {
   font-size: 12px;
 }
 
+/* Narrower windows: the mark alone, so the fleet counts on the left stay clear. */
+@media (max-width: 1280px) {
+  .toolbar-star .toolbar-label {
+    display: none;
+  }
+}
+
 .toolbar-star .github-mark {
   fill: currentColor;
   flex: none;
@@ -3238,8 +3320,16 @@ button:disabled {
 }
 
 @media (max-width: 900px) {
-  .toolbar-label,
-  .fleet-pulse-word {
+  .toolbar-label {
+    display: none;
+  }
+}
+
+/* Counts only ("3 · 8 · 50") and short badges, so nothing runs under the toolbar. */
+@media (max-width: 1280px) {
+  .fleet-pulse-word,
+  .demo-badge small,
+  .ambient-badge small {
     display: none;
   }
 }

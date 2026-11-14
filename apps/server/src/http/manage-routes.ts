@@ -120,7 +120,13 @@ export function registerManageRoutes(app: FastifyInstance, deps: ManageDependenc
     }
     try {
       if (body.data.app) {
-        const saved = deps.saveSettings({ ...deps.loadSettings(), ...body.data.app });
+        // Only the fields that were sent: a partial schema still fills in defaults
+        // (checkForUpdates: true), which would undo a switch turned off elsewhere.
+        const sent = Object.keys((request.body as { app?: object }).app ?? {});
+        const patch = Object.fromEntries(
+          Object.entries(body.data.app).filter(([key]) => sent.includes(key)),
+        );
+        const saved = deps.saveSettings({ ...deps.loadSettings(), ...patch });
         deps.audit.append(
           'settings_changed',
           null,

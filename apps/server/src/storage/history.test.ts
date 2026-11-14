@@ -111,9 +111,11 @@ describe('app settings', () => {
   it('defaults to 7 days of history and validates saves', () => {
     const store = new AppSettingsStore(openDatabase(':memory:'));
     expect(store.load().historyRetentionDays).toBe(7);
-    expect(store.save({ historyRetentionDays: 30 }).historyRetentionDays).toBe(30);
+    expect(
+      store.save({ historyRetentionDays: 30, checkForUpdates: true }).historyRetentionDays,
+    ).toBe(30);
     expect(store.load().historyRetentionDays).toBe(30);
-    expect(() => store.save({ historyRetentionDays: 400 })).toThrow();
+    expect(() => store.save({ historyRetentionDays: 400, checkForUpdates: true })).toThrow();
   });
 });
 

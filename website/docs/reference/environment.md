@@ -20,6 +20,7 @@ exist for scripted setups and Docker.
 | `SECRETS_KEY`                                           | generated `vault.key`         | base64 32-byte key for stored credentials (`openssl rand -base64 32`) |
 | `ALERT_WEBHOOK_URL`                                     | none                          | adds a read-only webhook alert channel                                |
 | `LOG_LEVEL`                                             | `warn` (npm), `info` (source) | `fatal` … `trace`                                                     |
+| `GRIDCITY_UPDATE_CHECK`                                 | on                            | `off` never asks GitHub for new versions (Settings cannot turn it on) |
 | `PROJECT_NAME`                                          | `GRIDCITY`                    | display name and folder names                                         |
 | `HOST`                                                  | `127.0.0.1`                   | bind address; anything but loopback is refused (outside Docker)       |
 | `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` | none                          | API-key sign-in for agents started in the app                         |

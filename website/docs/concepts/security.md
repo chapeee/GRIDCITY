@@ -17,7 +17,9 @@ built to be boring about it.
 - Every write and WebSocket needs an allowed **Origin** (this machine). The only exception is the
   MCP endpoint called by a local program with the token as a Bearer header.
 - `/healthz` is the only route without the token, and it answers `{"ok":true}` and nothing else.
-- No CORS, no CDN, no telemetry, no account.
+- No CORS, no CDN, no telemetry, no account. The only request that isn't to your own servers is
+  the daily update check to GitHub's public releases page, with nothing about you in it (off in
+  Settings → Updates or with `GRIDCITY_UPDATE_CHECK=off`).
 
 ## SSH
 
