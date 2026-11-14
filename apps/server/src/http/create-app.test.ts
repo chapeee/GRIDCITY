@@ -24,6 +24,27 @@ describe('session guard', () => {
     await app.close();
   });
 
+  it('shows a person without a key a page to paste the link, never echoing it', async () => {
+    const page = await app.inject({ url: '/', headers: { accept: 'text/html' } });
+    expect(page.statusCode).toBe(401);
+    expect(page.headers['content-type']).toMatch(/text\/html/);
+    expect(page.body).toMatch(/Open .* with its link/);
+    const wrong = await app.inject({
+      url: '/?link=%3Cscript%3Ex%3C%2Fscript%3E',
+      headers: { accept: 'text/html' },
+    });
+    expect(wrong.body).toMatch(/does not belong to this GRIDCITY/);
+    expect(wrong.body).not.toContain('<script>x');
+  });
+
+  it('accepts a pasted link, remembers it for 400 days and drops it from the address', async () => {
+    const link = encodeURIComponent(`http://127.0.0.1:${port}/?token=${sessionToken}`);
+    const response = await app.inject({ url: `/?link=${link}`, headers: { accept: 'text/html' } });
+    expect(response.statusCode).toBe(302);
+    expect(response.headers.location).toBe('/');
+    expect(String(response.headers['set-cookie'])).toContain(`Max-Age=${400 * 24 * 60 * 60}`);
+  });
+
   it('rejects requests without a token', async () => {
     const response = await app.inject({ url: '/api/meta' });
     expect(response.statusCode).toBe(401);

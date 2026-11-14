@@ -18,8 +18,62 @@ import {
   tokensMatch,
 } from '../security/session-token';
 
-/** The token survives restarts, so the cookie may too: 30 days. */
-const COOKIE_MAX_AGE_S = 30 * 24 * 60 * 60;
+/**
+ * The token never changes unless the user asks (--new-token), so the cookie
+ * lives as long as browsers allow (400 days) and is renewed on every page load:
+ * a browser that keeps using GRIDCITY never has to open the link again.
+ */
+const COOKIE_MAX_AGE_S = 400 * 24 * 60 * 60;
+
+/** Query field of the "paste your link" form on the page shown without a key. */
+const LINK_QUERY_PARAM = 'link';
+
+/** The token in a pasted link ("http://127.0.0.1:4600/?token=…") or a bare token. */
+export function tokenFromLink(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const text = value.trim();
+  if (/^[A-Za-z0-9_-]{16,128}$/.test(text)) return text;
+  try {
+    return new URL(text, 'http://127.0.0.1/').searchParams.get(TOKEN_QUERY_PARAM) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * What a browser sees without a valid key: why, where the link is, and a box
+ * to paste it. Static text: nothing the visitor sent is ever echoed back.
+ */
+function noKeyPage(projectName: string, wrongLink: boolean): string {
+  const name = projectName.replace(/[<>&"]/g, '');
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${name}: open your link</title>
+<style>
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#050708;color:#cfe9f2;font:15px/1.5 system-ui,sans-serif}
+  main{max-width:560px;padding:24px}
+  h1{font-size:20px;color:#8fe3ff;margin:0 0 12px}
+  code{background:#0d1418;padding:1px 6px;border-radius:3px;color:#8fe3ff}
+  form{display:flex;gap:8px;margin:18px 0 8px}
+  input{flex:1;padding:9px 10px;background:#0d1418;color:#e6f6fb;border:1px solid #1f4250;border-radius:4px;font:inherit}
+  button{padding:9px 14px;background:#00e5ff;color:#02181d;border:0;border-radius:4px;font:inherit;font-weight:600;cursor:pointer}
+  .wrong{color:#ffb86b}
+  .small{color:#7f9aa5;font-size:13px}
+</style></head>
+<body><main>
+  <h1>Open ${name} with its link</h1>
+  <p>${name} only answers this computer, and only with the key in its link, so other websites
+  you visit cannot reach your servers through it.</p>
+  ${wrongLink ? '<p class="wrong">That link does not belong to this GRIDCITY: it has its own key. Was it started elsewhere (Docker, another folder)?</p>' : ''}
+  <form method="get" action="/">
+    <input name="${LINK_QUERY_PARAM}" placeholder="http://127.0.0.1:4600/?token=…" autocomplete="off" autofocus aria-label="Your ${name} link">
+    <button type="submit">Open</button>
+  </form>
+  <p class="small">Where is the link? <code>gridcity status</code> prints it, Docker prints it in
+  <code>docker logs gridcity</code>, and the desktop app opens it for you. This browser then
+  remembers it.</p>
+</main></body></html>`;
+}
 
 export interface CreateAppOptions {
   projectName: string;
@@ -61,6 +115,7 @@ export async function createApp(options: CreateAppOptions): Promise<FastifyInsta
 
   registerSecurityGuard(
     app,
+    options.projectName,
     options.sessionToken,
     options.port,
     options.allowedOrigins,
@@ -123,6 +178,7 @@ function withTokenRedaction(logger: LoggerOptions): LoggerOptions {
  */
 function registerSecurityGuard(
   app: FastifyInstance,
+  projectName: string,
   sessionToken: string,
   port: number,
   allowedOrigins: ReadonlySet<string>,
@@ -140,11 +196,32 @@ function registerSecurityGuard(
     if (request.method === 'GET' && request.url === '/healthz') return;
 
     const query = request.query as Record<string, unknown> | undefined;
-    const queryToken = query?.[TOKEN_QUERY_PARAM];
+    // A link pasted into the page shown without a key (GET only: it is a navigation).
+    const pastedLink = request.method === 'GET' && query?.[LINK_QUERY_PARAM] !== undefined;
+    const queryToken = pastedLink
+      ? tokenFromLink(query?.[LINK_QUERY_PARAM])
+      : query?.[TOKEN_QUERY_PARAM];
     const hasQueryToken = typeof queryToken === 'string' && tokensMatch(sessionToken, queryToken);
     const bearer = readBearerToken(request.headers.authorization);
-    const presented = bearer ?? readCookie(request.headers.cookie, cookieName);
+    const cookieToken = readCookie(request.headers.cookie, cookieName);
+    const presented = bearer ?? cookieToken;
+    const pageLoad =
+      request.method === 'GET' &&
+      !isUpgrade(request) &&
+      /text\/html/.test(request.headers.accept ?? '');
     if (!hasQueryToken && !tokensMatch(sessionToken, presented)) {
+      // A person opening the page gets an explanation and a place to paste the link.
+      if (pageLoad) {
+        return reply
+          .code(401)
+          .type('text/html; charset=utf-8')
+          .header('cache-control', 'no-store')
+          .header(
+            'content-security-policy',
+            "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          )
+          .send(noKeyPage(projectName, pastedLink));
+      }
       return reply.code(401).send({
         error: 'Missing or invalid session token. Open the URL printed in the server console.',
       });
@@ -166,12 +243,19 @@ function registerSecurityGuard(
       return reply.code(403).send({ error: 'Origin not allowed.' });
     }
 
-    if (hasQueryToken) {
-      // Remember the session so assets and API calls work without the query string.
+    const rememberSession = () =>
       reply.header(
         'set-cookie',
         `${cookieName}=${sessionToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${COOKIE_MAX_AGE_S}`,
       );
+    if (hasQueryToken) {
+      // Remember the session so assets and API calls work without the query string.
+      rememberSession();
+      // A pasted link: continue at the city, without the link in the address bar.
+      if (pastedLink) return reply.redirect('/', 302);
+    } else if (pageLoad && cookieToken !== undefined && bearer === undefined) {
+      // Every page load renews the cookie: a browser in use never needs the link again.
+      rememberSession();
     }
   };
 
