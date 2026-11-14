@@ -10,6 +10,7 @@ import { useUiStore } from './ui-store';
 /** Stroke icons, 16 px, drawn in currentColor. */
 const ICONS: Record<string, ReactNode> = {
   plus: <path d="M8 3v10M3 8h10" />,
+  backup: <path d="M2 3h12v2.5H2zM2.8 5.5v8h10.4v-8M8 7.5v4M6.3 9.8 8 11.5l1.7-1.7" />,
   doctor: <path d="M2 8h3l1.5-3 3 6L11 8h3" />,
   rewind: (
     <>
@@ -121,6 +122,7 @@ export function TopToolbar() {
       upcoming: store.upcomingOpen,
       logs: store.logsOpen,
       costs: store.costsOpen,
+      backups: store.backupTab !== null,
       connect: store.connectResourceOpen,
       terminal: store.terminal !== null,
     })),
@@ -202,6 +204,13 @@ export function TopToolbar() {
         >
           {upkeep > 0 && <span className="toolbar-count">{upkeep}</span>}
         </ToolButton>
+        <ToolButton
+          icon="backup"
+          label="Backups and restore"
+          shortcut="B"
+          active={ui.backups}
+          onClick={() => close().openBackups(ui.backups ? null : 'dashboard')}
+        />
         <ToolButton
           icon="coin"
           label="Cloud costs"

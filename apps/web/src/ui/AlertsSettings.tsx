@@ -29,6 +29,7 @@ const EVENT_LABELS: [keyof AlertEvents, string][] = [
   ['degraded', 'Degraded'],
   ['recovered', 'Recovered'],
   ['security', 'Attacks'],
+  ['backups', 'Backups'],
 ];
 
 function ago(at: number | null): string {

@@ -65,7 +65,8 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
       switch (event.key) {
         case 'Escape':
           // Innermost first: panels, then ambient mode, then focus.
-          if (ui.incident) ui.openIncident(null);
+          if (ui.backupTab !== null) ui.openBackups(null);
+          else if (ui.incident) ui.openIncident(null);
           else if (useReplayStore.getState().active && !ui.focusedHostId)
             useReplayStore.getState().close();
           else if (ui.doctorTarget !== undefined) ui.openDoctor(undefined);
@@ -80,6 +81,12 @@ export function useGlobalShortcuts({ navigationOrder, onJackIn }: ShortcutOption
           else if (ui.ambientMode) ui.setAmbientMode(false);
           else if (ui.focusedHostId) ui.focusHost(null);
           else if (ui.focusedDistrict) ui.focusDistrict(null);
+          break;
+        case 'b':
+        case 'B':
+          // Backups and restore.
+          if (event.ctrlKey || event.metaKey || event.altKey) return;
+          ui.openBackups(ui.backupTab !== null ? null : 'dashboard');
           break;
         case 'c':
         case 'C':

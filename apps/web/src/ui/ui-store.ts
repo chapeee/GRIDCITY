@@ -8,6 +8,9 @@ const NOTIFICATIONS_KEY = 'preferences:desktop-notifications';
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
+export type BackupTab =
+  'dashboard' | 'discover' | 'jobs' | 'history' | 'destinations' | 'restore' | 'notifications';
+
 /** A short message shown at the bottom of the screen. */
 export interface Notice {
   id: number;
@@ -54,6 +57,8 @@ interface UiStore {
   logsOpen: boolean;
   /** Cloud costs. */
   costsOpen: boolean;
+  /** The Backup Center (full screen): null = closed, otherwise the tab. */
+  backupTab: BackupTab | null;
   /** The incident timeline: what happened around a moment (optionally for one building). */
   incident: { at: number; targetId: string | null } | null;
   /** The host being edited (rename, district, thresholds), or null. */
@@ -107,6 +112,7 @@ interface UiStore {
   setUpcomingOpen(open: boolean): void;
   setLogsOpen(open: boolean): void;
   setCostsOpen(open: boolean): void;
+  openBackups(tab: BackupTab | null): void;
   openIncident(incident: { at: number; targetId: string | null } | null): void;
   setEditHostId(hostId: string | null): void;
   setConnectResourceOpen(open: boolean): void;
@@ -175,6 +181,7 @@ export const useUiStore = create<UiStore>()((set, get) => ({
   upcomingOpen: false,
   logsOpen: false,
   costsOpen: false,
+  backupTab: null,
   incident: null,
   editHostId: null,
   connectResourceOpen: false,
@@ -244,6 +251,7 @@ export const useUiStore = create<UiStore>()((set, get) => ({
     set(open ? { ...SIDE_PANELS_CLOSED, upcomingOpen: true } : { upcomingOpen: false }),
   setLogsOpen: (open) =>
     set(open ? { ...SIDE_PANELS_CLOSED, logsOpen: true } : { logsOpen: false }),
+  openBackups: (tab) => set({ backupTab: tab, paletteOpen: false }),
   setCostsOpen: (open) =>
     set(open ? { ...SIDE_PANELS_CLOSED, costsOpen: true } : { costsOpen: false }),
   openIncident: (incident) =>

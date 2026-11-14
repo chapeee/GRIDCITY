@@ -17,6 +17,7 @@ import { useAlerts } from './ui/use-alerts';
 import { EditHostDialog } from './ui/EditHostDialog';
 import { ConnectResourceDialog } from './ui/ConnectResourceDialog';
 import { ManagePanel } from './ui/manage/ManagePanel';
+import { BackupCenter } from './ui/backup/BackupCenter';
 import { EditResourceDialog } from './ui/EditResourceDialog';
 import { HistoryPanel } from './ui/HistoryPanel';
 import { TopToolbar } from './ui/TopToolbar';
@@ -111,6 +112,7 @@ export function App() {
       <EditHostDialog />
       <ConnectResourceDialog />
       <ManagePanel />
+      <BackupCenter />
       <EditResourceDialog />
       <AgentPanel />
       <AddHostDialog />
