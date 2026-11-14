@@ -27,6 +27,11 @@ ntfy and real databases in Docker.
   "environment variable … is not set". It is now used for that one test and never saved.
 - A backup that is too small shows as "this week" in Upcoming, with the reason, not "this month".
 - No Node.js warning about TLS server names when a probe checks an IP address.
+- **Adding or editing several things at once keeps all of them.** Two changes to `hosts.yaml` or
+  `resources.yaml` at the same moment (two tabs, a quick double add, an import while editing) could
+  lose one, although both said "added", or corrupt the file so that nothing loaded after a
+  restart. Changes now go one at a time and the file is replaced in one step.
+- Esc closes Search logs (L) while the cursor is in its search box.
 
 Security, from a second pass that attacked the app:
 

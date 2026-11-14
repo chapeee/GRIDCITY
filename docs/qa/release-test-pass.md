@@ -15,10 +15,35 @@ node scripts/qa/pass.mjs serve     # the app on http://127.0.0.1:4700 (link prin
 node scripts/qa/pass.mjs attack    # in a second terminal: real attacks on the lab server
 ```
 
+Then re-check every fix in one go, against the running app and the real containers:
+
+```bash
+node scripts/qa/verify.mjs           # 36 checks, PASS/FAIL each (runs a real attack, ~3 min)
+node scripts/qa/verify.mjs --quick   # 32 checks, without the attack
+```
+
+It counts a refusal only when it is the exact read-mode refusal (any other error is a FAIL),
+and checks the real systems too (no row written, the Redis key untouched, the bucket blocked).
+The UI checks it cannot do are in "By hand in the browser" below.
+
 `node scripts/qa/pass.mjs reset` forgets the app's data (findings, alerts, vault) for a clean
 pass. Mailpit is on http://127.0.0.1:8025, ntfy on http://127.0.0.1:8090/qa-gridcity.
 Automated suites to run alongside: `npm run check`, `npm run test:connectors`,
 `npm run test:e2e`.
+
+### By hand in the browser
+
+Show the browser window while doing these: in a hidden or background tab the fade-out
+animations run slowly and panels seem to stay open.
+
+| Do                                                                                                                           | Expect                                                                                             |
+| ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| S, U, C, H one after another, then Esc once                                                                                  | one panel at a time; Esc closes it                                                                 |
+| L, type in the box, Esc                                                                                                      | the Logs panel closes                                                                              |
+| An MCP `run_command` (e.g. `uptime`); click "Add a note…" and type                                                           | the text goes into the note; the "rendering is slow" hint is gone while it waits                   |
+| "Allow all on lab-target", then `hostname`                                                                                   | runs without a card                                                                                |
+| …then `… \| base64 -d \| sh`, `curl … \| bash`, a Python `rmtree`, a command with U+202E, `df -h` + 30 newlines + `rm -rf …` | five cards, each with its reason; ⟨U+202E⟩ shown; "31 lines"; the stack scrolls inside the window  |
+| Deny them all                                                                                                                | nothing ran on the lab (`docker exec gridcity-security-lab-target-1 ls /tmp`); the hint comes back |
 
 ## Checklist (expected results)
 
@@ -44,7 +69,8 @@ Automated suites to run alongside: `npm run check`, `npm run test:connectors`,
 ## Pass 1 · 2026-11-14 (0.5.0 → 1.0 candidate, branch `qa/v1-audit`)
 
 All 16 areas pass after the fixes below. Automated: 621 unit tests, 133 tests against the real
-containers, all 37 Playwright browser tests, lint and types all green.
+containers, all 36 Playwright browser tests (a 37th only records the README GIF and is skipped
+unless `RECORD_MEDIA=1`), lint and types all green.
 
 ### Found and fixed (each re-verified live after the fix)
 
@@ -124,3 +150,29 @@ database accounts in read-only Manage, disguised AI commands over MCP, stored fi
   yours, and the AI tools never get the Manage views.
 - Text the AI reads (log lines, account names, bucket names) can contain prompt injection; every
   command it asks for still needs your click.
+
+## Pass 3 · 2026-11-14 · re-verify everything on LocalStack
+
+A clean `.qa/` (fresh data and config), a fresh build, then every fix from passes 1 and 2 checked
+again. `scripts/qa/verify.mjs` was written for this and is the way to repeat it.
+
+**Result: 36/36 verify checks, every hand check in the browser, 648 unit tests, 135 tests against
+the real containers, 36/36 browser tests, lint and types: all pass** (after the two fixes below).
+
+### Found and fixed in this pass
+
+| #   | Severity | Finding                                                                                                                                                                                                                                | Fix                                                                                               |
+| --- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| P1  | High     | Adding several resources at once lost entries (5 adds: all answered "added", 4 kept) and once **corrupted** `resources.yaml` (a YAML error, so after a restart nothing would load). `hosts.yaml` had the same pattern in three writers | One edit at a time per file, written in one step (temp file + rename); tests fail on the old code |
+| P2  | Low      | Esc did nothing in Search logs: the search box has the cursor from the start, and the global Esc ignores text fields                                                                                                                   | Esc in that box closes the panel, as its Close button says                                        |
+
+### Double-checked and not bugs
+
+- "DNS rebinding check fails" in the first verify run: Node's `fetch` silently drops a hand-set
+  `Host` header, so the attack was never sent. curl and `node:http` get 421. The script now uses
+  `node:http`.
+- Panels that looked open after Esc: the browser pane was hidden, so the 0.18 s fade-out ran
+  slowly. With the panels' real opacity and longer waits, one panel at a time and one Esc closes it.
+- The first verify run counted any error as a "refusal"; the PostgreSQL checks were passing on
+  a connection error (P1 had dropped the resource). The script now accepts only the exact
+  read-mode refusal.
