@@ -191,6 +191,35 @@ travels in `HostState` (null while offline), the rest feeds the topology. Fixtur
   minute (offline always), fire and forget; the hub's `onTransition` is the only caller.
   Audit: `alert_sent`.
 
+### Backups & Restore (`backup/`, v1.2)
+
+Full guide: [BACKUPS.md](BACKUPS.md). Real data only; demo mode shows an empty Backup Center.
+
+```
+ source adapter ──stdout──▶ count ─▶ gzip/zstd ─▶ AES-256-GCM ─▶ SHA-256 ─▶ staging file
+ (pg_dump, tar, DUMP…)                                                          │
+                                         ┌──────────────┬──────────────┬──────┘ in parallel
+                                     local folder     S3 (multipart)   SFTP (existing SSH)
+                                   .partial → rename  manifest.json    sha256sum read-back
+```
+
+| File                      | Role                                                                                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `engine.ts`               | Jobs, runs, plan (full / incremental / differential), upload fan-out, verify, retention, restore chains, scheduler, recovery after a crash        |
+| `runner.ts`               | `LocalRunner` (child process) and `SshRunner` (exec on the existing `HostConnection`); secrets via env / a 0600 file, never argv; Docker wrapping |
+| `sources/*.ts`            | One `SourceAdapter` per kind (validate, targetLabel, backup → stream, restore ← stream, check)                                                    |
+| `destinations.ts`         | `DestinationAdapter` for local, S3 (`@aws-sdk/lib-storage`) and SFTP (`ssh2` SFTP on the host connection); browsing                               |
+| `streams.ts`              | Encryption format, compression, SHA-256 meter, rate tracker                                                                                       |
+| `store.ts`                | SQLite tables (migration 5): destinations, jobs, runs, per-destination targets, restores, logs, notifications                                     |
+| `cron.ts`, `retention.ts` | Pure, tested                                                                                                                                      |
+| `discovery.ts`            | resources.yaml databases + `docker ps` / `docker volume ls` / folders on every runner                                                             |
+| `routes.ts`               | `/api/backup/*` and the `/api/backup/events` SSE stream                                                                                           |
+
+Secrets: job passphrases and Firebird/custom passwords live in the vault (`backup.job.<id>.*`);
+database, bucket and SSH credentials are never copied, they are read from their existing
+configuration at run time. Notifications go through `AlertCenter.notifyBackup` (the `backups`
+event of each channel).
+
 ### The Doctor (`doctor/`)
 
 Turns a failed connection into a root cause and proven fixes. Shared by the connect dialog

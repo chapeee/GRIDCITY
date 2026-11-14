@@ -1,6 +1,46 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 · 2026-11-15
+
+**Backups & Restore.** GRIDCITY now backs up and restores what you already connected, with the
+logins it already has: no second set of credentials. Open it with **B** or **Backups** at the top
+right. Updating keeps all your data; the database gains new tables only (and is copied to
+`backups/` first, as every update does).
+
+- **Back up** PostgreSQL (`pg_dump`), MySQL / MariaDB (`mysqldump`), MongoDB (`mongodump`, or
+  GRIDCITY's own driver export), Redis / Valkey (`DUMP` of every key with its TTL), SQLite
+  (`VACUUM INTO`, or `sqlite3 .backup` on a server), SQL Server (`BACKUP DATABASE` with checksum and
+  `RESTORE VERIFYONLY`), Firebird (`gbak`), Docker volumes and containers, files and folders, and
+  any command of your own. Tools run in a temporary Docker container, inside the database's
+  container, installed on a server, or inside GRIDCITY; passwords never appear in a command line.
+- **Discover** what to back up: connected databases, plus Docker containers (databases recognised
+  by image), volumes and common folders on this machine and every connected server.
+- **Store** on local folders, S3 / S3-compatible storage (your connected accounts) and SFTP (any
+  connected server). Browse folders and buckets, create folders, test, name destinations, use
+  several per job, and add a new one without leaving the job. Every upload is tracked on its own,
+  written as `.partial` (or a multipart upload) until complete, and checked by size and SHA-256.
+- **Full, incremental and differential** backups (files; differential for SQL Server), gzip or
+  zstd, optional AES-256-GCM encryption with your passphrase, a manifest next to every backup.
+- **Schedules** (cron, server time; a run missed while closed runs at the next start) and
+  **retention** (last N, daily, weekly, monthly, by age). Nothing is deleted without a rule, chains
+  stay restorable, and only files GRIDCITY recorded are removed.
+- **Restore** to the original place or another server, database, folder or volume. Every file of
+  the chain is downloaded, checked, decrypted and decompressed before anything is written; you
+  confirm by typing the target's name; a check runs afterwards. SQLite keeps the previous file;
+  containers come back as a new image.
+- **Live progress** over Server-Sent Events: percentages only where they are measurable (a moving
+  bar otherwise), speed, time left, per destination, live logs. Dashboard with backup health,
+  active jobs, success and failure counts, storage per destination, upcoming runs and activity.
+- **Notifications** in the app and on your alert channels: a new **Backups** event on every
+  channel (on by default) for failures, storage errors, successes and finished restores.
+- **Safe by default**: interrupted backups are marked and cleaned up at the next start, removing a
+  job keeps its backups, a destination in use cannot be removed and removing one deletes no files,
+  every change is in the audit log. Verify any backup on demand (download, SHA-256, decrypt).
+- Tested against real PostgreSQL, MySQL, MongoDB, Redis, SQL Server, Firebird, Docker, an SSH/SFTP
+  server and MinIO: every source backed up and restored somewhere else, and the data checked
+  (`backup.integration.test.ts`). Full guide: [docs/BACKUPS.md](docs/BACKUPS.md).
+
+Also in this release:
 
 - **GRIDCITY tells you when a new version is out.** Once a day the app asks GitHub's public
   releases page for the latest version. When yours is older, a notice at the bottom left says so,

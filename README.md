@@ -553,6 +553,36 @@ Try it on purpose: `node scripts/security-lab.mjs up` starts a lab server with C
 Fail2ban and two attackers on a private Docker network; `attack` runs real brute force, password
 guessing and backdoor accounts against it.
 
+## Backups & Restore
+
+The Backup Center (**B**, or **Backups** at the top right) backs up what you already connected,
+with the logins GRIDCITY already has: PostgreSQL, MySQL / MariaDB, MongoDB, Redis / Valkey,
+SQLite, SQL Server, Firebird, Docker volumes and containers, files and folders, or any command
+of your own. **Discover** lists the databases, containers, volumes and folders on this machine
+and every connected server; pick one and the job is filled in.
+
+- **Destinations**: local folders, S3 and S3-compatible storage (your connected storage
+  accounts), and SFTP (any connected server). Browse folders and buckets, create folders, test
+  before saving, send one backup to several places. Each upload is tracked on its own.
+- **Native tools**: `pg_dump`, `mysqldump`, `mongodump`, Redis `DUMP`, `VACUUM INTO`,
+  `BACKUP DATABASE`, `gbak`, `tar`, run in a temporary Docker container, inside the database's
+  container, installed on a server, or by GRIDCITY itself. Passwords never appear in a command line.
+- **Incremental and differential** for files, **differential** for SQL Server; gzip or zstd;
+  optional AES-256-GCM encryption with your passphrase; SHA-256 of every file, checked again after
+  each upload; a manifest next to every backup.
+- **Schedules** (cron) and **retention** (last N, daily, weekly, monthly, by age; nothing is ever
+  deleted without a rule), history, automatic cleanup.
+- **Restore** to the original place or somewhere else (another server, database name, folder or
+  volume). Every file of the chain is downloaded and proven intact before anything is changed,
+  and you confirm by typing the target's name.
+- **Live progress**: percentages only where they are real, speed, time left, per destination,
+  with the log streaming next to it. **Notifications** in the app and on your alert channels
+  (email, chat, ntfy…) for failures, storage errors, successes and restores.
+- Interrupted backups are cleaned up on the next start; finished backups and your files are never
+  touched by updates.
+
+Details, file format and how to decrypt by hand: [docs/BACKUPS.md](docs/BACKUPS.md).
+
 ## Upcoming: expiry dates, full disks, late backups
 
 The Upcoming panel (**U**) lists everything dated, soonest first, with alerts 30, 7 and 1 days
@@ -775,7 +805,7 @@ Code and config read `PROJECT_NAME` and never hardcode the name. Package names a
 ```
 .
 ├── apps/
-│   ├── server/          # Fastify server: SSH, metrics, state hub, terminals (loopback only)
+│   ├── server/          # Fastify server: SSH, metrics, state hub, terminals, backups (loopback only)
 │   └── web/             # Vite + React + three.js client; design tokens in src/design/tokens.ts
 ├── packages/
 │   └── shared/          # Zod schemas, protocols, status rules, demo fleet
