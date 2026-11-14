@@ -65,6 +65,7 @@ export class AgentHub {
         return gate.decide(message.approvalId, message.decision, {
           note: message.note,
           answer: message.answer,
+          remember: message.remember,
         });
       case 'untrust':
         return gate.untrust(message.hostId);

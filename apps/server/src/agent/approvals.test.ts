@@ -92,9 +92,14 @@ describe('ApprovalGate on a trusted server', () => {
     input: sudoInput,
     sudoPassword: true,
   });
-  const trust = async (gate: ApprovalGate, request: ApprovalRequest, answer?: string) => {
+  const trust = async (
+    gate: ApprovalGate,
+    request: ApprovalRequest,
+    answer?: string,
+    remember = true,
+  ) => {
     const outcome = gate.request(request);
-    gate.decide(gate.approvals[0]!.id, 'allow-host', { answer });
+    gate.decide(gate.approvals[0]!.id, 'allow-host', { answer, remember });
     return outcome;
   };
 
@@ -112,7 +117,40 @@ describe('ApprovalGate on a trusted server', () => {
     await expect(outcome).resolves.toMatchObject({ allowed: true, by: 'you' });
   });
 
-  it('remembers the sudo password given with allow all, for that server only', async () => {
+  it('keeps the sudo password only for this command when not saved', async () => {
+    const gate = new ApprovalGate();
+    await expect(trust(gate, sudo(), 'hunter2', false)).resolves.toMatchObject({
+      answer: 'hunter2',
+    });
+    void gate.request(sudo('sudo systemctl restart nginx'));
+    expect(gate.approvals).toHaveLength(1);
+    expect(gate.approvals[0]).toMatchObject({ sudo: true, sudoSavedUntil: null });
+  });
+
+  it('fills cards that still ask with the saved password, for one hour', async () => {
+    let now = 1_000;
+    const gate = new ApprovalGate({ now: () => now });
+    await trust(gate, sudo(), 'hunter2');
+
+    // A destructive command still asks, but nothing has to be typed.
+    const outcome = gate.request({ ...sudo('sudo rm -rf /srv/old'), risk: 'deletes files' });
+    expect(gate.approvals[0]).toMatchObject({ sudo: true, sudoSavedUntil: 1_000 + 3_600_000 });
+    gate.decide(gate.approvals[0]!.id, 'allow');
+    await expect(outcome).resolves.toMatchObject({ by: 'you', answer: 'hunter2' });
+
+    // A different password typed on the card wins.
+    const typed = gate.request({ ...sudo('sudo rm -rf /srv/old'), risk: 'deletes files' });
+    gate.decide(gate.approvals[0]!.id, 'allow', { answer: 'other' });
+    await expect(typed).resolves.toMatchObject({ answer: 'other' });
+
+    // After the hour it is gone.
+    now += 3_600_000;
+    void gate.request(sudo());
+    expect(gate.approvals).toHaveLength(1);
+    expect(gate.approvals[0]).toMatchObject({ sudoSavedUntil: null });
+  });
+
+  it('remembers the sudo password saved with allow all, for that server only', async () => {
     const gate = new ApprovalGate();
     await expect(trust(gate, sudo(), 'hunter2')).resolves.toMatchObject({ answer: 'hunter2' });
 
@@ -135,7 +173,7 @@ describe('ApprovalGate on a trusted server', () => {
     gate.forgetSudoPassword('web-1');
     void gate.request(sudo());
     expect(gate.approvals).toHaveLength(1);
-    gate.decide(gate.approvals[0]!.id, 'allow', { answer: 'right' });
+    gate.decide(gate.approvals[0]!.id, 'allow-host', { answer: 'right', remember: true });
     await expect(gate.request(sudo())).resolves.toMatchObject({ answer: 'right' });
 
     gate.untrust('web-1');

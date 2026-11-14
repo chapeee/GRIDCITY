@@ -555,8 +555,8 @@ export class FleetTools {
       .join(', ');
     try {
       const result = await fleet.exec(host.id, toRun, timeoutS * 1000, stdin);
-      if (outcome.by === 'trusted-host' && answer && SUDO_REJECTED.test(result.stderr)) {
-        gate.forgetSudoPassword(host.id); // the remembered password is wrong: ask next time
+      if (answer && SUDO_REJECTED.test(result.stderr)) {
+        gate.forgetSudoPassword(host.id); // a saved password is wrong: ask next time
       }
       audit?.append(
         'agent_command_run',

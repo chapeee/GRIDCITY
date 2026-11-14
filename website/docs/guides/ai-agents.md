@@ -61,9 +61,12 @@ restarts or you untrust the server in the agent panel. It is never saved.
   rebooting or shutting down.
 - **The AI can ask too:** it marks any command it judges hard to undo as `risky`, and that command
   asks even on a trusted server.
-- **The sudo password is asked once.** Type it on the card where you choose Allow all, and the app
-  keeps it in memory for that server and reuses it for later `sudo` commands. It is never written to
-  disk, logged or shown to the AI. If sudo rejects it, the app forgets it and asks again.
+- **The sudo password can be saved for an hour.** Type it on the card and choose Allow all, and the
+  app asks whether to save it for the next hour. Saved, it is used for later `sudo` commands on
+  that server, and cards that still ask (destructive commands) come with it filled in: you only
+  click Allow, or type a different one. It is kept in memory only, never written to disk, logged
+  or shown to the AI, and forgotten after the hour, when sudo rejects it, when you stop trusting
+  the server, or when the app restarts. Choose "Only this time" to use it for that command only.
 - **Secrets the AI asks for**, such as a registry token, are asked every time.
 
 Prefer **Allow** on servers that matter: command output can contain text that tries to steer the AI.

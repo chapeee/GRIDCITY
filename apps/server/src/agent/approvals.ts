@@ -12,7 +12,7 @@ export interface ApprovalRequest {
   client: string;
   /** Something only the user can type, read by the command on stdin. */
   input?: ApprovalInput | null;
-  /** The input is this server's sudo password (remembered for the session on a trusted server). */
+  /** The input is this server's sudo password (can be saved for an hour with "allow all"). */
   sudoPassword?: boolean;
   /**
    * Why this command still asks on a trusted server: it deletes, wipes, stops
@@ -27,6 +27,8 @@ export interface DecisionExtras {
   note?: string;
   /** The command's stdin (password, token). Never logged, never shown to the AI. */
   answer?: string;
+  /** With "allow all": keep this sudo password in memory for {@link SUDO_REMEMBER_MS}. */
+  remember?: boolean;
 }
 
 export type ApprovalOutcome =
@@ -35,6 +37,15 @@ export type ApprovalOutcome =
 
 /** Unanswered requests are denied after this long, so an AI never waits forever. */
 export const APPROVAL_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** How long a sudo password saved with "allow all" is kept: one hour. */
+export const SUDO_REMEMBER_MS = 60 * 60 * 1000;
+
+interface SavedSudo {
+  password: string;
+  expiresAt: number;
+  timer: ReturnType<typeof setTimeout>;
+}
 
 interface Pending {
   approval: AgentApproval;
@@ -59,15 +70,18 @@ const clean = (text: string | undefined): string | null => text?.trim() || null;
  * - destructive ones (delete, wipe, uninstall, stop, shut down) and any the AI
  *   marked risky: they always ask, and say why;
  * - input the AI declared (a token): the user types it each time.
- * The sudo password is asked once: given with "allow all", it is kept in
- * memory for that server until the app restarts or the server is untrusted,
- * and never written anywhere. If sudo rejects it, it is forgotten.
+ * The sudo password: typed with "allow all", the user is asked whether to
+ * save it for an hour. Saved, it is kept in memory for that server and never
+ * written anywhere: commands that run without asking use it, and cards that
+ * still ask come with it filled in, so the user only clicks Allow. It is
+ * forgotten after the hour, when sudo rejects it, when the server is
+ * untrusted, or when the app restarts.
  */
 export class ApprovalGate {
   private readonly pending = new Map<string, Pending>();
   private readonly trusted = new Set<string>();
-  /** Sudo passwords given with "allow all", per host. Memory only, never logged or saved. */
-  private readonly sudoPasswords = new Map<string, string>();
+  /** Sudo passwords saved with "allow all", per host, for an hour. Memory only, never logged. */
+  private readonly sudoPasswords = new Map<string, SavedSudo>();
   private readonly listeners = new Set<() => void>();
   private readonly timeoutMs: number;
   private readonly now: () => number;
@@ -98,6 +112,8 @@ export class ApprovalGate {
         client: request.client,
         input,
         risk: request.risk ?? null,
+        sudo: request.sudoPassword ?? false,
+        sudoSavedUntil: null,
         requestedAt: this.now(),
       };
       const settle = (outcome: ApprovalOutcome) => {
@@ -130,16 +146,18 @@ export class ApprovalGate {
       entry.settle({ allowed: false, why: 'denied', note });
       return;
     }
-    // Passwords keep their spaces; only an empty answer means "none".
-    const answer = extras.answer ? extras.answer : null;
+    const { hostId } = entry.approval;
+    // Passwords keep their spaces; only an empty answer means "none". An empty
+    // sudo field with a saved password means "use the saved one": the app types it.
+    const typed = extras.answer ? extras.answer : null;
+    const saved = entry.request.sudoPassword ? this.savedSudo(hostId) : undefined;
+    const answer = typed ?? (saved || null);
     if (entry.approval.input && !entry.approval.input.optional && answer === null) {
       return; // the card requires an answer; keep waiting
     }
     entry.settle({ allowed: true, by: 'you', note, answer });
-    const { hostId } = entry.approval;
-    // A sudo password typed on a trusted server (or with "allow all") is kept for the session.
-    if (entry.request.sudoPassword && (decision === 'allow-host' || this.trusted.has(hostId))) {
-      this.sudoPasswords.set(hostId, answer ?? '');
+    if (entry.request.sudoPassword && decision === 'allow-host' && extras.remember && typed) {
+      this.rememberSudo(hostId, typed);
     }
     if (decision === 'allow-host') {
       this.trusted.add(hostId);
@@ -157,13 +175,47 @@ export class ApprovalGate {
 
   /** Back to asking for every command on this host. */
   untrust(hostId: string): void {
-    this.sudoPasswords.delete(hostId);
-    if (this.trusted.delete(hostId)) this.changed();
+    const forgot = this.dropSudo(hostId);
+    if (this.trusted.delete(hostId) || forgot) this.changed();
   }
 
-  /** Sudo rejected the remembered password: ask again next time. */
+  /** Sudo rejected the saved password: ask again next time. */
   forgetSudoPassword(hostId: string): void {
-    this.sudoPasswords.delete(hostId);
+    if (this.dropSudo(hostId)) this.changed();
+  }
+
+  /** When the saved sudo password for this host is forgotten (epoch ms), or null if none. */
+  sudoSavedUntil(hostId: string): number | null {
+    if (this.savedSudo(hostId) === undefined) return null;
+    return this.sudoPasswords.get(hostId)?.expiresAt ?? null;
+  }
+
+  private rememberSudo(hostId: string, password: string): void {
+    this.dropSudo(hostId);
+    const timer = setTimeout(() => {
+      if (this.dropSudo(hostId)) this.changed();
+    }, SUDO_REMEMBER_MS);
+    timer.unref?.();
+    this.sudoPasswords.set(hostId, { password, expiresAt: this.now() + SUDO_REMEMBER_MS, timer });
+    this.changed();
+  }
+
+  /** The saved password, or undefined when none is saved or its hour is over. */
+  private savedSudo(hostId: string): string | undefined {
+    const saved = this.sudoPasswords.get(hostId);
+    if (!saved) return undefined;
+    if (saved.expiresAt <= this.now()) {
+      this.dropSudo(hostId);
+      return undefined;
+    }
+    return saved.password;
+  }
+
+  private dropSudo(hostId: string): boolean {
+    const saved = this.sudoPasswords.get(hostId);
+    if (!saved) return false;
+    clearTimeout(saved.timer);
+    return this.sudoPasswords.delete(hostId);
   }
 
   /**
@@ -174,8 +226,9 @@ export class ApprovalGate {
     if (!this.trusted.has(request.hostId) || request.risk) return undefined;
     const input = request.input ?? null;
     if (!input) return null;
-    if (request.sudoPassword && this.sudoPasswords.has(request.hostId)) {
-      return this.sudoPasswords.get(request.hostId) || null;
+    if (request.sudoPassword) {
+      const saved = this.savedSudo(request.hostId);
+      if (saved !== undefined) return saved;
     }
     return undefined;
   }
@@ -192,7 +245,11 @@ export class ApprovalGate {
   }
 
   get approvals(): AgentApproval[] {
-    return [...this.pending.values()].map((entry) => entry.approval);
+    return [...this.pending.values()].map(({ approval, request }) =>
+      request.sudoPassword
+        ? { ...approval, sudo: true, sudoSavedUntil: this.sudoSavedUntil(approval.hostId) }
+        : approval,
+    );
   }
 
   get trustedHosts(): string[] {

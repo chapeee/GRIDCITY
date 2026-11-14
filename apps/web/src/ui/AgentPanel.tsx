@@ -43,24 +43,41 @@ export function ApprovalCards() {
   );
 }
 
+/** "14:32" in the viewer's own clock. */
+const formatClock = (at: number) =>
+  new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
 function ApprovalCard({ approval }: { approval: AgentApproval }) {
   const send = useAgentStore((store) => store.send);
   const [note, setNote] = useState('');
   const [answer, setAnswer] = useState('');
   const [showNote, setShowNote] = useState(false);
-  const needsAnswer = approval.input !== null && !approval.input.optional && answer === '';
+  // "Allow all" with a typed sudo password first asks whether to save it for an hour.
+  const [askSave, setAskSave] = useState(false);
+  // A saved sudo password fills the card; the user can still type another one.
+  const [typeOther, setTypeOther] = useState(false);
+  const saved = approval.sudoSavedUntil !== null && !typeOther;
+  const needsAnswer =
+    approval.input !== null && !approval.input.optional && answer === '' && !saved;
   // Exactly what will run: invisible characters and hidden tails made visible.
   const shown = revealCommand(approval.command);
-  const decide = (decision: 'allow' | 'allow-host' | 'deny') => {
+  const decide = (decision: 'allow' | 'allow-host' | 'deny', remember = false) => {
     send({
       type: 'decide',
       approvalId: approval.id,
       decision,
       note: note.trim() || undefined,
       // The answer goes to the command's stdin only; it is dropped with the card.
+      // Left empty with a saved sudo password, the server types the saved one.
       answer: decision === 'deny' || answer === '' ? undefined : answer,
+      remember: remember || undefined,
     });
     setAnswer('');
+    setAskSave(false);
+  };
+  const allowAll = () => {
+    if (approval.sudo && answer !== '') setAskSave(true);
+    else decide('allow-host');
   };
   return (
     <motion.section
@@ -99,7 +116,18 @@ function ApprovalCard({ approval }: { approval: AgentApproval }) {
       {approval.risk && (
         <p className="approval-risk">Asks even with "allow all": this command {approval.risk}.</p>
       )}
-      {approval.input && (
+      {approval.input && saved && (
+        <p className="approval-saved">
+          <span>
+            sudo password saved until {formatClock(approval.sudoSavedUntil!)}: GRIDCITY types it for
+            you, just click Allow.
+          </span>
+          <button type="button" className="link-button" onClick={() => setTypeOther(true)}>
+            Type a different one
+          </button>
+        </p>
+      )}
+      {approval.input && !saved && (
         <label className="approval-input">
           <span>{approval.input.prompt}</span>
           <input
@@ -129,27 +157,51 @@ function ApprovalCard({ approval }: { approval: AgentApproval }) {
           Add a note for the AI…
         </button>
       )}
-      <div className="approval-actions">
-        <button
-          type="button"
-          className="button-primary"
-          onClick={() => decide('allow')}
-          disabled={needsAnswer}
-          title={needsAnswer ? 'The command needs your input first' : undefined}
-        >
-          Allow
-        </button>
-        <button
-          type="button"
-          onClick={() => decide('allow-host')}
-          title="Until the app restarts: commands run without asking, and a sudo password typed here is remembered. Destructive commands still ask."
-        >
-          Allow all on {approval.hostName}
-        </button>
-        <button type="button" onClick={() => decide('deny')}>
-          Deny
-        </button>
-      </div>
+      {askSave ? (
+        <div className="approval-save" role="group" aria-label="Save the sudo password">
+          <p>
+            Save this sudo password for the next hour? Commands that still ask will have it filled
+            in, so you only click Allow. Kept in memory only, never written to disk.
+          </p>
+          <div className="approval-actions">
+            <button
+              type="button"
+              className="button-primary"
+              onClick={() => decide('allow-host', true)}
+            >
+              Save for 1 hour
+            </button>
+            <button type="button" onClick={() => decide('allow-host')}>
+              Only this time
+            </button>
+            <button type="button" className="link-button" onClick={() => setAskSave(false)}>
+              Back
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="approval-actions">
+          <button
+            type="button"
+            className="button-primary"
+            onClick={() => decide('allow')}
+            disabled={needsAnswer}
+            title={needsAnswer ? 'The command needs your input first' : undefined}
+          >
+            Allow
+          </button>
+          <button
+            type="button"
+            onClick={allowAll}
+            title="Until the app restarts: commands run without asking (a sudo password typed here can be saved for an hour). Destructive commands still ask."
+          >
+            Allow all on {approval.hostName}
+          </button>
+          <button type="button" onClick={() => decide('deny')}>
+            Deny
+          </button>
+        </div>
+      )}
     </motion.section>
   );
 }

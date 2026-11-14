@@ -44,6 +44,10 @@ export const AgentApprovalSchema = z.object({
   input: ApprovalInputSchema.nullable(),
   /** Why it asks even on a trusted server (it deletes, stops or shuts down something), or null. */
   risk: z.string().nullable().default(null),
+  /** The input is the server's sudo password: "Allow all" offers to save it for an hour. */
+  sudo: z.boolean().default(false),
+  /** A saved sudo password fills this card until then (epoch ms): the user only clicks Allow. */
+  sudoSavedUntil: z.number().int().nullable().default(null),
   requestedAt: z.number().int(),
 });
 export type AgentApproval = z.infer<typeof AgentApprovalSchema>;
@@ -142,6 +146,8 @@ export const AgentClientMessageSchema = z.discriminatedUnion('type', [
     note: z.string().max(MAX_APPROVAL_NOTE_CHARS).optional(),
     /** What the command reads on stdin (see {@link ApprovalInputSchema}). Never logged. */
     answer: z.string().max(MAX_APPROVAL_ANSWER_CHARS).optional(),
+    /** With "allow-host": keep the sudo password typed here in memory for one hour. */
+    remember: z.boolean().optional(),
   }),
   z.object({ type: z.literal('untrust'), hostId: z.string() }),
   z.object({ type: z.literal('start'), agentId: z.string() }),

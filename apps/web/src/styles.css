@@ -598,7 +598,7 @@ button:disabled {
 
 .status-banners {
   position: fixed;
-  top: 16px;
+  top: 56px; /* below the toolbar, which would cover it on narrower windows */
   left: 50%;
   translate: -50% 0;
   display: grid;
@@ -1377,6 +1377,32 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.approval-saved {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0 0 10px;
+  padding: 6px 8px;
+  color: var(--color-text);
+  font-size: 12px;
+  border-left: 2px solid var(--color-online);
+  background: rgba(143, 227, 255, 0.06);
+}
+
+.approval-save {
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--color-line);
+  background: rgba(143, 227, 255, 0.04);
+}
+
+.approval-save p {
+  margin: 0 0 8px;
+  color: var(--color-text);
+  font-size: 12px;
 }
 
 .approval-running {
@@ -3122,6 +3148,16 @@ button:disabled {
   border-radius: 50%;
 }
 
+.toolbar-star {
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.toolbar-star .github-mark {
+  fill: currentColor;
+  flex: none;
+}
+
 .toolbar-icon {
   fill: none;
   stroke: currentColor;
@@ -3214,6 +3250,11 @@ button:disabled {
     bottom: 12px;
     right: 50%;
     translate: 50% 0;
+  }
+
+  /* The toolbar is at the bottom here: the banners can use the top again. */
+  .status-banners {
+    top: 16px;
   }
 
   .toolbar-button[data-tip]:hover::before {
