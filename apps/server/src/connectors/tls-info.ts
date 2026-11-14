@@ -1,4 +1,10 @@
+import { isIP } from 'node:net';
 import { connect, type PeerCertificate } from 'node:tls';
+
+/** SNI for a host name; none for an IP address (RFC 6066 forbids it, Node warns). */
+export function sniFor(host: string): { servername?: string } {
+  return isIP(host) ? {} : { servername: host };
+}
 
 /** What a TLS handshake tells about a server's certificate, for probes. */
 export interface CertificateInfo {
@@ -38,7 +44,7 @@ export function readCertificate(
     const socket = connect({
       host,
       port,
-      servername: options.servername ?? host,
+      ...(options.servername ? { servername: options.servername } : sniFor(host)),
       rejectUnauthorized: false,
       ALPNProtocols: ['http/1.1'],
     });

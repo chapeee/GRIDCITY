@@ -242,6 +242,7 @@ export function healthSample(
     replicationLagSeconds: rest.replicationLagSeconds ?? null,
     slowQueries: rest.slowQueries ?? null,
     cacheHitPercent: rest.cacheHitPercent ?? null,
+    certificateDaysLeft: rest.certificateDaysLeft ?? null,
     warnings: rest.warnings ?? [],
   };
 }

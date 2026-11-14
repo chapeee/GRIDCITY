@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+Found by an end-to-end test pass for 1.0 against LocalStack, Moto, the attack lab, Mailpit,
+ntfy and real databases in Docker.
+
+- **Certificates about to expire turn probes amber.** An HTTP or TCP probe whose certificate
+  expires within 14 days (`certificateDegradedDays`) now shows as degraded, as documented. The
+  expiry was measured but never reached the status rule.
+- **One broken entry no longer hides every resource.** When an entry in `resources.yaml` is
+  wrong, only that entry is skipped (marked "not loaded" in the banner, at startup and by
+  `gridcity doctor`); every other database, bucket and probe keeps running, and you can still
+  edit, add or turn on changes for them.
+- **RDS and load balancers accept `accessKeyIdEnv` / `secretAccessKeyEnv`**, like buckets. They
+  were refused, although the docs and the error message suggest them.
+- **"Block public access" clears the public bucket finding.** With all four settings on, a public
+  policy no longer applies to the public, so the finding is resolved instead of staying open.
+- **One side panel at a time.** Opening Security, Upcoming, Logs, Costs, the Doctor, History,
+  Settings or the audit log closes the one that was in the same place, so Esc closes the panel
+  you see instead of one hidden under it.
+- **AI approval cards stay clear.** The "rendering is slow" hint steps aside while an AI command
+  waits for your click, so no other button sits next to Allow; "Add a note for the AI…" puts
+  the cursor in the note.
+- A backup that is too small shows as "this week" in Upcoming, with the reason, not "this month".
+- No Node.js warning about TLS server names when a probe checks an IP address.
+
 ## 0.5.0 · 2026-11-14
 
 - **Desktop app for Windows, macOS and Linux**, with Chromium built in and no Node.js needed.

@@ -250,8 +250,11 @@ export class StateHub {
       );
     }
     if (this.resourceConfigErrors.length > 0) {
+      // Broken entries are skipped (marked "not loaded") and everything else runs;
+      // a file that cannot be read at all keeps the last valid resources.
+      const wholeFile = this.resourceConfigErrors.some((error) => !error.includes('(not loaded)'));
       parts.push(
-        `resources.yaml has errors; showing the last valid resources:\n${this.resourceConfigErrors.join('\n')}`,
+        `resources.yaml has errors${wholeFile ? '; showing the last valid resources' : ''}:\n${this.resourceConfigErrors.join('\n')}`,
       );
     }
     if (this.otherConfigErrors.length > 0) parts.push(this.otherConfigErrors.join('\n'));

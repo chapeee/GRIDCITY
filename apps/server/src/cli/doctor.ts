@@ -94,7 +94,9 @@ async function main(): Promise<void> {
     configErrors: [
       ...(hostsFile.ok ? [] : [`hosts.yaml has errors\n${hostsFile.errors.join('\n')}`]),
       ...(resourcesFile.ok
-        ? []
+        ? resourcesFile.skipped.length > 0
+          ? [`resources.yaml has entries that were not loaded\n${resourcesFile.skipped.join('\n')}`]
+          : []
         : [`resources.yaml has errors\n${resourcesFile.errors.join('\n')}`]),
     ],
     localhostTargets: [],

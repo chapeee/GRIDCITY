@@ -190,9 +190,19 @@ async function writeEdited(
   const next = document.toString();
   const after = parseResourcesYaml(next);
   if (!after.ok) throw new ResourceValidationError(after.errors);
+  // Entries that were already broken (and skipped) stay the user's to fix;
+  // refuse only a change that breaks something new.
+  const known = new Set(before.skipped.map(withoutIndex));
+  const added = after.skipped.filter((problem) => !known.has(withoutIndex(problem)));
+  if (added.length > 0) throw new ResourceValidationError(added);
   await mkdir(dirname(file), { recursive: true });
   await writeFile(file, next, 'utf8');
   return after.config;
+}
+
+/** "resources.3 \"cache\" (not loaded): …" without the position, which shifts on edits. */
+function withoutIndex(problem: string): string {
+  return problem.replace(/^resources\.\d+\s*/, '');
 }
 
 function findEntry(document: Document, id: string): YAMLMap {

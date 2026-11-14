@@ -61,6 +61,11 @@ async function main(): Promise<void> {
   if (server.configErrors.length > 0) {
     process.stdout.write(`  hosts.yaml has errors:\n    ${server.configErrors.join('\n    ')}\n\n`);
   }
+  if (server.resourceErrors.length > 0) {
+    process.stdout.write(
+      `  resources.yaml has errors:\n    ${server.resourceErrors.join('\n    ')}\n\n`,
+    );
+  }
 
   const shutdown = async () => {
     await server.stop();

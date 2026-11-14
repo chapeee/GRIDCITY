@@ -11,7 +11,7 @@ import {
   type PollOutcome,
 } from './connector';
 import { certificateMetrics } from './http';
-import { describeCertificate, type CertificateInfo } from './tls-info';
+import { describeCertificate, sniFor, type CertificateInfo } from './tls-info';
 
 export interface TcpProbeResult {
   connectMs: number;
@@ -121,7 +121,7 @@ export function probeTcp(
       ? tlsConnect({
           host: config.host,
           port: config.port,
-          servername: config.host,
+          ...sniFor(config.host),
           rejectUnauthorized: false,
         })
       : netConnect({ host: config.host, port: config.port });

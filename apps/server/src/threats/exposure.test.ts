@@ -47,7 +47,9 @@ const probes = (over: Partial<ExposureProbes> = {}): ExposureProbes => ({
       ? { blockAll: false, policyPublic: true, aclPublic: false }
       : bucket === 'loose'
         ? { blockAll: false, policyPublic: false, aclPublic: false }
-        : { blockAll: null, policyPublic: false, aclPublic: false },
+        : bucket === 'blocked'
+          ? { blockAll: true, policyPublic: true, aclPublic: true }
+          : { blockAll: null, policyPublic: false, aclPublic: false },
   rds: async () => ({
     instances: [
       {
@@ -91,6 +93,7 @@ describe('exposure checks', () => {
       [
         resource('media-site', 'media', 'site', 's3'),
         resource('media-loose', 'media', 'loose', 's3'),
+        resource('media-blocked', 'media', 'blocked', 's3'),
         resource('minio-files', 'minio', 'files', 's3'),
         resource('aws-db-orders', 'aws-db', 'orders', 'rds'),
         resource('aws-db-users', 'aws-db', 'users', 'rds'),
@@ -107,6 +110,8 @@ describe('exposure checks', () => {
     expect(found).toEqual({
       'media-site': ['public-bucket=high'],
       'media-loose': ['no-public-access-block=low'],
+      // "Block public access" (the one-click fix) overrides a public policy and ACL.
+      'media-blocked': [],
       'minio-files': [],
       'aws-db-orders': ['public-database=high'],
       'aws-db-users': [],

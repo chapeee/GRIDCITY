@@ -51,10 +51,15 @@ const secretFields = {
   passwordFile: z.string().min(1).optional(),
 };
 
-/** An access key pair typed in the app (vault ids); otherwise the standard AWS chain or a profile. */
+/**
+ * An access key pair typed in the app (vault ids), or named by environment
+ * variables; otherwise the standard AWS chain or a profile.
+ */
 const awsKeyFields = {
   accessKeyIdSecret: z.string().min(1).optional(),
   secretAccessKeySecret: z.string().min(1).optional(),
+  accessKeyIdEnv: envNameSchema.optional(),
+  secretAccessKeyEnv: envNameSchema.optional(),
 };
 
 const hostPort = (defaultPort: number) => ({
@@ -193,9 +198,6 @@ const S3Schema = z.strictObject({
   endpoint: z.url().optional(),
   region: z.string().min(1).default('us-east-1'),
   profile: z.string().min(1).optional(),
-  /** Environment variables holding the access key pair (for non-AWS providers). */
-  accessKeyIdEnv: envNameSchema.optional(),
-  secretAccessKeyEnv: envNameSchema.optional(),
   /** Buckets to watch; all buckets the credentials can list when omitted. */
   buckets: z.array(z.string().min(1)).optional(),
   /** Stop counting after this many objects per bucket (shown as "≥ N"). */
@@ -360,8 +362,13 @@ export interface ResourcesConfig {
   thresholds: ResourceThresholds;
 }
 
+/**
+ * `ok` with `skipped` entries: the file is readable but some entries are
+ * not; those are left out (and reported) so one typo never takes every
+ * other database and bucket off the map.
+ */
 export type ResourcesFileResult =
-  { ok: true; config: ResourcesConfig } | { ok: false; errors: string[] };
+  { ok: true; config: ResourcesConfig; skipped: string[] } | { ok: false; errors: string[] };
 
 export const RESOURCES_FILE_TEMPLATE = `# Databases, RDS and object storage shown in the city, next to your servers.
 # A running server picks up changes automatically.
@@ -455,16 +462,41 @@ export function parseResourcesYaml(text: string): ResourcesFileResult {
   if (document.errors.length > 0) {
     return { ok: false, errors: document.errors.map((error) => `YAML: ${error.message}`) };
   }
-  const result = ResourcesFileSchema.safeParse(document.toJS() ?? {});
-  if (!result.success) {
-    return {
-      ok: false,
-      errors: result.error.issues.map(
-        (issue) => `${issue.path.length > 0 ? issue.path.join('.') : '(file)'}: ${issue.message}`,
-      ),
-    };
+  const raw: unknown = document.toJS() ?? {};
+  const result = ResourcesFileSchema.safeParse(raw);
+  if (result.success) return { ok: true, config: result.data, skipped: [] };
+
+  const entryOf = (index: number): unknown =>
+    typeof raw === 'object' &&
+    raw !== null &&
+    Array.isArray((raw as { resources?: unknown }).resources)
+      ? (raw as { resources: unknown[] }).resources[index]
+      : undefined;
+  const errors = result.error.issues.map((issue) => {
+    const [first, index] = issue.path;
+    if (first === 'resources' && typeof index === 'number') {
+      const entry = entryOf(index) as { id?: unknown } | undefined;
+      const id = typeof entry?.id === 'string' ? ` "${entry.id}"` : '';
+      const rest = issue.path.slice(2).join('.');
+      return `resources.${index}${id} (not loaded)${rest ? ` ${rest}` : ''}: ${issue.message}`;
+    }
+    return `${issue.path.length > 0 ? issue.path.join('.') : '(file)'}: ${issue.message}`;
+  });
+
+  // Only some entries are wrong: load the others, report the broken ones.
+  const broken = new Set<number>();
+  for (const issue of result.error.issues) {
+    const [first, index] = issue.path;
+    if (first !== 'resources' || typeof index !== 'number') return { ok: false, errors };
+    broken.add(index);
   }
-  return { ok: true, config: result.data };
+  const file = raw as { resources: unknown[] };
+  const retry = ResourcesFileSchema.safeParse({
+    ...file,
+    resources: file.resources.filter((_, index) => !broken.has(index)),
+  });
+  if (!retry.success) return { ok: false, errors };
+  return { ok: true, config: retry.data, skipped: errors };
 }
 
 /** Reads resources.yaml, creating the commented template on first run. */

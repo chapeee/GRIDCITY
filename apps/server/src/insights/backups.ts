@@ -264,10 +264,10 @@ export function createBackupProducer(deps: BackupDeps): InsightProducer {
                 : now - newest.at > maxAge
                   ? 'overdue'
                   : newest.bytes < backup.minBytes
-                    ? 'soon'
+                    ? 'urgent' // a truncated dump is a problem now, not "this month"
                     : 'ok',
               detail: newest
-                ? `last: ${newest.name}, ${bytesText(newest.bytes)}, ${ageText(now - newest.at)} ago`
+                ? `${newest.bytes < backup.minBytes ? `too small (under ${bytesText(backup.minBytes)}): ` : ''}last: ${newest.name}, ${bytesText(newest.bytes)}, ${ageText(now - newest.at)} ago`
                 : `nothing matches ${where}`,
             },
           ],

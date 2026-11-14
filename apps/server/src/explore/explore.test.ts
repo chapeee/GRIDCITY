@@ -97,9 +97,11 @@ describe('the Manage setting in resources.yaml', () => {
       'resources:\n  - { kind: sqlite, id: a, path: /x.db, manage: write }\n',
     );
     expect(ok.ok && ok.config.resources[0]).toMatchObject({ manage: 'write' });
-    expect(
-      parseResourcesYaml('resources:\n  - { kind: sqlite, id: a, path: /x.db, manage: yes }\n').ok,
-    ).toBe(false);
+    const refused = parseResourcesYaml(
+      'resources:\n  - { kind: sqlite, id: a, path: /x.db, manage: yes }\n',
+    );
+    expect(refused.ok && refused.config.resources).toEqual([]);
+    expect(refused.ok && refused.skipped.join()).toMatch(/manage/);
   });
 });
 
