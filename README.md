@@ -36,16 +36,32 @@ with red rings on the buildings), Upcoming (**U**: certificates, disks and backu
 time travel (**T**) and Ctrl+K. Everything there is simulated DEMO DATA. The terminal, managing
 databases, alerts and AI agents need the app itself:
 
+### Download the desktop app
+
+No Node.js needed (Chromium is built in). Get the installer for your system from the
+**[latest release](https://github.com/chapeee/GRIDCITY/releases/latest)**:
+
+| System  | File                                                                 | Start it                                                                                 |
+| ------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Windows | `GRIDCITY-<version>-win-x64.exe` (`-win-arm64.exe` on ARM)           | run the installer, then open GRIDCITY from the Start menu                                |
+| macOS   | `GRIDCITY-<version>-mac-arm64.dmg` (Apple Silicon) or `-mac-x64.dmg` | drag GRIDCITY to Applications, open it, then **Privacy & Security → Open Anyway** (once) |
+| Linux   | `.AppImage`, `.deb` or `.rpm` (x86_64/amd64 or arm64/aarch64)        | `chmod +x GRIDCITY-*.AppImage && ./GRIDCITY-*.AppImage`, or install the `.deb` / `.rpm`  |
+
+The app opens the city in its own window, keeps watching from the tray when you close it, and
+starts with your computer. Each release has a `SHA256SUMS.txt` to check your download. The
+builds are not code-signed yet, so Windows SmartScreen may ask you to click **More info → Run
+anyway**. No installer: `npx gridcity-desktop`.
+
+### Or start it from the command line
+
+With Node.js 22.12 or newer:
+
 ```bash
 npx gridcity demo            # a simulated city, no setup at all
 npx gridcity                 # your own servers (connect them in the app), runs in the background
 npx gridcity stop            # stop it (gridcity status shows the link again)
 npx gridcity mcp             # connect Claude Code, Cursor or any MCP app
 ```
-
-Prefer an app? Download the **desktop app** for Windows, macOS or Linux from the
-[latest release](https://github.com/chapeee/GRIDCITY/releases/latest) (Chromium built in, no
-Node.js needed), or run `npx gridcity-desktop`.
 
 or with Docker, no Node needed:
 

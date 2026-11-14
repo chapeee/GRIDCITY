@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 · 2026-11-14
 
 - **Desktop app for Windows, macOS and Linux**, with Chromium built in and no Node.js needed.
   Download the `.exe`, `.dmg`, `.AppImage`, `.deb` or `.rpm` from the GitHub release, or run
@@ -11,6 +11,9 @@
   monitoring and alerts survive a restart. On by default; a tray checkbox turns it off.
 - Every GitHub release lists the installers and `SHA256SUMS.txt` as downloads.
 - Manifests for winget, Scoop, Homebrew and the AUR (`packaging/distribution/`).
+- **Runbooks say what they found.** "Pending updates" is now "List pending updates": its output
+  opens on its own, read-only runs say they changed nothing, and a list of packages no longer
+  reads as "all succeeded" or fails with a false exit 1.
 
 ## 0.4.3 · 2026-11-13
 
