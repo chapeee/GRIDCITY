@@ -685,9 +685,28 @@ const UNIT_SUFFIX: Record<ResourceMetric['unit'], string> = {
   text: '',
 };
 
-function formatMetric(metric: ResourceMetric): string {
+const BYTE_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'] as const;
+
+/** 21474836480 -> "20 GiB": what the app shows, not a number for the AI to divide. */
+function bytesText(bytes: number): string {
+  let value = Math.abs(bytes);
+  let unit = 0;
+  while (value >= 1024 && unit < BYTE_UNITS.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  const decimals = unit === 0 || value >= 100 || Number.isInteger(value) ? 0 : 1;
+  return `${bytes < 0 ? '-' : ''}${value.toFixed(decimals)} ${BYTE_UNITS[unit]}`;
+}
+
+export function formatMetric(metric: ResourceMetric): string {
   if (metric.unit === 'text') return metric.text ?? 'unknown';
   if (metric.value == null) return 'unknown';
+  const atLeast = metric.atLeast ? '≥ ' : '';
+  if (metric.unit === 'bytes') return `${atLeast}${bytesText(metric.value)}`;
+  if (metric.unit === 'bytesPerHour') {
+    return `${metric.value < 0 ? '' : '+'}${bytesText(metric.value)}/h`;
+  }
   const value = Number.isInteger(metric.value) ? metric.value : Number(metric.value.toFixed(2));
   return `${metric.atLeast ? '≥ ' : ''}${value}${UNIT_SUFFIX[metric.unit]}`;
 }

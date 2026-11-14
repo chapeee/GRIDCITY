@@ -58,6 +58,8 @@ export const BRUTE_FORCE_HIGH = 100;
 /** A brute force is over when the address has been quiet this long. */
 export const BRUTE_FORCE_QUIET_MS = 30 * MINUTE;
 const WINDOW_MS = 60 * MINUTE;
+
+const blockerName = (source: ThreatSource) => (source === 'crowdsec' ? 'CrowdSec' : 'Fail2ban');
 /** Failures before a successful login that make the login suspicious. */
 const FAILURES_BEFORE_LOGIN = 5;
 
@@ -299,7 +301,7 @@ function authDrafts(
       severity: recent.length >= BRUTE_FORCE_HIGH ? 'high' : 'medium',
       category: 'brute-force',
       title: `SSH brute force from ${ip}`,
-      detail: `${recent.length} failed SSH logins from ${ip} in the last hour (${failures.length} in the log), trying ${describeUsers(users)}.${blocker ? ` ${blocker === 'crowdsec' ? 'CrowdSec' : 'Fail2ban'} is blocking it.` : ''}`,
+      detail: `${recent.length} failed SSH logins from ${ip} in the last hour (${failures.length} in the log), trying ${describeUsers(users)}.${blocker ? ` ${blockerName(blocker)} is blocking it.` : ''}`,
       advice: SSH_ADVICE,
       attackerIp: ip,
       count: failures.length,
@@ -313,21 +315,24 @@ function authDrafts(
   for (const login of events) {
     if (login.kind !== 'accepted' || !login.ip) continue;
     const before = (failuresByIp.get(login.ip) ?? []).filter((event) => event.at <= login.at);
+    const blocker = blockedBy.get(login.ip);
     if (before.length >= FAILURES_BEFORE_LOGIN) {
       drafts.push({
         key: `login-after-attack:${login.user}@${login.ip}`,
         scope: 'auth',
         source: 'builtin',
+        // Still critical when the address is banned: the password is known, and
+        // the attacker can come back from any other address.
         severity: 'critical',
         category: 'suspicious-login',
         title: `Login as ${login.user} from ${login.ip} after ${before.length} failures`,
-        detail: `${login.ip} failed to log in ${before.length} times, then logged in successfully as "${login.user}" at ${new Date(login.at).toISOString()}. This is what a guessed password looks like.`,
+        detail: `${login.ip} failed to log in ${before.length} times, then logged in successfully as "${login.user}" at ${new Date(login.at).toISOString()}. This is what a guessed password looks like.${blocker ? ` ${blockerName(blocker)} now blocks ${login.ip}, but the password still works from anywhere else.` : ''}`,
         advice: `If this was not you: change the password of "${login.user}" now, check ~/.ssh/authorized_keys, running processes and new accounts, and consider the server compromised.`,
         attackerIp: login.ip,
         count: 1,
         firstSeen: login.at,
         lastSeen: login.at,
-        blocked: null,
+        blocked: blocker ? true : null,
       });
       continue;
     }
@@ -347,7 +352,7 @@ function authDrafts(
       count: 1,
       firstSeen: login.at,
       lastSeen: login.at,
-      blocked: null,
+      blocked: blocker ? true : null,
     });
   }
 
