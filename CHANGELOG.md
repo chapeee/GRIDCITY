@@ -5,6 +5,16 @@
 Found by an end-to-end test pass for 1.0 against LocalStack, Moto, the attack lab, Mailpit,
 ntfy and real databases in Docker.
 
+- **Updates keep your data, with a copy.** On the first start of a new version, the database,
+  vault key, link and settings are copied to `backups/` in the data folder before anything
+  uses them, and never deleted. A database whose format would change is never touched without
+  that copy. Tested by updating real installs of 0.3.0, 0.4.3 and 0.5.0 (npm) and the 0.5.0
+  desktop app, full of data: every row, saved password, alert secret, setting and the link
+  survived. On macOS/Linux, data that XDG variables kept in another folder is copied over.
+- **Opening GRIDCITY without its key shows a page**, not an error in JSON: it explains why and
+  takes the link. Browsers keep the key for 400 days, renewed on every visit; the key itself
+  never changes unless you ask (`--new-token`).
+
 - **Certificates about to expire turn probes amber.** An HTTP or TCP probe whose certificate
   expires within 14 days (`certificateDegradedDays`) now shows as degraded, as documented. The
   expiry was measured but never reached the status rule.

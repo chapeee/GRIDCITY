@@ -176,3 +176,57 @@ the real containers, 36/36 browser tests, lint and types: all pass** (after the 
 - The first verify run counted any error as a "refusal"; the PostgreSQL checks were passing on
   a connection error (P1 had dropped the resource). The script now accepts only the exact
   read-mode refusal.
+
+## Pass 4 · 2026-11-14 · updating existing installs (data preservation)
+
+Facts first: every published version (npm 0.3.0 to 0.5.0, desktop 0.5.0) uses the same data and
+settings locations, the same as the desktop app, and the same database schema. Packaged
+installs never read a stray `.env`. So an update finds the data where it always was. The only
+way to end up with two copies: on macOS/Linux, `XDG_DATA_HOME`/`XDG_CONFIG_HOME` set in a shell
+profile (the terminal sees them, the desktop app does not). Docker is a separate installation.
+
+What an update now does at the first start of a new version (`apps/server/src/storage/upgrade.ts`):
+copy the database (`VACUUM INTO`, consistent even while it is in use), vault key, link and
+settings to `DATA_DIR/backups/<time>-from-<old>-to-<new>/`, never deleted; refuse to change a
+database whose format would change if that copy failed; adopt data an XDG variable kept
+elsewhere (copy, never move, never overwrite); then record `data-version.json`.
+
+### Re-run it
+
+```bash
+node scripts/qa/pass.mjs up
+node scripts/build-npm.mjs && (cd release/npm && npm pack)       # the new package
+node scripts/qa/upgrade-test.mjs --old <published gridcity package dir> --new <new package dir>
+#   --driver node                       the desktop app's SQLite
+#   --old-runtime <GRIDCITY.exe>        run the old side with the desktop app's own runtime
+```
+
+Published packages: `npm i gridcity@<version>` in an empty folder. On a machine without a C++
+toolchain the published `better-sqlite3` cannot build; copy the workspace's one (it ships
+prebuilt binaries) into the test install.
+
+### Results
+
+The old version is filled with real data first (a monitored server with history and status
+changes, a database whose password is in the vault, an ntfy channel with a secret topic, a
+changed setting), restarted once, then updated.
+
+| From                                               | To                                       | Checks |
+| -------------------------------------------------- | ---------------------------------------- | ------ |
+| npm 0.5.0 (the live version)                       | new, npm                                 | 29/29  |
+| npm 0.4.3                                          | new, npm                                 | 29/29  |
+| npm 0.3.0 (first published)                        | new, npm                                 | 29/29  |
+| npm 0.5.0 on the built-in SQLite                   | new, built-in SQLite                     | 29/29  |
+| **desktop app 0.5.0 (the installed GRIDCITY.exe)** | new, on the desktop's Electron 44        | 29/29  |
+| desktop app 0.5.0                                  | new, npm with better-sqlite3 (both used) | 29/29  |
+
+Checked each time: a snapshot holding every row, the vault key and the settings; every row of
+audit log, saved secrets, status history, settings, findings and baselines unchanged; metric
+history from before still there; vault key, link and settings files byte-identical; the old link
+still opens the app; the database connects with the password from the old vault; the alert
+channel still sends with its secret; the setting kept; history shown; no second snapshot on the
+next start. Unit tests cover adoption, no overwrites, downgrades and the refusal to proceed
+without a copy, on both SQLite drivers.
+
+Not run: the Docker image (it runs the same startup on its `/data` volume) and the XDG adoption on
+a real macOS/Linux machine (covered by unit tests with real databases).
