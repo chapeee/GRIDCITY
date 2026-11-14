@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { fetchSettings, saveSettings, type SettingsView } from '../data/history-api';
 import { AlertsSettings } from './AlertsSettings';
+import { UpdatesSettings } from './UpdatesSettings';
 import { useUiStore } from './ui-store';
 
 type ThresholdKey = keyof StatusThresholds;
@@ -140,6 +141,9 @@ export function SettingsPanel() {
           )}
 
           <AlertsSettings />
+
+          {/* Outside the form: it saves on its own and works in demo mode too. */}
+          <UpdatesSettings />
 
           <form
             className="settings-form"

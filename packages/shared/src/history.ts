@@ -47,6 +47,8 @@ export type HistoryResponse = z.infer<typeof HistoryResponseSchema>;
 export const AppSettingsSchema = z.object({
   /** How long metric history and incidents are kept. */
   historyRetentionDays: z.number().int().min(1).max(90).default(7),
+  /** Ask GitHub once a day whether a newer version is out (see updates.ts). */
+  checkForUpdates: z.boolean().default(true),
 });
 export type AppSettings = z.infer<typeof AppSettingsSchema>;
 export const DEFAULT_APP_SETTINGS: AppSettings = AppSettingsSchema.parse({});

@@ -79,7 +79,8 @@ login; open GRIDCITY from the app menu to see the window.
 
 ## Updating
 
-Install the new version over the old one, or run `npx gridcity-desktop@latest`. Your data stays
+When a new version is out, GRIDCITY says so at the bottom left of the window, with a link to
+what's new. Install the new version over the old one, or run `npx gridcity-desktop@latest`. Your data stays
 where it is: updates never touch the data folder, and the database upgrades itself on start.
 
 ## Uninstalling

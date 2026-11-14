@@ -6,7 +6,8 @@ Status: **v0.2** (published on npm and Docker). Sections marked _(Phase N)_ desc
 
 A local-first tool: one Node process on your machine connects **outward** to your servers over
 SSH and serves a browser UI on `127.0.0.1`. There is no hosted backend, no telemetry and no
-account.
+account. The one other outbound request is a daily anonymous update check to GitHub
+(`apps/server/src/updates/update-check.ts`), off in Settings or with `GRIDCITY_UPDATE_CHECK=off`.
 
 ```
  Browser (127.0.0.1)                 Local server (127.0.0.1)                 Your servers

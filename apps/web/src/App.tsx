@@ -37,6 +37,7 @@ import { IntroOverlay } from './ui/IntroOverlay';
 import { StaticDemoLinks } from './ui/StaticDemoLinks';
 import { EmptyFleet, StatusBanners } from './ui/StatusBanners';
 import { DiveOverlay, TerminalView } from './ui/TerminalView';
+import { UpdateNotice } from './ui/UpdateNotice';
 import { useAmbientDirector } from './ui/use-ambient-director';
 import { useGlobalShortcuts } from './ui/use-global-shortcuts';
 import { useUiStore } from './ui/ui-store';
@@ -86,6 +87,7 @@ export function App() {
       <TopToolbar />
       <StatusBanners />
       <IncidentBanner />
+      <UpdateNotice />
       <EmptyFleet />
       <FocusHud onJackIn={jackIn} />
       <ResourceHud />

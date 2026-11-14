@@ -10,7 +10,9 @@ count**, so a few rules matter more than usual.
    [docs/VISUAL_LANGUAGE.md](docs/VISUAL_LANGUAGE.md) in the same pull request. If it is not in
    that document, it should not exist. Unknown values are shown as unknown, never as zero.
 2. **An offline server must never look operational,** and stale data must look frozen.
-3. **Local first.** No hosted services, telemetry, analytics, CDNs or remote fonts.
+3. **Local first.** No hosted services, telemetry, analytics, CDNs or remote fonts. The daily update
+   check to GitHub's public releases page is the only exception: it sends nothing about the user and
+   can be turned off.
 4. **Secrets never touch our storage.** No keys, passphrases or passwords on disk, in logs or in
    the database. Security-relevant changes update [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 5. **The world is a map, never a gate.** Anything reachable with the mouse is reachable by

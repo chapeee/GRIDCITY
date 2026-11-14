@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **GRIDCITY tells you when a new version is out.** Once a day the app asks GitHub's public
+  releases page for the latest version. When yours is older, a notice at the bottom left says so,
+  with what's new and how to update for the way you installed it (desktop installer, npm or
+  Docker). Close it and it stays closed until the next version. Settings → Updates shows your
+  version, checks on demand and turns the check off; `GRIDCITY_UPDATE_CHECK=off` turns it off for
+  good. The request carries nothing about you or your servers.
+- Saving History settings no longer resets settings that were not on the form.
+- On windows narrower than 1280 px, the fleet counts, the DEMO DATA badge and the Star button
+  stay short so nothing runs under the toolbar.
+
 ## 1.0.1 · 2026-11-14
 
 - **Save the sudo password for an hour.** When you type a sudo password on an AI approval card

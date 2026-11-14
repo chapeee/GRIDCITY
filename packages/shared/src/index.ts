@@ -24,3 +24,4 @@ export * from './explore';
 export * from './alerts';
 export * from './threats';
 export * from './command-text';
+export * from './updates';

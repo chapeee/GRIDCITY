@@ -7,8 +7,10 @@ description: 'Short answers to common questions.'
 
 **Is it free?** Yes, MIT licensed.
 
-**Does anything leave my machine?** No. No telemetry, no account, no CDN. It connects outward only to
-the servers and services you add.
+**Does anything leave my machine?** Nothing about you or your servers. No telemetry, no account, no
+CDN. It connects outward to the servers and services you add, and once a day to GitHub's public
+releases page to see whether a new version is out. That request carries no data about you; turn it
+off in Settings → Updates or with `GRIDCITY_UPDATE_CHECK=off`.
 
 **Do I install anything on my servers?** No. It reads `/proc`, `df`, `ss` and similar over SSH.
 
