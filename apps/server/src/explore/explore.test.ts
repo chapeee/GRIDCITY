@@ -58,6 +58,28 @@ describe('read mode', () => {
     expect(readModeProblem('pragma journal_mode = wal')).toMatch(/PRAGMA/);
   });
 
+  it('refuses SELECTs that act on the server, however they are written', () => {
+    for (const sql of [
+      "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = 'app'",
+      'select PG_RELOAD_CONF()',
+      'SELECT pg_catalog.pg_cancel_backend(42)',
+      'SELECT "pg_terminate_backend"(42)',
+      'SELECT pg_terminate_backend/**/(42)',
+      'SELECT pg_advisory_lock(1)',
+      'SELECT pg_stat_reset()',
+      "SELECT lo_export(1, '/tmp/x')",
+      "SELECT GET_LOCK('deploy', 0)",
+      "SELECT load_extension('evil')",
+    ]) {
+      expect(readModeProblem(sql), sql).toMatch(/acts on the server/);
+    }
+    // Reading about sessions is fine.
+    expect(readModeProblem('SELECT pid, state FROM pg_stat_activity')).toBeNull();
+    expect(readModeProblem('SELECT pg_size_pretty(pg_database_size(current_database()))')).toBe(
+      null,
+    );
+  });
+
   it('reads the first keyword past comments', () => {
     expect(firstKeyword('-- c\n# d\n/* e */ update t set a = 1')).toBe('UPDATE');
   });
