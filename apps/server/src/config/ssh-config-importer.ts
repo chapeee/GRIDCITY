@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { withFileLock, writeFileAtomic } from './file-lock';
 import { HOSTS_FILE_TEMPLATE, parseHostsYaml } from './hosts-file';
 import { appendHostsToYaml, planSshConfigImport } from './import-ssh-config';
 import { parseSshConfig, resolveSshHosts } from './ssh-config';
@@ -24,7 +25,12 @@ export interface ImporterContext {
  * the API). Existing hosts are kept; hosts.yaml must be valid first, so a
  * broken file is never overwritten.
  */
-export async function importSshConfig(context: ImporterContext): Promise<ImportReport> {
+export function importSshConfig(context: ImporterContext): Promise<ImportReport> {
+  // From the read to the write, one edit of hosts.yaml at a time (see file-lock.ts).
+  return withFileLock(context.hostsFile, () => importNow(context));
+}
+
+async function importNow(context: ImporterContext): Promise<ImportReport> {
   if (!existsSync(context.sshConfigFile)) {
     throw new Error(`No SSH config found at ${context.sshConfigFile}.`);
   }
@@ -44,7 +50,7 @@ export async function importSshConfig(context: ImporterContext): Promise<ImportR
   );
   if (plan.hosts.length > 0) {
     await mkdir(dirname(context.hostsFile), { recursive: true });
-    await writeFile(context.hostsFile, appendHostsToYaml(hostsText, plan.hosts), 'utf8');
+    await writeFileAtomic(context.hostsFile, appendHostsToYaml(hostsText, plan.hosts));
   }
   return {
     added: plan.hosts.map((host) => host.id),

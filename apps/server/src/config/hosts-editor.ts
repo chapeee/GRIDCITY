@@ -4,9 +4,10 @@ import {
   type Host,
   type StatusThresholds,
 } from '@app/shared';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { isMap, isSeq, parseDocument, type Document, type YAMLMap } from 'yaml';
 import { z } from 'zod';
+import { withFileLock, writeFileAtomic } from './file-lock';
 import { parseHostsYaml, type HostsConfig } from './hosts-file';
 import { HostValidationError } from './hosts-writer';
 
@@ -78,7 +79,15 @@ export async function setFileThresholds(
   return config.thresholds;
 }
 
-async function writeEdited(
+/** One edit at a time per file, from the read to the write (see file-lock.ts). */
+function writeEdited(
+  hostsFile: string,
+  change: (document: Document) => void,
+): Promise<HostsConfig> {
+  return withFileLock(hostsFile, () => writeEditedNow(hostsFile, change));
+}
+
+async function writeEditedNow(
   hostsFile: string,
   change: (document: Document) => void,
 ): Promise<HostsConfig> {
@@ -92,7 +101,7 @@ async function writeEdited(
   const next = document.toString();
   const after = parseHostsYaml(next);
   if (!after.ok) throw new HostValidationError(after.errors);
-  await writeFile(hostsFile, next, 'utf8');
+  await writeFileAtomic(hostsFile, next);
   return after.config;
 }
 

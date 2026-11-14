@@ -1,8 +1,9 @@
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { isMap, isSeq, parseDocument, type Document, type YAMLMap } from 'yaml';
 import { z } from 'zod';
+import { withFileLock, writeFileAtomic } from './file-lock';
 import {
   findInlineSecret,
   parseResourcesYaml,
@@ -176,7 +177,15 @@ export async function removeResourceFromFile(file: string, id: string): Promise<
   });
 }
 
-async function writeEdited(
+/** One edit at a time per file, from the read to the write (see file-lock.ts). */
+function writeEdited(
+  file: string,
+  change: (document: Document, current: ResourcesConfig) => void,
+): Promise<ResourcesConfig> {
+  return withFileLock(file, () => writeEditedNow(file, change));
+}
+
+async function writeEditedNow(
   file: string,
   change: (document: Document, current: ResourcesConfig) => void,
 ): Promise<ResourcesConfig> {
@@ -196,7 +205,7 @@ async function writeEdited(
   const added = after.skipped.filter((problem) => !known.has(withoutIndex(problem)));
   if (added.length > 0) throw new ResourceValidationError(added);
   await mkdir(dirname(file), { recursive: true });
-  await writeFile(file, next, 'utf8');
+  await writeFileAtomic(file, next);
   return after.config;
 }
 
