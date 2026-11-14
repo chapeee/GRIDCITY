@@ -21,8 +21,9 @@ const ChannelInputSchema = z.strictObject({
       degraded: z.boolean(),
       recovered: z.boolean(),
       security: z.boolean().default(true),
+      backups: z.boolean().default(true),
     })
-    .default({ offline: true, degraded: true, recovered: true, security: true }),
+    .default({ offline: true, degraded: true, recovered: true, security: true, backups: true }),
   settings: z.record(z.string(), z.string().max(4000)).default({}),
 });
 

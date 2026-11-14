@@ -1,6 +1,6 @@
 import type { ConnectionPhase, Host } from '@app/shared';
 // ssh2 is CommonJS; plain Node ESM only exposes its default export.
-import ssh2, { type Client, type ClientChannel, type ConnectConfig } from 'ssh2';
+import ssh2, { type Client, type ClientChannel, type ConnectConfig, type SFTPWrapper } from 'ssh2';
 import type { SshAuthOptions } from './auth-options';
 import { jumpAsHost, openThroughJump, JumpHostKeyError } from './jump';
 import { backoffDelayMs, DEFAULT_BACKOFF, type BackoffOptions } from './backoff';
@@ -149,6 +149,32 @@ export class HostConnection {
         );
         stream.end(stdin);
       });
+    });
+  }
+
+  /**
+   * Starts a command and hands back its channel for streaming (backups):
+   * stdout is the channel, stderr is `channel.stderr`, exit code comes with
+   * the 'exit' / 'close' events. The caller owns the channel.
+   */
+  openExec(command: string): Promise<ClientChannel> {
+    const client = this.client;
+    if (!client || this.currentPhase !== 'connected') {
+      return Promise.reject(new Error('not connected'));
+    }
+    return new Promise((resolve, reject) => {
+      client.exec(command, (error, channel) => (error ? reject(error) : resolve(channel)));
+    });
+  }
+
+  /** An SFTP session on the existing connection (backup destinations). Close it with `end()`. */
+  sftp(): Promise<SFTPWrapper> {
+    const client = this.client;
+    if (!client || this.currentPhase !== 'connected') {
+      return Promise.reject(new Error('not connected'));
+    }
+    return new Promise((resolve, reject) => {
+      client.sftp((error, sftp) => (error ? reject(error) : resolve(sftp)));
     });
   }
 

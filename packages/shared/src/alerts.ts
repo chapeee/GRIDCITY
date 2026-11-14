@@ -211,6 +211,8 @@ export interface AlertEvents {
   recovered: boolean;
   /** High and critical attacks and exposures, and when they end. */
   security: boolean;
+  /** Backup failures, storage errors, finished restores (and successes, per job). */
+  backups: boolean;
 }
 
 export const DEFAULT_ALERT_EVENTS: AlertEvents = {
@@ -218,6 +220,7 @@ export const DEFAULT_ALERT_EVENTS: AlertEvents = {
   degraded: true,
   recovered: true,
   security: true,
+  backups: true,
 };
 
 /** What the browser sees of a channel: no secret values, only which are set. */

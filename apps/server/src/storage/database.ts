@@ -102,6 +102,84 @@ const MIGRATIONS: readonly string[] = [
     updated_at INTEGER NOT NULL
   );
   `,
+  /* 5: backup & restore (backup/store.ts). Passphrases and passwords are in `secrets`. */ `
+  CREATE TABLE backup_destinations (
+    id         TEXT PRIMARY KEY,
+    kind       TEXT NOT NULL,            -- local | s3 | sftp
+    name       TEXT NOT NULL,
+    config     TEXT NOT NULL,            -- JSON: path, or resource id + bucket + prefix, or host id + path
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE TABLE backup_jobs (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    config      TEXT NOT NULL,           -- JSON (JobInput without secrets)
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL,
+    next_run_at INTEGER,
+    deleted_at  INTEGER                  -- removed jobs keep their history and files
+  );
+  CREATE TABLE backup_runs (
+    id            TEXT PRIMARY KEY,
+    job_id        TEXT NOT NULL,
+    job_name      TEXT NOT NULL,
+    source_kind   TEXT NOT NULL,
+    type          TEXT NOT NULL,         -- full | incremental | differential
+    trigger       TEXT NOT NULL,         -- manual | schedule
+    status        TEXT NOT NULL,         -- running | success | partial | failed | interrupted | cancelled | deleted
+    started_at    INTEGER NOT NULL,
+    finished_at   INTEGER,
+    raw_bytes     INTEGER,
+    stored_bytes  INTEGER,
+    sha256        TEXT,
+    file_name     TEXT,
+    parent_run_id TEXT,
+    error         TEXT,
+    manifest      TEXT,                  -- JSON (BackupManifest)
+    file_index    BLOB                   -- gzip JSON: files backups, for the next incremental
+  );
+  CREATE INDEX backup_runs_job ON backup_runs (job_id, started_at);
+  CREATE INDEX backup_runs_started ON backup_runs (started_at);
+  CREATE TABLE backup_run_targets (
+    run_id         TEXT NOT NULL,
+    destination_id TEXT NOT NULL,
+    destination_name TEXT NOT NULL,
+    kind           TEXT NOT NULL,
+    status         TEXT NOT NULL,        -- pending | uploading | uploaded | verified | failed | deleted | missing
+    remote_key     TEXT,
+    bytes          INTEGER NOT NULL DEFAULT 0,
+    error          TEXT,
+    finished_at    INTEGER,
+    PRIMARY KEY (run_id, destination_id)
+  );
+  CREATE TABLE backup_restores (
+    id          TEXT PRIMARY KEY,
+    run_id      TEXT NOT NULL,
+    job_name    TEXT NOT NULL,
+    status      TEXT NOT NULL,
+    target      TEXT NOT NULL,           -- label the user confirmed
+    started_at  INTEGER NOT NULL,
+    finished_at INTEGER,
+    error       TEXT
+  );
+  CREATE TABLE backup_logs (
+    owner_id TEXT NOT NULL,              -- run or restore id
+    at       INTEGER NOT NULL,
+    level    TEXT NOT NULL,
+    message  TEXT NOT NULL
+  );
+  CREATE INDEX backup_logs_owner ON backup_logs (owner_id, at);
+  CREATE TABLE backup_notifications (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    at     INTEGER NOT NULL,
+    level  TEXT NOT NULL,
+    title  TEXT NOT NULL,
+    body   TEXT NOT NULL,
+    run_id TEXT,
+    read   INTEGER NOT NULL DEFAULT 0
+  );
+  `,
 ];
 
 /** How many schema migrations this version knows (PRAGMA user_version after migrating). */

@@ -409,6 +409,40 @@ export class AlertCenter {
   }
 
   /**
+   * Backups and restores (v1.2): success, failure, storage errors, finished
+   * restores. Goes to the channels that have "Backups" ticked.
+   */
+  notifyBackup(
+    level: 'success' | 'error' | 'warning' | 'info',
+    title: string,
+    body: string,
+    details: Record<string, unknown>,
+  ): string[] {
+    const project = this.options.projectName;
+    const icon =
+      level === 'success' ? '✅' : level === 'error' ? '🔴' : level === 'warning' ? '🟡' : 'ℹ️';
+    const message: AlertMessage = {
+      level:
+        level === 'success' || level === 'info'
+          ? 'recovered'
+          : level === 'error'
+            ? 'offline'
+            : 'degraded',
+      project,
+      title,
+      body,
+      text: `${icon} ${project}: ${title}. ${body}`,
+      details: {
+        kind: 'backup',
+        status: level,
+        ...details,
+        at: new Date(this.now()).toISOString(),
+      },
+    };
+    return this.dispatch(message, 'backups', `backup:${String(details.runId ?? title)}`);
+  }
+
+  /**
    * An attack or exposure. Only high and critical findings alert; "attack
    * ended" goes out only for a finding that alerted, so nobody is left
    * believing an attack is still going on.

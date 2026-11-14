@@ -208,7 +208,7 @@ describe('alert channels', () => {
       type: 'email',
       name: 'Ops',
       enabled: true,
-      events: { offline: true, degraded: true, recovered: true, security: true },
+      events: { offline: true, degraded: true, recovered: true, security: true, backups: true },
       settings: { host: 'smtp.example.com', from: 'a@example.com', to: 'not an address' },
     };
     expect(validateAlertChannel(input, null)).toEqual([
@@ -276,7 +276,7 @@ describe('alert center', () => {
     type: 'webhook',
     name,
     enabled: true,
-    events: { offline: true, degraded: false, recovered: true, security: false },
+    events: { offline: true, degraded: false, recovered: true, security: false, backups: true },
     settings: { url: 'https://hooks.example/secret-token' },
   });
 
@@ -317,7 +317,7 @@ describe('alert center', () => {
     const { center, now } = setup();
     center.saveChannel(null, {
       ...webhook(),
-      events: { offline: true, degraded: true, recovered: true, security: true },
+      events: { offline: true, degraded: true, recovered: true, security: true, backups: true },
     });
     expect(center.notify(event('offline'))).toHaveLength(1);
     now.t += 10_000;
@@ -425,7 +425,7 @@ describe('attack alerts', () => {
       type: 'webhook',
       name: 'Slack',
       enabled: true,
-      events: { offline: true, degraded: true, recovered: true, security: true },
+      events: { offline: true, degraded: true, recovered: true, security: true, backups: true },
       settings: { url: 'https://hooks.example/x' },
     });
     expect(center.notifyThreat(threat('medium'), 'opened', 'web-1')).toEqual([]);
@@ -471,7 +471,7 @@ describe('attack alerts', () => {
       type: 'webhook',
       name: 'Quiet',
       enabled: true,
-      events: { offline: true, degraded: true, recovered: true, security: false },
+      events: { offline: true, degraded: true, recovered: true, security: false, backups: true },
       settings: { url: 'https://h.example/q' },
     });
     expect(center.notifyThreat(threat('critical'), 'opened', 'web-1')).toEqual(['Old']);

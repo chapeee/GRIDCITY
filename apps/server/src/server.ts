@@ -82,6 +82,11 @@ import { SampleHistory } from './storage/sample-history';
 import { AppSettingsStore } from './storage/app-settings';
 import { StatusEvents } from './storage/status-events';
 import { registerUpdateRoutes } from './http/update-routes';
+import type { BackupEvent } from '@app/shared';
+import { BackupEngine } from './backup/engine';
+import { registerBackupRoutes } from './backup/routes';
+import { BackupStore } from './backup/store';
+import type { DestinationDeps } from './backup/destinations';
 import { detectInstall, UpdateChecker, updateCheckLockedOff } from './updates/update-check';
 
 /** How often hosts.yaml is checked for changes (polling works on every platform and in Docker). */
@@ -360,6 +365,60 @@ export async function startServer({
     });
     threatHub.start();
   }
+
+  // Backup & Restore (v1.2): reuses the SSH connections, resources.yaml logins, the vault
+  // and the alert channels. Real data only; demo mode shows an empty Backup Center.
+  const backupListeners = new Set<(event: BackupEvent) => void>();
+  const emitBackup = (event: BackupEvent) => {
+    for (const listener of backupListeners) {
+      try {
+        listener(event);
+      } catch {
+        // a closed browser tab
+      }
+    }
+  };
+  const connectionFor = (hostId: string) => {
+    const fleet = hub.currentProvider;
+    const connection = fleet instanceof RealFleet ? fleet.connectionFor(hostId) : undefined;
+    return connection?.phase === 'connected' ? connection : undefined;
+  };
+  const hostLabel = (hostId: string) =>
+    hub.currentProvider.hosts.find((h) => h.id === hostId)?.name ?? hostId;
+  const backupResources = async () => {
+    const loaded = await loadResourcesFile(paths.resourcesFile);
+    return new Map(loaded.ok ? loaded.config.resources.map((entry) => [entry.id, entry]) : []);
+  };
+  const destinationDeps: DestinationDeps = {
+    context: connectorContext,
+    s3Config: async (id) => {
+      const config = (await backupResources()).get(id);
+      return config?.kind === 's3' ? config : undefined;
+    },
+    connection: connectionFor,
+    hostLabel,
+  };
+  const backupStoreDb = env.DATA_MODE === 'real' ? new BackupStore(db) : null;
+  const backupEngine = backupStoreDb
+    ? new BackupEngine({
+        store: backupStoreDb,
+        vault,
+        audit,
+        notifier: {
+          send: (level, title, body, details) => alerts.notifyBackup(level, title, body, details),
+        },
+        appVersion: packageJson.version,
+        stagingDir: join(paths.dataDir, 'backup-staging'),
+        context: connectorContext,
+        resources: backupResources,
+        connection: connectionFor,
+        hostLabel,
+        hostExists: (hostId) => hub.currentProvider.hosts.some((h) => h.id === hostId),
+        emit: emitBackup,
+        log: (message) => console.warn(message),
+      })
+    : null;
+  if (backupEngine) await backupEngine.start();
 
   let lastResourcesMtime = existsSync(paths.resourcesFile)
     ? statSync(paths.resourcesFile).mtimeMs
@@ -692,6 +751,26 @@ export async function startServer({
         reload: reloadResources, // the new building appears at once
       });
       registerAlertRoutes(instance, { center: alerts, audit, demoMode: env.DATA_MODE === 'demo' });
+      registerBackupRoutes(instance, {
+        engine: backupEngine,
+        store: backupStoreDb,
+        vault,
+        demoMode: env.DATA_MODE === 'demo',
+        context: connectorContext,
+        destinationDeps,
+        resources: backupResources,
+        hosts: () =>
+          hub.currentProvider.hosts.map((h) => ({
+            id: h.id,
+            name: h.name,
+            connected: Boolean(connectionFor(h.id)),
+          })),
+        defaultLocalDir: join(paths.dataDir, 'backup-storage'),
+        subscribe: (listener) => {
+          backupListeners.add(listener);
+          return () => backupListeners.delete(listener);
+        },
+      });
       registerThreatRoutes(instance, {
         hub: threatHub,
         backups,
@@ -907,6 +986,7 @@ export async function startServer({
       unwatchFile(paths.runbooksFile);
       agentHub.close();
       threatHub?.stop();
+      backupEngine?.stop();
       await exploreHub.close();
       hub.stop();
       await app.close();
