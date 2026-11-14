@@ -115,10 +115,13 @@ export const BUILTIN_RUNBOOKS: Runbook[] = [
   },
   {
     id: 'pending-updates',
-    name: 'Pending updates',
-    description: 'Packages that can be upgraded (apt, dnf or apk), without changing anything.',
+    name: 'List pending updates',
+    description:
+      'Lists the packages that can be upgraded (apt, dnf or apk). Installs nothing: run the upgrade yourself.',
     command:
-      'if command -v apt >/dev/null; then apt list --upgradable 2>/dev/null | tail -n +2; elif command -v dnf >/dev/null; then dnf -q check-update 2>/dev/null; elif command -v apk >/dev/null; then apk version -l "<" 2>/dev/null; fi; [ -f /var/run/reboot-required ] && echo "*** reboot required ***"',
+      // dnf check-update exits 100 when updates exist, and a missing
+      // reboot-required file is the normal case: neither is a failure.
+      'if command -v apt >/dev/null; then apt list --upgradable 2>/dev/null | tail -n +2; elif command -v dnf >/dev/null; then dnf -q check-update 2>/dev/null; elif command -v apk >/dev/null; then apk version -l "<" 2>/dev/null; else echo "No apt, dnf or apk here ($(uname -s)): GRIDCITY lists updates on Debian, Ubuntu, Fedora, RHEL and Alpine."; fi; if [ -f /var/run/reboot-required ]; then echo "*** reboot required ***"; fi; true',
     timeoutSeconds: 120,
   },
   {
