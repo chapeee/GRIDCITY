@@ -44,7 +44,7 @@ Automated suites to run alongside: `npm run check`, `npm run test:connectors`,
 ## Pass 1 · 2026-11-14 (0.5.0 → 1.0 candidate, branch `qa/v1-audit`)
 
 All 16 areas pass after the fixes below. Automated: 621 unit tests, 133 tests against the real
-containers, lint and types all green.
+containers, all 37 Playwright browser tests, lint and types all green.
 
 ### Found and fixed (each re-verified live after the fix)
 
@@ -62,6 +62,9 @@ containers, lint and types all green.
 | 10  | Low      | A too-small backup showed as "this month"                                                                    | "This week", with the reason                                     |
 | 11  | Low      | Node warned "Setting the TLS ServerName to an IP address" on every probe of an IP                            | No SNI for IP addresses                                          |
 | 12  | Low      | Re-running the lab after the bucket fix no longer recreated the exposure                                     | `security-lab.mjs exposure` removes the access block first       |
+
+| 13 | Medium | Connect dialog ignored "Password for this test" (password from a variable or file): the test always failed | The typed password is used for the test, never saved |
+| 14 | Medium | The browser tests are not run in CI; two were stale (a renamed form field, a label shared with the toolbar) and hid finding 13 | Tests updated; CI still does not run them (see below) |
 
 ### Not covered by this pass
 

@@ -22,6 +22,9 @@ ntfy and real databases in Docker.
 - **AI approval cards stay clear.** The "rendering is slow" hint steps aside while an AI command
   waits for your click, so no other button sits next to Allow; "Add a note for the AI…" puts
   the cursor in the note.
+- **"Password for this test" is used.** With the password taken from a variable or a file, the
+  Connect dialog offers a password for the test, but ignored it, so the test failed with
+  "environment variable … is not set". It is now used for that one test and never saved.
 - A backup that is too small shows as "this week" in Upcoming, with the reason, not "this month".
 - No Node.js warning about TLS server names when a probe checks an IP address.
 

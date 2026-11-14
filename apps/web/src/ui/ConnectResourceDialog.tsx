@@ -121,10 +121,18 @@ function ConnectResourceForm() {
     ...doctorExtras,
   });
 
-  // A typed password is sent only when the password comes from the field (not env/file).
-  const credentials = (from: OneTimeSecrets = secrets): OneTimeSecrets => ({
+  // Saved (Add): a typed password only when the password comes from the field, never
+  // when it comes from a variable or a file. Test: also "Password for this test",
+  // which is offered exactly for a variable or a file and used once.
+  const credentials = (
+    from: OneTimeSecrets = secrets,
+    use: 'save' | 'test' = 'save',
+  ): OneTimeSecrets => ({
     ...from,
-    password: passwordSource === 'typed' ? from.password : undefined,
+    password:
+      passwordSource === 'typed' || (use === 'test' && passwordSource !== 'none')
+        ? from.password
+        : undefined,
   });
 
   const run = async (label: string, action: () => Promise<void>) => {
@@ -147,7 +155,7 @@ function ConnectResourceForm() {
   }) =>
     run('Testing…', async () => {
       const entry = override ? draft(override.values, override.extras) : draft();
-      setResult(await testResource(entry, credentials(override?.secrets)));
+      setResult(await testResource(entry, credentials(override?.secrets, 'test')));
     });
 
   /** A proven Doctor fix: put its settings in the form, then test again. */
