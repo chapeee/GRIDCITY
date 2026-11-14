@@ -1,9 +1,11 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 · 2026-11-14
 
-Found by an end-to-end test pass for 1.0 against LocalStack, Moto, the attack lab, Mailpit,
-ntfy and real databases in Docker.
+**GRIDCITY 1.0: what the README promises now works**, checked end to end against LocalStack,
+Moto, real databases, an attack lab, Mailpit and ntfy, plus a security pass that attacked the
+app. Updating from any earlier version keeps all your data: the config files, the database and
+the data folders are unchanged, and the first start saves a copy first.
 
 - **Updates keep your data, with a copy.** On the first start of a new version, the database,
   vault key, link and settings are copied to `backups/` in the data folder before anything

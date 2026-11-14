@@ -230,3 +230,28 @@ without a copy, on both SQLite drivers.
 
 Not run: the Docker image (it runs the same startup on its `/data` volume) and the XDG adoption on
 a real macOS/Linux machine (covered by unit tests with real databases).
+
+## Pass 5 · 2026-11-14 · Docker upgrade, Chrome, release 1.0.0
+
+**Docker upgrade: 27/27.** The 0.5.0 image (built from the `v0.5.0` tag, as the release workflow
+built it) ran with a fresh `/data` volume and real data (a vault password, an alert channel with a
+secret, a setting, status changes), restarted once, then was replaced by a container of the new
+image on the same volume, as `docker pull` + recreate does. Snapshot in `/data/backups`, every
+row, secret, the vault key and the token unchanged, the database connecting with the old vault's
+password, the alert still sending, no second snapshot. Re-run:
+`node scripts/qa/docker-upgrade-test.mjs --old <image> --new <image>`.
+
+**In Chrome:** without the link, the new page explains and takes it; pasting the link opens the
+city and drops the key from the address bar; a reload without any link stays signed in; one side
+panel at a time and Esc closes it.
+
+### Found, not fixed in 1.0.0
+
+- **The Docker image is private on ghcr.io.** Every release's Docker job succeeded, but the
+  package is private (GitHub's default for a new package), so `docker run ghcr.io/chapeee/gridcity`
+  from the README fails for everyone else (`unauthorized`). Fix: GitHub → Packages → gridcity →
+  Package settings → Change visibility → Public. Applies to 1.0.0 too.
+- **Docker on another host port cannot save changes.** The allowed Origin is the container's
+  own port (4600). With `-p 127.0.0.1:8080:4600` the city shows, but every change is refused
+  (403). The documented `-p 127.0.0.1:4600:4600` and the compose files are fine. A
+  `PUBLIC_PORT`-style setting would fix it without opening the Origin check to every local port.
