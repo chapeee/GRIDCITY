@@ -95,6 +95,20 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # Users pull without signing in. GitHub makes a new package private, which
+  # breaks every `docker run` in the docs while the push above still succeeds.
+  docker-public:
+    needs: [verify, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull the image the way a user does (no login)
+        run: |
+          image="ghcr.io/${{ github.repository_owner }}/gridcity:${{ needs.verify.outputs.version }}"
+          if ! docker pull "$image"; then
+            echo "::error::$image cannot be pulled without signing in. Make the package public: GitHub → Packages → gridcity → Package settings → Change visibility → Public."
+            exit 1
+          fi
+
   github-release:
     needs: [verify, npm, docker, desktop]
     runs-on: ubuntu-latest
@@ -115,7 +129,14 @@ jobs:
           | macOS | \`GRIDCITY-$version-mac-arm64.dmg\` (Apple Silicon) · \`-x64.dmg\` (Intel) |
           | Linux | \`.AppImage\` (any distro) · \`.deb\` (Debian, Ubuntu) · \`.rpm\` (Fedora, RHEL) |
 
-          Or without an installer: \`npx gridcity-desktop\` (window) · \`npx gridcity\` (browser) · \`docker run ghcr.io/${{ github.repository_owner }}/gridcity:$version\`
+          Or without an installer: \`npx gridcity-desktop\` (window) · \`npx gridcity\` (browser)
+
+          With Docker, then open the link that \`docker logs gridcity\` prints:
+
+          \`\`\`bash
+          docker run -d --name gridcity -p 127.0.0.1:4600:4600 -v gridcity-config:/config -v gridcity-data:/data ghcr.io/${{ github.repository_owner }}/gridcity:$version
+          docker logs gridcity
+          \`\`\`
           EOF
       - uses: actions/download-artifact@v4
         with:
