@@ -79,6 +79,48 @@ containers, all 37 Playwright browser tests, lint and types all green.
 
 - Problems that already exist when the app starts (e.g. `mysql-tls` offline) do not send an
   alert; only changes do. Intentional? Worth a decision before 1.0.
-- RDS "Allocated storage" shows raw bytes (`21474836480 bytes`) instead of `20 GiB`.
-- The finding "login after failures" from an address stays `blocked: unknown` after that address
-  was banned through the brute-force finding.
+- ~~RDS "Allocated storage" shows raw bytes~~ fixed in pass 2 (the AI read raw bytes; the app
+  already showed GiB).
+- ~~"Login after failures" stays `blocked: unknown` after a ban~~ fixed in pass 2.
+
+## Pass 2 · 2026-11-14 · security (attacking the app)
+
+Ran as an attacker against the running app: hostile HTTP and WebSocket requests, superuser
+database accounts in read-only Manage, disguised AI commands over MCP, stored files in buckets.
+
+### Held up (no change needed)
+
+| Area                             | Attacks tried                                                                                                                                                                                                   | Result                                                                             |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Local API                        | no / wrong token, DNS rebinding (`Host: evil.com`, `localhost.evil.com`, `127.0.0.1.nip.io`), CSRF from another origin, form POST with the token in the URL, cross-site WebSocket, `/mcp` with a foreign Origin | 401 / 421 / 403 every time; no CORS headers; loopback only; token redacted in logs |
+| Secrets                          | every GET endpoint and the state WebSocket searched for saved passwords                                                                                                                                         | none; the vault only says whether a password is set                                |
+| One-click fixes                  | attacker-controlled IPs and user names reaching `sudo` scripts                                                                                                                                                  | strict allow-lists; scripts rebuilt server-side from the stored finding            |
+| Log search, backup checks        | shell metacharacters in the query and the path                                                                                                                                                                  | query sent base64; paths limited to plain characters                               |
+| PostgreSQL read mode (superuser) | `COMMIT;`/`ROLLBACK;` escapes, `SET TRANSACTION READ WRITE`, `COPY … TO PROGRAM`, `lo_export`, CTE `DELETE`, `EXPLAIN ANALYZE DELETE`, `ALTER SYSTEM`, `CREATE ROLE`                                            | all refused; nothing written                                                       |
+| MySQL read mode (root)           | `INTO OUTFILE/DUMPFILE`, `KILL`, `SET GLOBAL`, `CALL`, `FLUSH`                                                                                                                                                  | all refused                                                                        |
+| MongoDB read mode (root)         | insert, `$out`, `$merge`, `dropDatabase`, `killOp`                                                                                                                                                              | all refused; queries have a time limit                                             |
+| Bucket previews                  | HTML and SVG with scripts, served inline                                                                                                                                                                        | served as text / download type, `nosniff`, CSP sandbox                             |
+| SSH key import                   | `../` and reserved names (`authorized_keys`)                                                                                                                                                                    | basename + allow-list, never overwrites                                            |
+| Audit log                        | edit or delete                                                                                                                                                                                                  | refused by database triggers                                                       |
+| Files and image                  | vault key and session token permissions; Docker user and ports                                                                                                                                                  | `0600`; runs as `node`; published on 127.0.0.1                                     |
+| Dependencies                     | `npm audit --omit=dev`                                                                                                                                                                                          | 0 known vulnerabilities                                                            |
+
+### Found and fixed (re-attacked live after each fix)
+
+| #   | Severity | Finding                                                                                                                                         | Fix                                                                                   |
+| --- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| S1  | Critical | Read-only Redis: `EVAL "return redis.call('set',…)"` **wrote** (any command, `FLUSHALL` included)                                               | `EVAL`/`EVALSHA`/`FCALL` need Changes on; `may_replicate` counts as a change          |
+| S2  | High     | AI approval card spoofable: a right-to-left override showed `echo # …` for `echo ;touch …`; 40 blank lines hid the real tail                    | Hidden characters shown as ⟨U+…⟩ and always ask; line count and collapsed gaps warned |
+| S3  | High     | Read-only PostgreSQL ran `pg_terminate_backend` (killed sessions) and `pg_reload_conf`                                                          | Side-effect functions refused in read mode, also behind comments or quotes            |
+| S4  | High     | "Allow all" ran hidden code without asking: `base64 -d \| sh`, `curl \| bash`, `eval`, Python `rmtree`, `chown -R … /etc`, moving `sshd_config` | New rules; everyday commands (`ps \| grep`, `curl \| python3 -m json.tool`) still run |
+| S5  | Medium   | With several AI requests waiting, the stack grew off the top of the window: some cards and their Deny buttons unreachable                       | The stack scrolls inside the window                                                   |
+| S6  | Medium   | Read-only Redis: `PUBLISH` reached subscribed applications; `MULTI` left the shared console queuing every later command                         | `PUBLISH` needs Changes on; transactions refused in the console                       |
+
+### Known limits (by design, documented)
+
+- "Allow all" skips the card for commands the classifier sees as harmless; it is a heuristic, not
+  a sandbox. A hidden tail that is itself harmless (`touch`) runs; a destructive one asks.
+- Read mode allows reads a superuser may do, e.g. PostgreSQL `pg_read_file`: the credentials are
+  yours, and the AI tools never get the Manage views.
+- Text the AI reads (log lines, account names, bucket names) can contain prompt injection; every
+  command it asks for still needs your click.

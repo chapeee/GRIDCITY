@@ -28,6 +28,27 @@ ntfy and real databases in Docker.
 - A backup that is too small shows as "this week" in Upcoming, with the reason, not "this month".
 - No Node.js warning about TLS server names when a probe checks an IP address.
 
+Security, from a second pass that attacked the app:
+
+- **Read-only Redis no longer runs scripts that write.** `EVAL`, `EVALSHA` and `FCALL` could call
+  any command (a `SET`, a `FLUSHALL`) while changes were off. They now need Changes on;
+  `EVAL_RO` and friends still work, enforced by Redis. `PUBLISH` (it reaches your applications)
+  needs Changes on too, and `MULTI` no longer leaves the console stuck in a transaction.
+- **Read-only SQL refuses functions that act on the server**: `pg_terminate_backend` (it killed
+  other sessions), `pg_reload_conf`, advisory locks, large-object file exports, MySQL `GET_LOCK`,
+  SQLite `load_extension`, also when hidden behind comments or quotes.
+- **AI approval cards show exactly what runs.** Invisible and right-to-left characters, which
+  can make a command read differently from what it does, are shown as ⟨U+…⟩ with a warning, and
+  such a command always asks, even with "Allow all". Long commands say how many lines to read,
+  and a long run of spaces can no longer push the end out of view.
+- **"Allow all" still asks for hidden code**: `curl … | sh`, `base64 -d | sh`, `eval`,
+  interpreter one-liners that delete, recursive ownership changes of system folders, and moving
+  SSH or system configuration away.
+- Several AI requests at once scroll inside their stack; none can end up off screen.
+- A login after failed attempts says when its address is blocked, and stays critical: the
+  password still works from anywhere else.
+- AI agents read sizes as `20 GiB`, not `21474836480 bytes`.
+
 ## 0.5.0 · 2026-11-14
 
 - **Desktop app for Windows, macOS and Linux**, with Chromium built in and no Node.js needed.

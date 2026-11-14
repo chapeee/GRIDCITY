@@ -18,6 +18,8 @@ export default defineConfig(
       'packaging/desktop/stage/**',
       'packaging/desktop/.work/**',
       'website/**',
+      // The QA pass's config, data and local helpers (scripts/qa/pass.mjs).
+      '.qa/**',
     ],
   },
   js.configs.recommended,
