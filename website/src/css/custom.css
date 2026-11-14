@@ -64,6 +64,54 @@
   background-color: var(--ifm-color-primary);
 }
 
+/* "Star" on GitHub: the mark and the word in one outlined button. */
+.navbar__item.header-github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  padding: 4px 10px;
+  border: 1px solid rgba(143, 227, 255, 0.35);
+  border-radius: 6px;
+}
+
+.navbar__item.header-github-link::before {
+  width: 18px;
+  height: 18px;
+}
+
+.navbar__item.header-github-link:hover {
+  border-color: var(--ifm-color-primary);
+}
+
+/* The mark already says it leaves the site. */
+.header-github-link svg {
+  display: none;
+}
+
+/*
+ * Between the mobile menu (996px) and a wide window the navbar runs out of
+ * room and labels overlap: tighten it, and drop the links the footer and the
+ * sidebar also have.
+ */
+@media (min-width: 997px) and (max-width: 1320px) {
+  .navbar__item {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .navbar__items--right a[href*='npmjs.com'],
+  .navbar__items:not(.navbar__items--right) a[href$='/docs/contributing/'] {
+    display: none;
+  }
+}
+
+@media (min-width: 997px) and (max-width: 1140px) {
+  .navbar__items:not(.navbar__items--right) a[href$='/docs/architecture/overview/'] {
+    display: none;
+  }
+}
+
 [data-theme='dark'] .markdown h1,
 [data-theme='dark'] .markdown h2 {
   color: #eef9ff;

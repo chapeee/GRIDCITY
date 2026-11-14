@@ -7,7 +7,10 @@ description: 'Publish to npm and GHCR, build the desktop installers, list the ap
 
 1. Update the version in the root `package.json` (and the workspace packages) and add a section to
    `CHANGELOG.md`.
-2. Commit, then tag and push:
+2. For a major or minor release (1.0, 1.1, 2.0…), update the banner at the top of this site:
+   `announcementBar` in `website/docusaurus.config.ts`. Change its text to the new version and
+   what's new, and change its `id` too, so people who closed the old banner see the new one.
+3. Commit, then tag and push:
 
 ```bash
 git tag v0.2.0
@@ -16,7 +19,10 @@ git push origin main --tags
 
 The **Release** workflow then checks everything, publishes `gridcity` to npm with provenance,
 pushes `ghcr.io/chapeee/gridcity:<version>` and `:latest` for amd64 and arm64, and creates the
-GitHub release from the changelog.
+GitHub release from the changelog. A last job pulls the image without signing in, the way users
+do, and fails if it can't. GitHub makes a new package private, so after the very first image,
+open GitHub → your profile → Packages → `gridcity` → Package settings → Change visibility →
+Public, once.
 
 It needs one repository secret, `NPM_TOKEN` (an npm automation token). Users never need a token:
 it only lets npm accept new versions from the owner. To publish by hand instead:

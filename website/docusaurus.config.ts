@@ -123,8 +123,9 @@ const config: Config = {
       respectPrefersColorScheme: false,
     },
     announcementBar: {
-      id: 'v0-4-demo',
-      content: `GRIDCITY 0.4 is out: <code>npx gridcity demo</code>, or <a href="${baseUrl}demo/">try the live demo in your browser</a>. <a href="${baseUrl}docs/guides/security/">See who is attacking what</a>, <a href="${baseUrl}docs/guides/manage/">manage databases and buckets</a>, and get <a href="${baseUrl}docs/guides/alerts/">alerts with the app closed</a>.`,
+      // Update this (and its id, so it shows again) with every major or minor release.
+      id: 'v1-0',
+      content: `GRIDCITY 1.0 is out: <code>npx gridcity demo</code>, the <a href="${baseUrl}demo/">live demo</a> or the <a href="${baseUrl}docs/getting-started/desktop-app/">desktop app</a>. Like it? <a href="${repositoryUrl}" target="_blank" rel="noopener noreferrer">Star it on GitHub</a>.`,
       isCloseable: true,
     },
     docs: {
@@ -153,8 +154,9 @@ const config: Config = {
         {
           href: repositoryUrl,
           position: 'right',
+          label: 'Star',
           className: 'header-github-link',
-          'aria-label': 'GitHub repository',
+          'aria-label': 'Star GRIDCITY on GitHub',
         },
       ],
     },
