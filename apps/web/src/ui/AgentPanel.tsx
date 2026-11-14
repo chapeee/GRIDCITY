@@ -93,6 +93,8 @@ function ApprovalCard({ approval }: { approval: AgentApproval }) {
             value={note}
             onChange={(event) => setNote(event.target.value)}
             placeholder="e.g. use apt, not snap · or why you deny"
+            // Opened by "Add a note…": typing should go straight in.
+            autoFocus
           />
         </label>
       ) : (

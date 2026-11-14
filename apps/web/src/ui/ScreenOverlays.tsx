@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { FleetPulse } from './TopToolbar';
+import { useAgentStore } from '../data/agent-store';
 import { useFleetStore } from '../data/fleet-store';
 import { performanceBudget } from '../design/tokens';
 import { usePerfStore } from './perf-store';
@@ -86,8 +87,11 @@ export function PerfOverlay() {
 export function LiteModeSuggestion() {
   const visible = useUiStore((store) => store.liteSuggestionVisible);
   const frameMs = usePerfStore((store) => store.frameMs);
+  // An AI command waiting for a click comes first: never put this hint (and its
+  // buttons) next to Allow. It comes back once the approval is answered.
+  const approvalWaiting = useAgentStore((store) => (store.state?.approvals.length ?? 0) > 0);
   const { setLiteMode, dismissLiteSuggestion } = useUiStore.getState();
-  if (!visible) return null;
+  if (!visible || approvalWaiting) return null;
   return (
     <div className="toast" role="status">
       <p>

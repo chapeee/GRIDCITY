@@ -133,6 +133,25 @@ export interface TerminalSession {
 
 let nextNoticeId = 1;
 
+/**
+ * The panels that dock on the right share one place on screen. Opening one
+ * closes the others: two stacked there hide each other, and Esc would close
+ * the hidden one first.
+ */
+const SIDE_PANELS_CLOSED = {
+  securityOpen: false,
+  securityTarget: null,
+  upcomingOpen: false,
+  logsOpen: false,
+  costsOpen: false,
+  auditLogOpen: false,
+  settingsOpen: false,
+  historyTarget: undefined,
+  doctorTarget: undefined,
+  incident: null,
+  paletteOpen: false,
+} as const;
+
 export const useUiStore = create<UiStore>()((set, get) => ({
   focusedHostId: null,
   paletteOpen: false,
@@ -205,32 +224,32 @@ export const useUiStore = create<UiStore>()((set, get) => ({
     writeStoredJson(INTRO_SEEN_KEY, true);
     set({ introPlaying: false });
   },
-  setAuditLogOpen: (open) => set({ auditLogOpen: open }),
+  setAuditLogOpen: (open) =>
+    set(open ? { ...SIDE_PANELS_CLOSED, auditLogOpen: true } : { auditLogOpen: false }),
   setAddHostOpen: (open) => set({ addHostOpen: open, paletteOpen: false }),
   setAgentPanelOpen: (open) => set({ agentPanelOpen: open, paletteOpen: false }),
   openHistory: (target) =>
     set(
       target === undefined
         ? { historyTarget: undefined }
-        : { historyTarget: target, paletteOpen: false, settingsOpen: false },
+        : { ...SIDE_PANELS_CLOSED, historyTarget: target },
     ),
   setSecurityOpen: (open, targetId = null) =>
-    set({ securityOpen: open, securityTarget: open ? targetId : null, paletteOpen: false }),
-  setUpcomingOpen: (open) => set({ upcomingOpen: open, paletteOpen: false }),
-  setLogsOpen: (open) => set({ logsOpen: open, paletteOpen: false }),
-  setCostsOpen: (open) => set({ costsOpen: open, paletteOpen: false }),
-  openIncident: (incident) =>
-    set(
-      incident
-        ? { incident, paletteOpen: false, securityOpen: false, upcomingOpen: false }
-        : { incident: null },
-    ),
-  setSettingsOpen: (open) =>
     set(
       open
-        ? { settingsOpen: true, paletteOpen: false, historyTarget: undefined }
-        : { settingsOpen: false },
+        ? { ...SIDE_PANELS_CLOSED, securityOpen: true, securityTarget: targetId }
+        : { securityOpen: false, securityTarget: null },
     ),
+  setUpcomingOpen: (open) =>
+    set(open ? { ...SIDE_PANELS_CLOSED, upcomingOpen: true } : { upcomingOpen: false }),
+  setLogsOpen: (open) =>
+    set(open ? { ...SIDE_PANELS_CLOSED, logsOpen: true } : { logsOpen: false }),
+  setCostsOpen: (open) =>
+    set(open ? { ...SIDE_PANELS_CLOSED, costsOpen: true } : { costsOpen: false }),
+  openIncident: (incident) =>
+    set(incident ? { ...SIDE_PANELS_CLOSED, incident } : { incident: null }),
+  setSettingsOpen: (open) =>
+    set(open ? { ...SIDE_PANELS_CLOSED, settingsOpen: true } : { settingsOpen: false }),
   setEditHostId: (hostId) => set({ editHostId: hostId, paletteOpen: false }),
   setConnectResourceOpen: (open) => set({ connectResourceOpen: open, paletteOpen: false }),
   setEditResourceId: (sourceId) => set({ editResourceId: sourceId, paletteOpen: false }),
@@ -245,7 +264,7 @@ export const useUiStore = create<UiStore>()((set, get) => ({
     set(
       target === undefined
         ? { doctorTarget: undefined }
-        : { doctorTarget: target, paletteOpen: false },
+        : { ...SIDE_PANELS_CLOSED, doctorTarget: target },
     ),
   setNotificationsEnabled: (enabled) => {
     writeStoredJson(NOTIFICATIONS_KEY, enabled);
