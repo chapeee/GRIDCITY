@@ -96,7 +96,15 @@ function RunbookPanelBody({ preset }: { preset: { hostIds: string[]; runbookId: 
         hostIds: chosen.map((host) => host.id),
       });
       setResponse(result);
-      setOpen(new Set(result.results.filter((r) => !r.ok).map((r) => r.hostId)));
+      // A few servers: show every output, so a listing is never mistaken for a
+      // silent success. Many servers: open only the failures.
+      setOpen(
+        new Set(
+          result.results
+            .filter((r) => !r.ok || result.results.length <= OPEN_ALL_UP_TO)
+            .map((r) => r.hostId),
+        ),
+      );
     } catch (reason) {
       setError((reason as Error).message);
     } finally {
@@ -297,21 +305,47 @@ function RunbookPanelBody({ preset }: { preset: { hostIds: string[]; runbookId: 
       </footer>
 
       {error && <p className="audit-error">{error}</p>}
-      {response && <Results response={response} open={open} setOpen={setOpen} />}
+      {response && (
+        <Results
+          response={response}
+          readOnly={runbook?.readOnly ?? false}
+          open={open}
+          setOpen={setOpen}
+        />
+      )}
     </motion.section>
   );
 }
 
+/** Up to this many servers, every result opens with its output. */
+const OPEN_ALL_UP_TO = 5;
+
+/**
+ * "exit 0" only says the command ran, not what it found or did: the heading
+ * says so, and a read-only runbook says it changed nothing.
+ */
+export function resultsSummary(results: readonly RunResult[], readOnly: boolean): string {
+  const failed = results.filter((r) => !r.ok).length;
+  const ran = results.length - failed;
+  const servers = (n: number) => `${n} server${n === 1 ? '' : 's'}`;
+  const parts = [
+    failed === 0 ? `ran on ${servers(ran)}` : `${failed} of ${servers(results.length)} failed`,
+  ];
+  if (readOnly) parts.push('read-only: nothing was changed, the output is what it found');
+  return parts.join(' · ');
+}
+
 function Results({
   response,
+  readOnly,
   open,
   setOpen,
 }: {
   response: RunResponse;
+  readOnly: boolean;
   open: Set<string>;
   setOpen(next: Set<string>): void;
 }) {
-  const failed = response.results.filter((r) => !r.ok).length;
   const toggle = (id: string) => {
     const next = new Set(open);
     if (next.has(id)) next.delete(id);
@@ -321,7 +355,7 @@ function Results({
   return (
     <section className="runbook-results" aria-label="Results">
       <h3>
-        Results <small>{failed === 0 ? 'all succeeded' : `${failed} failed`}</small>
+        Results <small>{resultsSummary(response.results, readOnly)}</small>
       </h3>
       <ul>
         {response.results.map((result) => (
@@ -356,7 +390,9 @@ function Results({
 
 function describeResult(result: RunResult): string {
   if (result.error) return result.error;
-  return result.exitCode === 0 ? 'exit 0' : `exit ${result.exitCode ?? '?'}`;
+  const lines = result.stdout.split('\n').filter((line) => line.trim()).length;
+  const code = result.exitCode === 0 ? 'exit 0' : `exit ${result.exitCode ?? '?'}`;
+  return `${code} · ${lines === 0 ? 'no output' : `${lines} line${lines === 1 ? '' : 's'}`}`;
 }
 
 /** Runbooks that apply to a host, for the HUD button and the palette. */
