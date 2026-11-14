@@ -1,0 +1,22 @@
+{
+  "version": "{{VERSION}}",
+  "description": "Your servers, databases and buckets as a living 3D city of light (desktop app).",
+  "homepage": "https://chapeee.github.io/GRIDCITY/",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/chapeee/GRIDCITY/releases/download/v{{VERSION}}/GRIDCITY-{{VERSION}}-win-x64.zip",
+      "hash": "{{WIN_ZIP_X64_SHA256}}"
+    }
+  },
+  "shortcuts": [["GRIDCITY.exe", "GRIDCITY"]],
+  "checkver": "github",
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/chapeee/GRIDCITY/releases/download/v$version/GRIDCITY-$version-win-x64.zip"
+      }
+    },
+    "hash": { "url": "$baseurl/SHA256SUMS.txt" }
+  }
+}

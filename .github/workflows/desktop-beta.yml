@@ -1,0 +1,92 @@
+name: Desktop beta
+
+# A beta tag (v0.5.0-beta.1, v0.5.0-beta.2, ...) pushed on a commit of the
+# desktop branch builds and tests the installers and publishes them as a GitHub
+# pre-release for that tag. The owner pushes the tag (the repository's rules
+# don't let workflows create tags):
+#   git tag v0.5.0-beta.1 && git push origin v0.5.0-beta.1
+# Nothing goes to npm or GHCR, main is not touched, and a beta is never marked
+# as the latest release (release.yml ignores -beta tags).
+
+on:
+  push:
+    tags: ['v*-beta.*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-beta-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - id: tag
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    uses: ./.github/workflows/desktop-build.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+    secrets: inherit
+
+  # Publishes what was built even when one system failed (GitHub sometimes has no
+  # macOS runner to give): "Re-run failed jobs" then builds the missing system
+  # and this job adds its files to the same beta.
+  beta-release:
+    needs: [version, build]
+    if: ${{ !cancelled() && needs.version.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # desktop-Linux, desktop-Windows, desktop-macOS (not desktop-screenshots-*).
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-[LWm]*
+          path: downloads
+          merge-multiple: true
+      - name: Checksums and missing systems
+        working-directory: downloads
+        run: |
+          ls | grep -q . || { echo "::error::No system built: nothing to publish."; exit 1; }
+          sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+          missing=""
+          ls *.exe >/dev/null 2>&1 || missing="$missing Windows"
+          ls *.dmg >/dev/null 2>&1 || missing="$missing macOS"
+          ls *.AppImage >/dev/null 2>&1 || missing="$missing Linux"
+          echo "MISSING=${missing# }" >> "$GITHUB_ENV"
+          [ -z "$missing" ] || echo "::warning::Not built:$missing. Re-run the failed jobs to add them."
+      - name: Publish the beta pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          cat > notes.md <<EOF
+          **GRIDCITY desktop app $VERSION (beta)**, built from the desktop branch
+          (commit ${GITHUB_SHA::7}). A test build, not an official release.
+
+          | System | Download |
+          |---|---|
+          | Windows | \`GRIDCITY-$VERSION-win-x64.exe\` (installer) · \`-arm64.exe\` · \`.zip\` (portable) |
+          | macOS | \`GRIDCITY-$VERSION-mac-arm64.dmg\` (Apple Silicon) · \`-mac-x64.dmg\` (Intel) |
+          | Linux | \`.AppImage\` (any distro) · \`.deb\` (Debian, Ubuntu) · \`.rpm\` (Fedora, RHEL) |
+
+          The builds are unsigned: Windows SmartScreen asks for **More info → Run anyway** (with
+          Smart App Control on, Windows blocks them; use \`npx gridcity-desktop\` there), and macOS
+          needs **System Settings → Privacy & Security → Open Anyway** once.
+          EOF
+          [ -z "$MISSING" ] || printf '\n> Not in this beta yet: %s (its build did not run).\n' "$MISSING" >> notes.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            # A re-run: add the files that are new, replace the checksums, refresh the notes.
+            gh release upload "$GITHUB_REF_NAME" downloads/* --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" downloads/* \
+              --prerelease --latest=false --verify-tag \
+              --title "GRIDCITY $VERSION (desktop beta)" --notes-file notes.md
+          fi

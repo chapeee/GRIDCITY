@@ -1,0 +1,95 @@
+name: Desktop build
+
+# Builds the desktop installers (packaging/desktop) on Windows, macOS and Linux,
+# runs the end-to-end test against each packaged app, and uploads the files as
+# artifacts named desktop-<os>. Called by release.yml (tags) and
+# desktop-beta.yml (betas from the desktop branch).
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: App version for the installers (empty = the version in package.json)
+        type: string
+        default: ''
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: --win --x64 --arm64
+            app: dist/win-unpacked/GRIDCITY.exe
+          - os: macos-latest
+            args: --mac --x64 --arm64
+            app: dist/mac-arm64/GRIDCITY.app/Contents/MacOS/GRIDCITY
+          - os: ubuntu-latest
+            args: --linux --x64 --arm64
+            app: dist/linux-unpacked/gridcity-desktop
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Linux packaging and test tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm xvfb
+      - run: npm ci --no-audit --no-fund
+      - run: npm run pack:npm
+      - run: npm ci --no-audit --no-fund
+        working-directory: packaging/desktop
+      # Signing is used when its secrets exist, and skipped (unsigned build) when they don't:
+      #   Windows: WIN_CSC_LINK (base64 .pfx) + WIN_CSC_KEY_PASSWORD
+      #   macOS:   MAC_CSC_LINK (base64 .p12) + MAC_CSC_KEY_PASSWORD, and for notarization
+      #            APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID
+      - name: Build installers
+        working-directory: packaging/desktop
+        shell: bash
+        run: |
+          extra=""
+          if [ -z "$CSC_LINK" ]; then
+            # No certificate: an empty CSC_LINK would be read as a path, so drop it.
+            # macOS gets an ad-hoc signature (Apple Silicon runs nothing unsigned).
+            unset CSC_LINK CSC_KEY_PASSWORD
+            [ "$RUNNER_OS" = macOS ] && extra="-c.mac.identity=-"
+          fi
+          node build.mjs ${{ matrix.args }} $extra
+        env:
+          GRIDCITY_DESKTOP_VERSION: ${{ inputs.version }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CSC_LINK != '' }}
+          CSC_LINK: ${{ runner.os == 'Windows' && secrets.WIN_CSC_LINK || secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'Windows' && secrets.WIN_CSC_KEY_PASSWORD || secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - name: End-to-end test of the packaged app
+        working-directory: packaging/desktop
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            xvfb-run -a node test-desktop.mjs --app "${{ matrix.app }}"
+          else
+            node test-desktop.mjs --app "${{ matrix.app }}"
+          fi
+      - name: Screenshots from the test
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-screenshots-${{ runner.os }}
+          path: packaging/desktop/test-results/*.png
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            packaging/desktop/dist/*.exe
+            packaging/desktop/dist/*.zip
+            packaging/desktop/dist/*.dmg
+            packaging/desktop/dist/*.AppImage
+            packaging/desktop/dist/*.deb
+            packaging/desktop/dist/*.rpm

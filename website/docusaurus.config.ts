@@ -147,6 +147,8 @@ const config: Config = {
         { type: 'doc', docId: 'architecture/overview', position: 'left', label: 'Architecture' },
         { type: 'doc', docId: 'contributing/index', position: 'left', label: 'Contributing' },
         { to: 'pathname:///demo/', label: 'Live demo', position: 'right' },
+        { type: 'doc', docId: 'getting-started/desktop-app', label: 'Download', position: 'right' },
+        { href: 'https://www.npmjs.com/package/gridcity', label: 'npm', position: 'right' },
         { type: 'search', position: 'right' },
         {
           href: repositoryUrl,

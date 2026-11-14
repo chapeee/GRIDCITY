@@ -14,7 +14,7 @@
 
 [![Flying through the city, focusing a degraded host, and jacking in](docs/media/demo.gif)](https://chapeee.github.io/GRIDCITY/demo/)
 
-**[Live demo](https://chapeee.github.io/GRIDCITY/demo/)** · **[Documentation](https://chapeee.github.io/GRIDCITY/)** · [Quick start](https://chapeee.github.io/GRIDCITY/docs/getting-started/quick-start/) · [MCP tools](https://chapeee.github.io/GRIDCITY/docs/reference/mcp-tools/) · [The Doctor](https://chapeee.github.io/GRIDCITY/docs/guides/doctor/) · [Changelog](CHANGELOG.md)
+**[Live demo](https://chapeee.github.io/GRIDCITY/demo/)** · **[Documentation](https://chapeee.github.io/GRIDCITY/)** · **[Download](https://github.com/chapeee/GRIDCITY/releases/latest)** · [npm](https://www.npmjs.com/package/gridcity) · [Quick start](https://chapeee.github.io/GRIDCITY/docs/getting-started/quick-start/) · [MCP tools](https://chapeee.github.io/GRIDCITY/docs/reference/mcp-tools/) · [The Doctor](https://chapeee.github.io/GRIDCITY/docs/guides/doctor/) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -42,6 +42,10 @@ npx gridcity                 # your own servers (connect them in the app), runs 
 npx gridcity stop            # stop it (gridcity status shows the link again)
 npx gridcity mcp             # connect Claude Code, Cursor or any MCP app
 ```
+
+Prefer an app? Download the **desktop app** for Windows, macOS or Linux from the
+[latest release](https://github.com/chapeee/GRIDCITY/releases/latest) (Chromium built in, no
+Node.js needed), or run `npx gridcity-desktop`.
 
 or with Docker, no Node needed:
 
@@ -212,12 +216,13 @@ Full reference: [MCP tools](https://chapeee.github.io/GRIDCITY/docs/reference/mc
 
 ## Install
 
-| How                 | Command                                         | Needs          |
-| ------------------- | ----------------------------------------------- | -------------- |
-| Try it              | `npx gridcity demo`                             | Node.js 22.12+ |
-| Install the command | `npm i -g gridcity`, then `gridcity`            | Node.js 22.12+ |
-| Docker              | the `docker run` above, or `compose.image.yaml` | Docker         |
-| From source         | `git clone`, `npm install`, `npm run dev`       | Node.js 22.12+ |
+| How                 | Command                                                                                    | Needs                       |
+| ------------------- | ------------------------------------------------------------------------------------------ | --------------------------- |
+| Desktop app         | [download](https://github.com/chapeee/GRIDCITY/releases/latest), or `npx gridcity-desktop` | nothing (Chromium built in) |
+| Try it              | `npx gridcity demo`                                                                        | Node.js 22.12+              |
+| Install the command | `npm i -g gridcity`, then `gridcity`                                                       | Node.js 22.12+              |
+| Docker              | the `docker run` above, or `compose.image.yaml`                                            | Docker                      |
+| From source         | `git clone`, `npm install`, `npm run dev`                                                  | Node.js 22.12+              |
 
 ```text
 gridcity                      start with your servers in the background, then open the printed link
@@ -236,6 +241,21 @@ gridcity import-ssh-config    add every host from ~/.ssh/config
 The link printed at start contains a session token; it stays the same across restarts (bookmark
 it). The server keeps running in the background after you close the terminal; `--foreground`
 keeps it attached instead. Remote servers must be Linux.
+
+Packages: [`gridcity`](https://www.npmjs.com/package/gridcity) and
+[`gridcity-desktop`](https://www.npmjs.com/package/gridcity-desktop) on npm,
+[`ghcr.io/chapeee/gridcity`](https://github.com/chapeee/GRIDCITY/pkgs/container/gridcity) for
+Docker.
+
+### Desktop app
+
+GRIDCITY in its own window, with Chromium built in and no Node.js needed. Download the installer
+from the [latest release](https://github.com/chapeee/GRIDCITY/releases/latest): Windows `.exe`,
+macOS `.dmg` (Apple Silicon and Intel), Linux `.AppImage`, `.deb` and `.rpm`. It runs the same
+server as the `gridcity` command and shares its data, so you can use either. Closing the window
+keeps it in the tray, still watching your servers and sending alerts, and it starts with your
+computer (hidden in the tray), so monitoring survives a restart.
+[Desktop app guide](https://chapeee.github.io/GRIDCITY/docs/getting-started/desktop-app/).
 
 ## Try it from source
 

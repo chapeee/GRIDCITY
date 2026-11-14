@@ -1,0 +1,20 @@
+# AUR package gridcity-bin: push this PKGBUILD (and the .SRCINFO from
+# `makepkg --printsrcinfo > .SRCINFO`) to ssh://aur@aur.archlinux.org/gridcity-bin.git
+pkgname=gridcity-bin
+pkgver={{VERSION}}
+pkgrel=1
+pkgdesc='Servers, databases and buckets as a living 3D city of light (desktop app)'
+arch=('x86_64' 'aarch64')
+url='https://chapeee.github.io/GRIDCITY/'
+license=('MIT')
+depends=('gtk3' 'nss' 'alsa-lib' 'libxss')
+provides=('gridcity-desktop')
+conflicts=('gridcity-desktop')
+source_x86_64=("https://github.com/chapeee/GRIDCITY/releases/download/v${pkgver}/GRIDCITY-${pkgver}-linux-amd64.deb")
+source_aarch64=("https://github.com/chapeee/GRIDCITY/releases/download/v${pkgver}/GRIDCITY-${pkgver}-linux-arm64.deb")
+sha256sums_x86_64=('{{LINUX_X64_DEB_SHA256}}')
+sha256sums_aarch64=('{{LINUX_ARM64_DEB_SHA256}}')
+
+package() {
+  bsdtar -xf data.tar.xz -C "${pkgdir}"
+}

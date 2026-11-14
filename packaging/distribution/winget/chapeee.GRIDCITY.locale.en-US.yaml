@@ -1,0 +1,24 @@
+PackageIdentifier: chapeee.GRIDCITY
+PackageVersion: {{VERSION}}
+PackageLocale: en-US
+Publisher: chapeee
+PublisherUrl: https://github.com/chapeee
+PackageName: GRIDCITY
+PackageUrl: https://chapeee.github.io/GRIDCITY/
+License: MIT
+LicenseUrl: https://github.com/chapeee/GRIDCITY/blob/main/LICENSE
+ShortDescription: Your servers, databases and buckets as a living 3D city of light.
+Description: >-
+  Local-first server monitoring, database admin and security in a 3D city: SSH servers,
+  PostgreSQL, MySQL, MongoDB, Redis, S3 and AWS as buildings, with attack detection, alerts,
+  a Doctor that proves fixes, time travel, and an MCP server for AI agents.
+Tags:
+  - monitoring
+  - devops
+  - ssh
+  - database
+  - mcp
+  - self-hosted
+ReleaseNotesUrl: https://github.com/chapeee/GRIDCITY/releases/tag/v{{VERSION}}
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

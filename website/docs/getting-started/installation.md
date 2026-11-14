@@ -1,20 +1,30 @@
 ---
 title: Installation
-description: 'Install GRIDCITY with npm, run it with Docker, or build it from source.'
+description: 'Install GRIDCITY as a desktop app, with npm, run it with Docker, or build it from source.'
 ---
 
 # Installation
 
 GRIDCITY runs on Windows, macOS and Linux. The servers it watches must run Linux.
 
-| How                 | Command                                   | Needs                       |
-| ------------------- | ----------------------------------------- | --------------------------- |
-| Try it once         | `npx gridcity demo`                       | Node.js 22.12+ (24 is best) |
-| Install the command | `npm i -g gridcity`                       | Node.js 22.12+              |
-| Docker              | `docker run … ghcr.io/chapeee/gridcity`   | Docker                      |
-| From source         | `git clone`, `npm install`, `npm run dev` | Node.js 22.12+              |
+| How                 | Command                                                                                   | Needs                       |
+| ------------------- | ----------------------------------------------------------------------------------------- | --------------------------- |
+| Desktop app         | [Download](https://github.com/chapeee/GRIDCITY/releases/latest) or `npx gridcity-desktop` | Nothing (Chromium built in) |
+| Try it once         | `npx gridcity demo`                                                                       | Node.js 22.12+ (24 is best) |
+| Install the command | `npm i -g gridcity`                                                                       | Node.js 22.12+              |
+| Docker              | `docker run … ghcr.io/chapeee/gridcity`                                                   | Docker                      |
+| From source         | `git clone`, `npm install`, `npm run dev`                                                 | Node.js 22.12+              |
+
+## Desktop app
+
+Installers for Windows (`.exe`), macOS (`.dmg`) and Linux (`.AppImage`, `.deb`, `.rpm`) are on
+the [latest GitHub release](https://github.com/chapeee/GRIDCITY/releases/latest). The app is
+GRIDCITY in its own window with Chromium built in, and lives in the tray while it watches your
+servers. See [Desktop app](./desktop-app.md).
 
 ## npm
+
+The package is [`gridcity` on npm](https://www.npmjs.com/package/gridcity).
 
 ```bash
 npm i -g gridcity

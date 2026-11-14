@@ -1,0 +1,16 @@
+{
+  "name": "gridcity-desktop-build",
+  "private": true,
+  "description": "Builds the GRIDCITY desktop app (Electron) and the gridcity-desktop npm package. Not a workspace: run npm ci here.",
+  "license": "MIT",
+  "scripts": {
+    "stage": "node build.mjs --stage-only",
+    "build": "node build.mjs",
+    "start": "node build.mjs --stage-only && electron stage",
+    "test": "node test-desktop.mjs"
+  },
+  "devDependencies": {
+    "electron": "44.10.0",
+    "electron-builder": "26.18.0"
+  }
+}
