@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.0.1 · 2026-11-14
+
+- **Save the sudo password for an hour.** When you type a sudo password on an AI approval card
+  and click "Allow all", GRIDCITY asks whether to save it for the next hour. If you save it,
+  commands that still ask (the destructive ones) come with the password filled in, so you only
+  click Allow, and the card says until when. It is kept in memory only, never written to disk,
+  and forgotten after the hour, when sudo rejects it, when you stop trusting the server, or when
+  the app restarts. Choose "Only this time" and it is used for that one command. Before, a
+  password typed with "Allow all" was kept silently until restart.
+- **Star GRIDCITY on GitHub** from the top right of the app, the desktop app and the website.
+  It opens the repository in your default browser.
+- **The Docker command in the release notes works.** It now includes the port and data volumes
+  (`docker run -d --name gridcity -p 127.0.0.1:4600:4600 -v gridcity-config:/config -v gridcity-data:/data ghcr.io/chapeee/gridcity:1.0.1`),
+  and every release now checks that the image can be pulled without signing in.
+- The "Session expired" and connection banners no longer slide under the toolbar on narrower
+  windows.
+
 ## 1.0.0 · 2026-11-14
 
 **GRIDCITY 1.0: what the README promises now works**, checked end to end against LocalStack,
