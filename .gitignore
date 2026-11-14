@@ -30,3 +30,6 @@ compose.ssh.yaml
 
 # Demo videos and music made with OpenScreen (never pushed)
 /demo/
+
+# QA pass: config and data of the app under test (scripts/qa/pass.mjs)
+.qa/

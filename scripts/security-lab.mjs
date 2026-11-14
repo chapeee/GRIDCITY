@@ -145,7 +145,7 @@ async function attack(names) {
 
 /** Exposures on the local AWS emulators already used for the connector tests. */
 async function exposure() {
-  const { S3Client, CreateBucketCommand, PutBucketPolicyCommand } =
+  const { S3Client, CreateBucketCommand, PutBucketPolicyCommand, DeletePublicAccessBlockCommand } =
     await import('@aws-sdk/client-s3');
   const { RDSClient, CreateDBInstanceCommand } = await import('@aws-sdk/client-rds');
   const { EC2Client, CreateSecurityGroupCommand, AuthorizeSecurityGroupIngressCommand } =
@@ -160,6 +160,8 @@ async function exposure() {
   });
   const bucket = 'public-website';
   await s3.send(new CreateBucketCommand({ Bucket: bucket })).catch(() => undefined);
+  // A previous run's one-click fix ("Block public access") would hide the exposure: undo it.
+  await s3.send(new DeletePublicAccessBlockCommand({ Bucket: bucket })).catch(() => undefined);
   await s3.send(
     new PutBucketPolicyCommand({
       Bucket: bucket,

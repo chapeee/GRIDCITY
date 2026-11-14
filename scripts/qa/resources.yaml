@@ -1,0 +1,105 @@
+# The QA fleet: every kind of resource, against the containers that pass.mjs starts.
+# Throwaway test credentials come from environment variables set by pass.mjs serve.
+resources:
+  - {
+      kind: postgres,
+      id: pg,
+      host: 127.0.0.1,
+      port: 15432,
+      user: monitor,
+      passwordEnv: QA_PW,
+      district: Databases,
+    }
+  - {
+      kind: mysql,
+      id: mysql,
+      host: 127.0.0.1,
+      port: 13306,
+      user: monitor,
+      passwordEnv: QA_PW,
+      district: Databases,
+    }
+  # TLS required, self-signed: the Doctor must prove "TLS without verification".
+  - {
+      kind: mysql,
+      id: mysql-tls,
+      host: 127.0.0.1,
+      port: 13307,
+      user: monitor,
+      passwordEnv: QA_PW,
+      district: Databases,
+    }
+  - {
+      kind: mongodb,
+      id: mongo,
+      url: 'mongodb://127.0.0.1:27018',
+      user: monitor,
+      passwordEnv: QA_PW,
+      authSource: admin,
+      district: Databases,
+      dependsOn: [pg],
+    }
+  - {
+      kind: redis,
+      id: redis,
+      host: 127.0.0.1,
+      port: 16379,
+      user: monitor,
+      passwordEnv: QA_PW,
+      district: Databases,
+    }
+  # No password: must be a security finding.
+  - { kind: redis, id: open-redis, host: 127.0.0.1, port: 16380, district: Security lab }
+  - {
+      kind: s3,
+      id: localstack,
+      endpoint: 'http://127.0.0.1:4566',
+      forcePathStyle: true,
+      accessKeyIdEnv: QA_AWS,
+      secretAccessKeyEnv: QA_AWS,
+      district: AWS,
+    }
+  - {
+      kind: s3,
+      id: minio,
+      provider: minio,
+      endpoint: 'http://127.0.0.1:19000',
+      buckets: [media],
+      accessKeyIdEnv: QA_MINIO_K,
+      secretAccessKeyEnv: QA_MINIO_S,
+      district: Databases,
+    }
+  - {
+      kind: rds,
+      id: rds,
+      region: us-east-1,
+      endpoint: 'http://127.0.0.1:5000',
+      accessKeyIdEnv: QA_AWS,
+      secretAccessKeyEnv: QA_AWS,
+      district: AWS,
+    }
+  - {
+      kind: loadbalancer,
+      id: alb,
+      region: us-east-1,
+      endpoint: 'http://127.0.0.1:5000',
+      accessKeyIdEnv: QA_AWS,
+      secretAccessKeyEnv: QA_AWS,
+      district: AWS,
+    }
+  # Certificate valid for 5 days from `security-lab.mjs up`: must be amber.
+  - {
+      kind: http,
+      id: short-cert,
+      url: 'https://127.0.0.1:18443/',
+      insecure: true,
+      district: Security lab,
+    }
+  - {
+      kind: tcp,
+      id: ssh-port,
+      host: 127.0.0.1,
+      port: 2222,
+      district: Security lab,
+      dependsOn: [pg],
+    }
