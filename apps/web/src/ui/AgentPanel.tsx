@@ -1,4 +1,9 @@
-import type { AgentActivity, AgentApproval, AgentEntry } from '@app/shared';
+import {
+  revealCommand,
+  type AgentActivity,
+  type AgentApproval,
+  type AgentEntry,
+} from '@app/shared';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { useAgentStore } from '../data/agent-store';
@@ -25,7 +30,8 @@ export function ApprovalCards() {
       {activity.map((run, index) => (
         <p key={`${run.hostId}-${index}`} className="approval-running">
           <span className="approval-dot" aria-hidden="true" />
-          {run.client} is running <code>{run.command}</code> on {run.hostId}
+          {run.client} is running <code dir="ltr">{revealCommand(run.command).text}</code> on{' '}
+          {run.hostId}
         </p>
       ))}
       <AnimatePresence initial={false}>
@@ -43,6 +49,8 @@ function ApprovalCard({ approval }: { approval: AgentApproval }) {
   const [answer, setAnswer] = useState('');
   const [showNote, setShowNote] = useState(false);
   const needsAnswer = approval.input !== null && !approval.input.optional && answer === '';
+  // Exactly what will run: invisible characters and hidden tails made visible.
+  const shown = revealCommand(approval.command);
   const decide = (decision: 'allow' | 'allow-host' | 'deny') => {
     send({
       type: 'decide',
@@ -67,7 +75,26 @@ function ApprovalCard({ approval }: { approval: AgentApproval }) {
       <p className="approval-title">
         <strong>{approval.client}</strong> wants to run on <strong>{approval.hostName}</strong>
       </p>
-      <pre className="approval-command">{approval.command}</pre>
+      <pre className="approval-command" dir="ltr">
+        {shown.text}
+      </pre>
+      {shown.hidden > 0 && (
+        <p className="approval-risk">
+          Contains {shown.hidden} invisible character{shown.hidden === 1 ? '' : 's'} (shown as
+          ⟨U+…⟩) that change how the command reads. Do not allow it unless you expected them.
+        </p>
+      )}
+      {shown.lines > 3 && (
+        <p className="approval-risk">
+          {shown.lines} lines: scroll and read all of it before you allow it.
+        </p>
+      )}
+      {shown.longGap && (
+        <p className="approval-risk">
+          A long run of spaces was collapsed (⟨N spaces⟩): text after it would have been out of
+          view.
+        </p>
+      )}
       {approval.reason && <p className="approval-reason">{approval.reason}</p>}
       {approval.risk && (
         <p className="approval-risk">Asks even with "allow all": this command {approval.risk}.</p>

@@ -1318,6 +1318,10 @@ button:disabled {
   right: 16px;
   bottom: 48px;
   width: min(440px, calc(100vw - 32px));
+  /* Several requests at once must all stay reachable: scroll, never grow off the top. */
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1326,6 +1330,8 @@ button:disabled {
 }
 
 .approval-card {
+  /* Keep full size inside the scrolling stack. */
+  flex-shrink: 0;
   padding: 12px 14px;
   background: var(--color-surface);
   backdrop-filter: blur(8px);
