@@ -104,6 +104,19 @@ const MIGRATIONS: readonly string[] = [
   `,
 ];
 
+/** How many schema migrations this version knows (PRAGMA user_version after migrating). */
+export const SCHEMA_VERSION = MIGRATIONS.length;
+
+/** The schema version of an existing database file, read without changing it. */
+export function schemaVersionOf(file: string): number {
+  const db = openSqlite(file, { readonly: true, fileMustExist: true });
+  try {
+    return Number(db.pragma('user_version', { simple: true }));
+  } finally {
+    db.close();
+  }
+}
+
 /** Opens (creating if needed) and migrates the database. Use ':memory:' in tests. */
 export function openDatabase(file: string): AppDatabase {
   if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true });
