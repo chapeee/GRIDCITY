@@ -94,6 +94,21 @@ describe('addHostToFile', () => {
     });
   });
 
+  it('keeps every server added at the same time, and refuses a duplicate even then', async () => {
+    const hosts = Array.from({ length: 8 }, (_, i) =>
+      draftToHostInput({ target: `root@10.0.0.${i + 1}`, name: `node-${i + 1}` }, 'me'),
+    );
+    const results = await Promise.allSettled([
+      ...hosts.map((host) => addHostToFile(file, host)),
+      addHostToFile(file, hosts[0]!),
+    ]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(8);
+    const parsed = parseHostsYaml(readFileSync(file, 'utf8'));
+    expect(parsed.ok && parsed.config.hosts.map((h) => h.id).sort()).toEqual(
+      hosts.map((h) => h.id).sort(),
+    );
+  });
+
   it('refuses a duplicate id or the same user@address:port', async () => {
     await addHostToFile(file, web01);
     await expect(addHostToFile(file, web01)).rejects.toThrow(HostValidationError);

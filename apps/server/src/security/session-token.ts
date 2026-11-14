@@ -86,7 +86,8 @@ export function readBearerToken(authorizationHeader: string | undefined): string
 
 /** Replaces the token in a URL so it never ends up in logs. */
 export function redactTokenInUrl(url: string): string {
-  return url.replace(new RegExp(`([?&]${TOKEN_QUERY_PARAM}=)[^&#]*`, 'g'), '$1[redacted]');
+  // `link` is the "paste your link" form: the whole link, token included.
+  return url.replace(new RegExp(`([?&](?:${TOKEN_QUERY_PARAM}|link)=)[^&#]*`, 'g'), '$1[redacted]');
 }
 
 /** Host header values we answer to. Blocks DNS-rebinding attacks. */

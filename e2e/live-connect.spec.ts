@@ -75,11 +75,17 @@ test('a failing test explains why, and secrets are refused', async () => {
   await dialog.getByLabel('Host').fill('127.0.0.1');
   await dialog.getByLabel('Port').fill('1');
   await dialog.getByLabel('User').fill('monitor');
+  // Passwords are typed (and saved encrypted) by default; a variable is under Advanced.
+  await dialog.getByText('Advanced: environment variables').click();
+  await dialog.getByLabel('Password from').selectOption('env');
   await dialog.getByLabel('Variable name').fill('NOWHERE_PW');
   await dialog.getByLabel('Password for this test').fill('typed-once-secret');
   await dialog.getByRole('button', { name: 'Test connection' }).click();
   await expect(dialog.getByText('Test failed')).toBeVisible({ timeout: 20_000 });
-  await expect(dialog.getByText(/ECONNREFUSED/)).toBeVisible();
+  // The real reason, not "NOWHERE_PW is not set": the typed test password was used.
+  // (Shown in the result and again in the Doctor's connection steps.)
+  await expect(dialog.getByText(/ECONNREFUSED/).first()).toBeVisible();
+  await expect(dialog.getByText(/NOWHERE_PW is not set/)).toHaveCount(0);
   await expect(page.getByText('typed-once-secret')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);

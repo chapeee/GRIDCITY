@@ -7,6 +7,27 @@ import { join } from 'node:path';
 import { resolveAppPaths } from './config/app-paths';
 import { loadOrCreateSessionToken, TOKEN_QUERY_PARAM } from './security/session-token';
 import { startServer } from './server';
+import { prepareDataForVersion, writeMarker, type DataLocation } from './storage/upgrade';
+import packageJson from '../package.json' with { type: 'json' };
+
+/**
+ * Standard locations an earlier install may have used when this start's own
+ * location differs only by XDG_* variables (set in a shell profile, so a
+ * terminal and a desktop app saw different folders). Never when DATA_DIR or
+ * CONFIG_DIR were set on purpose (Docker, tests, a chosen folder).
+ */
+function earlierLocations(
+  context: { projectName: string; platform: NodeJS.Platform; homeDir: string },
+  env: NodeJS.ProcessEnv,
+): DataLocation[] {
+  if (env.DATA_DIR || env.CONFIG_DIR || context.platform === 'win32') return [];
+  if (!env.XDG_DATA_HOME && !env.XDG_CONFIG_HOME) return [];
+  const plain = { ...env };
+  delete plain.XDG_DATA_HOME;
+  delete plain.XDG_CONFIG_HOME;
+  const standard = resolveAppPaths({ ...context, env: plain });
+  return [{ dataDir: standard.dataDir, configDir: standard.configDir }];
+}
 
 /** `--dev` is passed by `npm run dev`: pretty logs, and print the Vite URL. */
 const isDevMode = process.argv.includes('--dev');
@@ -35,16 +56,28 @@ async function main(): Promise<void> {
   if (!bind.allowed) throw new Error(bind.reason);
   if (bind.warning) process.stderr.write(`${bind.warning}\n`);
 
-  const { dataDir } = resolveAppPaths({
+  const pathContext = {
     projectName: env.PROJECT_NAME,
-    env: process.env,
     platform: process.platform,
     homeDir: homedir(),
+  };
+  const { dataDir, configDir } = resolveAppPaths({ ...pathContext, env: process.env });
+
+  // Existing users' data first: adopt an earlier install's data, snapshot it before
+  // a new version uses it. Before the token, so an adopted install keeps its link.
+  const prepared = prepareDataForVersion({
+    version: packageJson.version,
+    active: { dataDir, configDir },
+    candidates: earlierLocations(pathContext, process.env),
   });
+  for (const note of prepared.notes) process.stderr.write(`${note}\n`);
+
   const sessionToken = loadOrCreateSessionToken(join(dataDir, 'session-token'), {
     rotate: rotateToken,
   });
   const server = await startServer({ env, sessionToken, devMode: isDevMode });
+  // The database opened (and migrated) fine: this version now owns the data.
+  writeMarker(dataDir, packageJson.version, prepared.previousVersion);
 
   // Printed straight to stdout, never through the logger, so the token does
   // not end up in log files or log shippers.
@@ -60,6 +93,11 @@ async function main(): Promise<void> {
   if (openBrowser && !isDevMode) openInBrowser(url);
   if (server.configErrors.length > 0) {
     process.stdout.write(`  hosts.yaml has errors:\n    ${server.configErrors.join('\n    ')}\n\n`);
+  }
+  if (server.resourceErrors.length > 0) {
+    process.stdout.write(
+      `  resources.yaml has errors:\n    ${server.resourceErrors.join('\n    ')}\n\n`,
+    );
   }
 
   const shutdown = async () => {

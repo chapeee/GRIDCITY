@@ -175,6 +175,19 @@ describe.skipIf(!enabled)('Redis explorer (real instance)', () => {
     );
     await expect(explorer.command(15, ['MONITOR'])).rejects.toThrow(/Activity/);
     expect((await explorer.command(15, ['HGET', key, 'a'])).reply).toBe('1');
+    // A script can call any command: EVAL is a change; EVAL_RO is enforced by Redis.
+    await expect(
+      explorer.command(15, ['EVAL', "return redis.call('del', KEYS[1])", '1', key], true),
+    ).rejects.toThrow(/switch Changes on/);
+    expect((await explorer.command(15, ['HGET', key, 'a'])).reply).toBe('1');
+    expect(
+      (await explorer.command(15, ['EVAL_RO', "return redis.call('hget', KEYS[1], 'a')", '1', key]))
+        .reply,
+    ).toBe('1');
+    await expect(explorer.command(15, ['PUBLISH', 'jobs', 'run'])).rejects.toThrow(
+      /switch Changes on/,
+    );
+    await expect(explorer.command(15, ['MULTI'])).rejects.toThrow(/not available/);
 
     mode = 'write';
     await explorer.edit(15, { op: 'delete', keys: [key] });

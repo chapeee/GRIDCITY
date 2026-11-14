@@ -119,6 +119,11 @@ export function LogsPanel() {
                   spellCheck={false}
                   placeholder={regex ? 'error|timeout|refused' : 'connection refused'}
                   onChange={(event) => setQuery(event.target.value)}
+                  // The box has the cursor from the start, so the global Esc never sees
+                  // the key: close from here, as the Close button promises.
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') useUiStore.getState().setLogsOpen(false);
+                  }}
                 />
                 <button
                   type="submit"

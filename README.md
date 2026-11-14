@@ -273,6 +273,25 @@ keeps it in the tray, still watching your servers and sending alerts, and it sta
 computer (hidden in the tray), so monitoring survives a restart.
 [Desktop app guide](https://chapeee.github.io/GRIDCITY/docs/getting-started/desktop-app/).
 
+### Your data and updates
+
+The desktop app and the `gridcity` command keep everything in one place on your computer, the
+same in every version so far:
+
+| System        | Database, saved passwords (vault), link      | Settings (`hosts.yaml`, `resources.yaml`…) |
+| ------------- | -------------------------------------------- | ------------------------------------------ |
+| Windows       | `%LOCALAPPDATA%\gridcity`                    | `%APPDATA%\gridcity`                       |
+| macOS / Linux | `~/.local/share/gridcity` (`$XDG_DATA_HOME`) | `~/.config/gridcity` (`$XDG_CONFIG_HOME`)  |
+
+Updating, however you do it (npm, the installer, or Docker with its own `/data` volume), keeps
+your data. On the first start of a new version, GRIDCITY saves a copy of the database, the vault
+key, your link and your settings to `backups/` in the data folder before using them; those copies
+are never deleted. If the data format ever changes, it refuses to change a database it could not
+copy first. On macOS and Linux, if `XDG_DATA_HOME` / `XDG_CONFIG_HOME` in your shell pointed the
+terminal elsewhere than the desktop app, the data found in the standard folder is copied over
+(never moved, never overwriting anything). Docker keeps its data in its own volume: it is a
+separate installation.
+
 ## Try it from source
 
 ```bash

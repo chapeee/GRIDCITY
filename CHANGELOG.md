@@ -1,5 +1,71 @@
 # Changelog
 
+## 1.0.0 · 2026-11-14
+
+**GRIDCITY 1.0: what the README promises now works**, checked end to end against LocalStack,
+Moto, real databases, an attack lab, Mailpit and ntfy, plus a security pass that attacked the
+app. Updating from any earlier version keeps all your data: the config files, the database and
+the data folders are unchanged, and the first start saves a copy first.
+
+- **Updates keep your data, with a copy.** On the first start of a new version, the database,
+  vault key, link and settings are copied to `backups/` in the data folder before anything
+  uses them, and never deleted. A database whose format would change is never touched without
+  that copy. Tested by updating real installs of 0.3.0, 0.4.3 and 0.5.0 (npm) and the 0.5.0
+  desktop app, full of data: every row, saved password, alert secret, setting and the link
+  survived. On macOS/Linux, data that XDG variables kept in another folder is copied over.
+- **Opening GRIDCITY without its key shows a page**, not an error in JSON: it explains why and
+  takes the link. Browsers keep the key for 400 days, renewed on every visit; the key itself
+  never changes unless you ask (`--new-token`).
+
+- **Certificates about to expire turn probes amber.** An HTTP or TCP probe whose certificate
+  expires within 14 days (`certificateDegradedDays`) now shows as degraded, as documented. The
+  expiry was measured but never reached the status rule.
+- **One broken entry no longer hides every resource.** When an entry in `resources.yaml` is
+  wrong, only that entry is skipped (marked "not loaded" in the banner, at startup and by
+  `gridcity doctor`); every other database, bucket and probe keeps running, and you can still
+  edit, add or turn on changes for them.
+- **RDS and load balancers accept `accessKeyIdEnv` / `secretAccessKeyEnv`**, like buckets. They
+  were refused, although the docs and the error message suggest them.
+- **"Block public access" clears the public bucket finding.** With all four settings on, a public
+  policy no longer applies to the public, so the finding is resolved instead of staying open.
+- **One side panel at a time.** Opening Security, Upcoming, Logs, Costs, the Doctor, History,
+  Settings or the audit log closes the one that was in the same place, so Esc closes the panel
+  you see instead of one hidden under it.
+- **AI approval cards stay clear.** The "rendering is slow" hint steps aside while an AI command
+  waits for your click, so no other button sits next to Allow; "Add a note for the AI…" puts
+  the cursor in the note.
+- **"Password for this test" is used.** With the password taken from a variable or a file, the
+  Connect dialog offers a password for the test, but ignored it, so the test failed with
+  "environment variable … is not set". It is now used for that one test and never saved.
+- A backup that is too small shows as "this week" in Upcoming, with the reason, not "this month".
+- No Node.js warning about TLS server names when a probe checks an IP address.
+- **Adding or editing several things at once keeps all of them.** Two changes to `hosts.yaml` or
+  `resources.yaml` at the same moment (two tabs, a quick double add, an import while editing) could
+  lose one, although both said "added", or corrupt the file so that nothing loaded after a
+  restart. Changes now go one at a time and the file is replaced in one step.
+- Esc closes Search logs (L) while the cursor is in its search box.
+
+Security, from a second pass that attacked the app:
+
+- **Read-only Redis no longer runs scripts that write.** `EVAL`, `EVALSHA` and `FCALL` could call
+  any command (a `SET`, a `FLUSHALL`) while changes were off. They now need Changes on;
+  `EVAL_RO` and friends still work, enforced by Redis. `PUBLISH` (it reaches your applications)
+  needs Changes on too, and `MULTI` no longer leaves the console stuck in a transaction.
+- **Read-only SQL refuses functions that act on the server**: `pg_terminate_backend` (it killed
+  other sessions), `pg_reload_conf`, advisory locks, large-object file exports, MySQL `GET_LOCK`,
+  SQLite `load_extension`, also when hidden behind comments or quotes.
+- **AI approval cards show exactly what runs.** Invisible and right-to-left characters, which
+  can make a command read differently from what it does, are shown as ⟨U+…⟩ with a warning, and
+  such a command always asks, even with "Allow all". Long commands say how many lines to read,
+  and a long run of spaces can no longer push the end out of view.
+- **"Allow all" still asks for hidden code**: `curl … | sh`, `base64 -d | sh`, `eval`,
+  interpreter one-liners that delete, recursive ownership changes of system folders, and moving
+  SSH or system configuration away.
+- Several AI requests at once scroll inside their stack; none can end up off screen.
+- A login after failed attempts says when its address is blocked, and stays critical: the
+  password still works from anywhere else.
+- AI agents read sizes as `20 GiB`, not `21474836480 bytes`.
+
 ## 0.5.0 · 2026-11-14
 
 - **Desktop app for Windows, macOS and Linux**, with Chromium built in and no Node.js needed.

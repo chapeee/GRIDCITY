@@ -262,8 +262,10 @@ export async function checkExposure(
       if (config.kind === 's3' && resource.id !== config.id) {
         const facts = await probes.bucket(config, resource.name);
         result.checkedScopes.push('exposure');
+        // With "Block public access" fully on, a public policy or ACL no longer
+        // applies to the public (RestrictPublicBuckets / IgnorePublicAcls).
         const publicBy = [
-          facts.policyPublic ? 'its bucket policy allows everyone' : '',
+          facts.policyPublic && facts.blockAll !== true ? 'its bucket policy allows everyone' : '',
           facts.aclPublic && facts.blockAll !== true ? 'its ACL grants access to all users' : '',
         ].filter(Boolean);
         if (publicBy.length > 0) {

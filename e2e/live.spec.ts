@@ -303,7 +303,8 @@ test('the audit log shows connections, key refusals and terminal sessions', asyn
   await page.keyboard.press('Control+k');
   await page.keyboard.type('audit');
   await page.keyboard.press('Enter');
-  const panel = page.getByLabel('Audit log');
+  // The panel, not the toolbar button of the same name.
+  const panel = page.getByRole('region', { name: 'Audit log' });
   await expect(panel).toContainText('connected');
   await expect(panel).toContainText('host key refused');
   await expect(panel).toContainText('terminal opened');

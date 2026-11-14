@@ -159,7 +159,29 @@ describe('host detection', () => {
     expect(draft).toMatchObject({
       severity: 'critical',
       title: 'Login as root from 203.0.113.9 after 6 failures',
+      blocked: null,
     });
+  });
+
+  it('says when the address of a guessed login is blocked, and keeps it critical', () => {
+    const login = `${new Date(NOW - 60_000).toISOString()} web sshd[9]: Accepted password for root from 203.0.113.9 port 1 ssh2`;
+    const jail =
+      '@@jail sshd\nStatus for the jail: sshd\n|- Filter\n|  |- Currently failed:\t0\n|  |- Total failed:\t6\n`- Actions\n   |- Currently banned:\t1\n   |- Total banned:\t1\n   `- Banned IP list:\t203.0.113.9';
+    const sweep = parseSweepOutput(
+      sweepOutput({
+        clock,
+        auth: attackLog('203.0.113.9', 6, 10, [login]),
+        fail2ban: `@@source fail2ban-client\n${jail}`,
+      }),
+      NOW,
+    )!;
+    const draft = detectHostThreats(sweep, baselineOf()).drafts.find(
+      (d) => d.category === 'suspicious-login',
+    );
+    expect(draft).toMatchObject({ severity: 'critical', blocked: true });
+    expect(draft!.detail).toMatch(
+      /Fail2ban now blocks 203\.0\.113\.9, but the password still works/,
+    );
   });
 
   it('learns a baseline on the first sweep, then reports new accounts, ports and login addresses', () => {

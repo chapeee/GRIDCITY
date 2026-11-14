@@ -44,10 +44,25 @@ const BLOCKED = new Set([
   'hello',
   'auth',
   'client|pause',
+  // A transaction would leave the shared console connection queuing every
+  // later command (and EXEC would run what was queued in read mode).
+  'multi',
+  'exec',
+  'discard',
+  'watch',
+  'unwatch',
 ]);
 
 /** Admin commands that change server state although they carry no "write" flag. */
 const ADMIN_CHANGES = new Set([
+  // Scripts can call any command, writes included; EVAL_RO / EVALSHA_RO / FCALL_RO
+  // stay allowed because Redis itself refuses writes inside them.
+  'eval',
+  'evalsha',
+  'fcall',
+  // Messages reach the applications that subscribe: a side effect, not a read.
+  'publish',
+  'spublish',
   'config|set',
   'config|resetstat',
   'config|rewrite',
@@ -343,7 +358,9 @@ export class RedisExplorer {
     const flags = ((entry[2] as string[]) ?? []).map((f) => String(f).toLowerCase());
     const categories = ((entry[6] as string[]) ?? []).map((c) => String(c).toLowerCase());
     let facts: CommandFacts = {
-      write: flags.includes('write'),
+      // may_replicate: Redis's own mark for commands that can change data without
+      // a "write" flag (EVAL, FCALL, PUBLISH…).
+      write: flags.includes('write') || flags.includes('may_replicate'),
       dangerous: categories.includes('@dangerous'),
     };
     // Container commands (CONFIG, CLIENT, OBJECT…): the subcommand has its own flags.
@@ -356,7 +373,7 @@ export class RedisExplorer {
         const subFlags = ((match[2] as string[]) ?? []).map((f) => String(f).toLowerCase());
         const subCategories = ((match[6] as string[]) ?? []).map((c) => String(c).toLowerCase());
         facts = {
-          write: subFlags.includes('write'),
+          write: subFlags.includes('write') || subFlags.includes('may_replicate'),
           dangerous: subCategories.includes('@dangerous'),
         };
       }

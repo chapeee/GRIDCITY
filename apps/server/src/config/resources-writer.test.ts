@@ -1,0 +1,68 @@
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  addResourceToFile,
+  patchResourceInFile,
+  removeResourceFromFile,
+  ResourceValidationError,
+} from './resources-writer';
+
+describe('editing resources.yaml while another entry is broken', () => {
+  let dir: string;
+  let file: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'resources-writer-'));
+    file = join(dir, 'resources.yaml');
+    writeFileSync(
+      file,
+      [
+        'resources:',
+        '  - { kind: redis, id: broken, host: cache, colour: blue }',
+        '  - { kind: s3, id: media, endpoint: "http://127.0.0.1:4566" }',
+        '',
+      ].join('\n'),
+    );
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it('still lets the user change a valid entry (Allow changes on a bucket)', async () => {
+    await patchResourceInFile(file, 'media', { manage: 'write' }, new Set(['manage']));
+    expect(readFileSync(file, 'utf8')).toMatch(/manage: write/);
+  });
+
+  it('refuses a change that adds a new problem, naming only that problem', async () => {
+    const error = await addResourceToFile(file, {
+      kind: 'redis',
+      id: 'b',
+      host: 'x',
+      port: 0,
+    }).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(ResourceValidationError);
+    expect(String((error as ResourceValidationError).problems ?? error)).not.toMatch(/colour/);
+  });
+
+  it('keeps every resource added at the same time, in a valid file', async () => {
+    // Before: five adds at once all answered "added", one was lost, and a file could corrupt.
+    await Promise.all(
+      Array.from({ length: 10 }, (_, i) =>
+        addResourceToFile(file, { kind: 'tcp', id: `probe-${i}`, host: '127.0.0.1', port: 22 }),
+      ),
+    );
+    const text = readFileSync(file, 'utf8');
+    for (let i = 0; i < 10; i++) expect(text).toContain(`id: probe-${i}`);
+    expect(text).toContain('id: media');
+    expect(readdirSync(dir).filter((name) => name.endsWith('.tmp'))).toEqual([]);
+  });
+
+  it('lets the user remove the broken entry, and keeps positions straight after it', async () => {
+    await removeResourceFromFile(file, 'broken');
+    expect(readFileSync(file, 'utf8')).not.toMatch(/broken/);
+    await patchResourceInFile(file, 'media', { manage: 'write' }, new Set(['manage']));
+  });
+});

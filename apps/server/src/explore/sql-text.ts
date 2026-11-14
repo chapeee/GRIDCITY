@@ -107,6 +107,41 @@ export function isRowStatement(statement: string): boolean {
 }
 
 /**
+ * Functions a SELECT can call that act on the server itself (other sessions,
+ * configuration, replication, files, locks held by the session). A read-only
+ * transaction does not stop them, so read mode refuses them by name.
+ */
+const SIDE_EFFECT_FUNCTIONS = new RegExp(
+  `\\b(${[
+    // PostgreSQL
+    'pg_terminate_backend',
+    'pg_cancel_backend',
+    'pg_reload_conf',
+    'pg_rotate_logfile',
+    'pg_switch_wal',
+    'pg_switch_xlog',
+    'pg_create_restore_point',
+    'pg_promote',
+    'pg_wal_replay_pause',
+    'pg_wal_replay_resume',
+    'pg_log_backend_memory_contexts',
+    'pg_stat_reset\\w*',
+    'pg_(?:try_)?advisory_(?:xact_)?lock(?:_shared)?',
+    'pg_create_\\w*replication_slot',
+    'pg_drop_replication_slot',
+    'pg_replication_origin_\\w+',
+    'pg_file_(?:write|rename|unlink|sync)',
+    'lo_(?:import|export|unlink)',
+    'dblink\\w*',
+    // MySQL / MariaDB: a lock held by the pooled session blocks applications.
+    'get_lock',
+    // SQLite
+    'load_extension',
+  ].join('|')})\\s*\\(`,
+  'i',
+);
+
+/**
  * Why a statement is refused in read mode, or null. The database enforces
  * read-only as well; this gives a clear message before anything runs.
  */
@@ -114,6 +149,15 @@ export function readModeProblem(statement: string): string | null {
   const keyword = firstKeyword(statement);
   if (!READ_KEYWORDS.has(keyword)) {
     return `${keyword || 'This statement'} changes data or settings: switch Changes on for this resource to run it`;
+  }
+  // Every comment and identifier quote out, so neither `name/**/(` nor `"name"(` hides a call.
+  const plain = statement
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(--|#)[^\n]*/g, ' ')
+    .replace(/["`[\]]/g, '');
+  const sideEffect = SIDE_EFFECT_FUNCTIONS.exec(plain);
+  if (sideEffect) {
+    return `${sideEffect[1]}() acts on the server (sessions, settings, files or locks): switch Changes on for this resource to run it`;
   }
   if (/\binto\s+(outfile|dumpfile)\b/i.test(statement)) {
     return 'SELECT … INTO OUTFILE writes a file on the server: not allowed in read mode';

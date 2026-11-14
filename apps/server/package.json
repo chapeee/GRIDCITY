@@ -1,6 +1,6 @@
 {
   "name": "@app/server",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Local-only backend: SSH connections, metrics polling, state engine and terminal streaming. Binds to 127.0.0.1.",
   "type": "module",

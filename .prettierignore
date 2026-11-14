@@ -14,3 +14,5 @@ website/.docusaurus/
 packaging/distribution/
 packaging/desktop/stage/
 packaging/desktop/.work/
+# The QA pass: app config and data under test (scripts/qa/pass.mjs)
+.qa/

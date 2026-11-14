@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseResourcesYaml } from '../config/resources-file';
 import { applyOutcome, runtimeToState } from '../fleet/resource-fleet';
 import {
+  awsCredentials,
   CounterTracker,
   healthSample,
   hitPercent,
@@ -15,6 +16,40 @@ import { recordGrowth } from './s3';
 import { bannerText } from './tcp';
 
 describe('resources.yaml', () => {
+  it('reads AWS keys from environment variables for RDS and load balancers too', () => {
+    const result = parseResourcesYaml(`
+resources:
+  - { kind: rds, id: aws, region: eu-west-1, accessKeyIdEnv: AWS_K, secretAccessKeyEnv: AWS_S }
+  - { kind: loadbalancer, id: lb, region: eu-west-1, accessKeyIdEnv: AWS_K, secretAccessKeyEnv: AWS_S }
+`);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    for (const config of result.config.resources) {
+      expect(
+        awsCredentials(config as Parameters<typeof awsCredentials>[0], {
+          env: { AWS_K: 'key', AWS_S: 'secret' },
+        }),
+      ).toEqual({ accessKeyId: 'key', secretAccessKey: 'secret' });
+    }
+  });
+
+  it('keeps the valid entries when one entry is broken, and says which one', () => {
+    const result = parseResourcesYaml(`
+resources:
+  - { kind: postgres, id: pg, host: db, user: monitor }
+  - { kind: rds, id: aws, region: eu-west-1, typo: true }
+  - { kind: redis, id: cache, host: cache }
+`);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.config.resources.map((r) => r.id)).toEqual(['pg', 'cache']);
+    expect(result.skipped).toEqual(['resources.1 "aws" (not loaded): Unrecognized key: "typo"']);
+  });
+
+  it('still refuses a file whose YAML is broken', () => {
+    expect(parseResourcesYaml('resources: [ {').ok).toBe(false);
+  });
+
   it('accepts every kind with defaults', () => {
     const result = parseResourcesYaml(`
 resources:
@@ -48,21 +83,25 @@ resources:
   });
 
   it('refuses inline passwords and passwords in URLs, explaining what to do instead', () => {
-    const inline = parseResourcesYaml(
+    // The entry is left out (never loaded with its password) and reported.
+    const skipped = (text: string) => {
+      const result = parseResourcesYaml(text);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return [];
+      expect(result.config.resources).toEqual([]);
+      return result.skipped;
+    };
+    const inline = skipped(
       'resources:\n  - { kind: postgres, id: pg, host: db, user: u, password: hunter2 }\n',
     );
-    expect(inline.ok).toBe(false);
-    if (!inline.ok) {
-      expect(inline.errors[0]).toMatch(/secrets are never stored/);
-      expect(inline.errors.join()).not.toContain('hunter2');
-    }
-    const url = parseResourcesYaml(
+    expect(inline[0]).toMatch(/secrets are never stored/);
+    expect(inline.join()).not.toContain('hunter2');
+    const url = skipped(
       'resources:\n  - { kind: mongodb, id: mo, url: "mongodb://u:hunter2@db:27017" }\n',
     );
-    expect(url.ok).toBe(false);
-    if (!url.ok) expect(url.errors[0]).toMatch(/password in the URL/);
-    const s3 = parseResourcesYaml('resources:\n  - { kind: s3, id: b, secretAccessKey: abc }\n');
-    expect(s3.ok).toBe(false);
+    expect(url[0]).toMatch(/password in the URL/);
+    expect(url.join()).not.toContain('hunter2');
+    expect(skipped('resources:\n  - { kind: s3, id: b, secretAccessKey: abc }\n')).toHaveLength(1);
   });
 
   it('reports duplicate ids, unknown kinds and unknown fields', () => {
@@ -73,11 +112,13 @@ resources:
   - { kind: oracle, id: b }
   - { kind: redis, id: c, host: z, colour: blue }
 `);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors.join('\n')).toMatch(/duplicate id "a"/);
-      expect(result.errors.join('\n')).toMatch(/kind must be one of/);
-      expect(result.errors.join('\n')).toMatch(/colour/);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.skipped.join('\n')).toMatch(/duplicate id "a"/);
+      expect(result.skipped.join('\n')).toMatch(/kind must be one of/);
+      expect(result.skipped.join('\n')).toMatch(/colour/);
+      // The first "a" stays; the duplicate, the unknown kind and the typo do not.
+      expect(result.config.resources).toMatchObject([{ id: 'a', host: 'x' }]);
     }
   });
 });
@@ -182,6 +223,23 @@ describe('resource runtime (truth rules)', () => {
     });
     expect(state.gauges.connections).toBeNull();
     expect(state.metrics[0]!.value).toBeNull();
+  });
+
+  it('turns a probe amber when its certificate expires within the threshold', () => {
+    const probe = (daysLeft: number) => ({
+      resourceId: 'pg',
+      ok: true as const,
+      sample: healthSample({ latencyMs: 10 }, { certificateDaysLeft: daysLeft }),
+      metrics: [],
+    });
+    expect(runtimeToState(applyOutcome(base, probe(90), 1000), 1000).status).toBe('online');
+    expect(runtimeToState(applyOutcome(base, probe(2), 1000), 1000)).toMatchObject({
+      status: 'degraded',
+      statusReason: 'certificate expires in 2 days',
+    });
+    expect(runtimeToState(applyOutcome(base, probe(-1), 1000), 1000).statusReason).toBe(
+      'certificate expired',
+    );
   });
 
   it('turns stale after 3 poll intervals without data', () => {

@@ -68,6 +68,9 @@ describe('backup checks', () => {
 
     const tiny = await run(`${(NOW - HOUR) / 1000} 20 /var/backups/db-2.sql.gz\n@@end`);
     expect(tiny.drafts[0]!.title).toBe('Backup "nightly dump" is too small (20 B)');
+    // A truncated dump needs attention now, and the calendar says why.
+    expect(tiny.upcoming![0]).toMatchObject({ status: 'urgent' });
+    expect(tiny.upcoming![0]!.detail).toMatch(/^too small/);
 
     const none = await run('@@end');
     expect(none.drafts[0]).toMatchObject({

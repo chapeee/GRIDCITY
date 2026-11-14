@@ -1,7 +1,8 @@
 import { HostSchema, type Host, type HostInput } from '@app/shared';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { withFileLock, writeFileAtomic } from './file-lock';
 import { HOSTS_FILE_TEMPLATE, parseHostsYaml } from './hosts-file';
 import { appendHostsToYaml } from './import-ssh-config';
 
@@ -25,7 +26,11 @@ export async function addHostToFile(hostsFile: string, input: HostInput): Promis
     );
   }
   const host = parsed.data;
+  // From the read to the write, one edit at a time (see file-lock.ts).
+  return withFileLock(hostsFile, () => addParsedHost(hostsFile, host));
+}
 
+async function addParsedHost(hostsFile: string, host: Host): Promise<Host> {
   const text = existsSync(hostsFile) ? await readFile(hostsFile, 'utf8') : HOSTS_FILE_TEMPLATE;
   const current = parseHostsYaml(text);
   if (!current.ok) {
@@ -69,6 +74,6 @@ export async function addHostToFile(hostsFile: string, input: HostInput): Promis
       : {}),
   };
   await mkdir(dirname(hostsFile), { recursive: true });
-  await writeFile(hostsFile, appendHostsToYaml(text, [entry]), 'utf8');
+  await writeFileAtomic(hostsFile, appendHostsToYaml(text, [entry]));
   return host;
 }

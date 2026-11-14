@@ -98,6 +98,8 @@ export interface RunningServer {
   paths: AppPaths;
   hostCount: number;
   configErrors: string[];
+  /** Problems in resources.yaml at startup (skipped entries or an unreadable file). */
+  resourceErrors: string[];
   stop(): Promise<void>;
 }
 
@@ -211,7 +213,7 @@ export async function startServer({
       new Set(provider.hosts.map((host) => host.id)),
     );
     resourceProvider = built.provider;
-    resourceErrors = loaded.ok ? built.errors : loaded.errors;
+    resourceErrors = loaded.ok ? [...loaded.skipped, ...built.errors] : loaded.errors;
   }
 
   // Districts (provider, region) and runbooks (saved commands), both optional files.
@@ -372,7 +374,7 @@ export async function startServer({
         new Set(hub.currentProvider.hosts.map((host) => host.id)),
       );
       hub.replaceResources(built.provider);
-      hub.setResourceConfigErrors(built.errors);
+      hub.setResourceConfigErrors([...loaded.skipped, ...built.errors]);
     } else {
       hub.setResourceConfigErrors(loaded.errors); // keep the last valid resources running
     }
@@ -876,6 +878,7 @@ export async function startServer({
     paths,
     hostCount: provider.hosts.length,
     configErrors,
+    resourceErrors,
     async stop() {
       clearInterval(pruneTimer);
       unwatchFile(paths.hostsFile);

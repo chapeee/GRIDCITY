@@ -7,6 +7,8 @@
  * command risky itself, and the user can always deny.
  */
 
+import { HIDDEN_CHARACTERS } from '@app/shared';
+
 /** Command word: not part of a longer word, a flag (`--rm`) or a file name. */
 const cmd = (names: string) => `(?<![\\w.-])(?:${names})(?![\\w.-])`;
 
@@ -87,6 +89,32 @@ const RULES: readonly Rule[] = [
     why: 'changes ownership or permissions of the whole system',
     pattern: /\bch(?:mod|own|grp)\s+(?:-\S+\s+)*-R\s+\S+\s+\/(?:\s|$|\*)/,
   },
+  {
+    // Recursively on a system folder or a home: breaks sudo, sshd and services.
+    why: 'changes ownership or permissions of system files',
+    // A whole system folder, anything in /etc, system binaries or ~/.ssh;
+    // not app folders like /srv/app or /var/www/html.
+    pattern:
+      /\bch(?:mod|own|grp)\s+(?:-\S+\s+)*-R\b[^;&|]*\s(?:\/(?:etc|usr|var|bin|sbin|lib\w*|boot|root|home)\/?(?=\s|$)|\/etc\/|\/usr\/(?:s?bin|lib\w*)\b|~\/?(?=\s|$)|~\/\.ssh\b)/,
+  },
+  {
+    // The card cannot show what really runs: downloaded or decoded code, or eval.
+    why: 'runs hidden code (downloaded, decoded or eval)',
+    pattern:
+      /\|\s*(?:sudo\s+(?:-\S+\s+)*)?(?:ba|z|da|k)?sh\b|\|\s*(?:sudo\s+)?(?:python[\d.]*|perl|ruby|node|php)\b(?!\s+-\S*[mc]\s*json)|(?<![\w.-])(?:ba|z)?sh\s+<\(|(?<![\w.-])source\s+<\(|(?<![\w.-])eval(?![\w.-])/,
+  },
+  {
+    // Interpreter one-liners that delete (Python, Perl, Ruby, Node).
+    why: 'deletes files',
+    pattern:
+      /\b(?:rmtree|os\.remove|os\.unlink|os\.rmdir|unlinkSync|rmSync|rmdirSync|FileUtils\.rm\w*|File\.delete)\b/,
+  },
+  {
+    // Moving system configuration or SSH keys away can lock everyone out.
+    why: 'moves system or SSH configuration away',
+    pattern:
+      /\bmv\b[^;&|]*\s(?:\/etc\/|\/boot\/|~\/\.ssh\b|\/root\/\.ssh\b|\S*\/\.ssh\/authorized_keys)/,
+  },
   // Last: the specific rules above name the thing better (docker rm, aws s3 rm).
   { why: 'deletes files', pattern: new RegExp(cmd('rm|rmdir|unlink|shred|srm')) },
   { why: 'is a fork bomb', pattern: /:\s*\(\s*\)\s*\{/ },
@@ -100,6 +128,10 @@ const outsideQuotes = (command: string) =>
 
 /** Why the command is destructive, in a few plain words, or null if it looks safe. */
 export function commandRisk(command: string): string | null {
+  // What you read on the card would not be what runs: always ask.
+  if (HIDDEN_CHARACTERS.test(command)) {
+    return 'contains invisible characters that change how it reads';
+  }
   for (const rule of RULES) {
     if (rule.pattern.test(command)) return rule.why;
   }
