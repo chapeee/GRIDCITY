@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.2 · 2026-11-15
 
 - **GRIDCITY tells you when a new version is out.** Once a day the app asks GitHub's public
   releases page for the latest version. When yours is older, a notice at the bottom left says so,
