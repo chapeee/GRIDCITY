@@ -4,7 +4,9 @@
 //
 // The package is the server bundle (workspace code bundled in), the built web
 // app, the `gridcity` command, and the server's third-party runtime
-// dependencies only. No dev tooling, no source, no tests.
+// dependencies only. No dev tooling, no source, no tests. The one devDependency
+// listed is gitsmith, the commit tool the repo uses: npm never installs a
+// package's devDependencies for its users, so it only shows on the npm page.
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,6 +50,8 @@ const dependencies = Object.fromEntries(
 // better-sqlite3: npm 10 compiles it with node-gyp and, without a C++ toolchain, the
 // install must not fail. The server then uses the SQLite built into Node.js.
 const optionalDependencies = serverPkg.optionalDependencies ?? {};
+const gitsmith = rootPkg.devDependencies?.gitsmith;
+const devDependencies = gitsmith ? { gitsmith } : undefined;
 
 const pkg = {
   name: 'gridcity',
@@ -100,6 +104,7 @@ const pkg = {
   engines: { node: '>=22.12' },
   dependencies,
   optionalDependencies,
+  devDependencies,
   publishConfig: { access: 'public', provenance: true },
 };
 writeFileSync(join(out, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);

@@ -457,7 +457,8 @@ Real environment variables win over `.env`, which wins over `.env.example`.
   blocks unsigned DLLs), `storage/sqlite.ts` falls back to `node:sqlite` (Node 22.16+);
   `GRIDCITY_SQLITE_DRIVER=node|better-sqlite3` forces one. The command sets `GRIDCITY_PACKAGED=1`
   (the app then never reads a `.env` from the folder it was started in), `PROJECT_NAME=GRIDCITY`
-  and `LOG_LEVEL=warn`.
+  and `LOG_LEVEL=warn`. Its `package.json` lists one devDependency, `gitsmith` (the commit tool
+  the repository uses), so the npm page shows it; npm never installs it for users.
 - **Docker image**: Node 24 on Debian slim, non-root `node` user, volumes `/config` and
   `/data`, `HEALTHCHECK` on `/healthz` (the only route without the token; it answers
   `{"ok":true}` and nothing else), OCI labels. Built for linux/amd64 and linux/arm64.
